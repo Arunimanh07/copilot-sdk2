@@ -389,7 +389,7 @@ public partial class CopilotClient : IDisposable, IAsyncDisposable
             config.Tools?.Select(ToolDefinition.FromAIFunction).ToList(),
             config.SystemMessage,
             config.AvailableTools,
-            config.ExcludedTools,
+            MergeExcludedTools(config.ExcludedTools, config.Tools),
             config.Provider,
             (bool?)true,
             config.OnUserInputRequest != null ? true : null,
@@ -480,7 +480,7 @@ public partial class CopilotClient : IDisposable, IAsyncDisposable
             config.Tools?.Select(ToolDefinition.FromAIFunction).ToList(),
             config.SystemMessage,
             config.AvailableTools,
-            config.ExcludedTools,
+            MergeExcludedTools(config.ExcludedTools, config.Tools),
             config.Provider,
             (bool?)true,
             config.OnUserInputRequest != null ? true : null,
@@ -860,6 +860,14 @@ public partial class CopilotClient : IDisposable, IAsyncDisposable
         {
             try { handler(evt); } catch { /* Ignore handler errors */ }
         }
+    }
+
+    internal static List<string>? MergeExcludedTools(List<string>? excludedTools, ICollection<AIFunction>? tools)
+    {
+        var toolNames = tools?.Select(t => t.Name).ToList();
+        if (toolNames is null or { Count: 0 }) return excludedTools;
+        if (excludedTools is null or { Count: 0 }) return toolNames;
+        return excludedTools.Union(toolNames).ToList();
     }
 
     internal static async Task<T> InvokeRpcAsync<T>(JsonRpc rpc, string method, object?[]? args, CancellationToken cancellationToken)
