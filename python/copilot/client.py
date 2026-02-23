@@ -109,30 +109,30 @@ class CopilotClient:
         self,
         *,
         cli_url: str,
-        cwd: Union[str, os.PathLike[str], None] = None,
-        port: int = 0,
-        log_level: LogLevel = "info",
-        auto_start: bool = True,
-        auto_restart: bool = True,
-        env: Optional[dict[str, str]] = None,
-    ) -> None: ...
+        cwd: Union[str, os.PathLike[str], None] = ...,
+        port: int = ...,
+        log_level: LogLevel = ...,
+        auto_start: bool = ...,
+        auto_restart: bool = ...,
+        env: Optional[dict[str, str]] = ...,
+    ) -> ...: ...
 
     @overload
     def __init__(
         self,
         *,
-        cli_path: Union[str, os.PathLike[str], None] = None,
-        cli_args: Optional[list[str]] = None,
-        cwd: Union[str, os.PathLike[str], None] = None,
-        port: int = 0,
-        use_stdio: Optional[bool] = None,
-        log_level: LogLevel = "info",
-        auto_start: bool = True,
-        auto_restart: bool = True,
-        github_token: Optional[str] = None,
-        use_logged_in_user: Optional[bool] = None,
-        env: Optional[dict[str, str]] = None,
-    ) -> None: ...
+        cli_path: Union[str, os.PathLike[str], None] = ...,
+        cli_args: Optional[list[str]] = ...,
+        cwd: Union[str, os.PathLike[str], None] = ...,
+        port: int = ...,
+        use_stdio: Optional[bool] = ...,
+        log_level: LogLevel = ...,
+        auto_start: bool = ...,
+        auto_restart: bool = ...,
+        github_token: Optional[str] = ...,
+        use_logged_in_user: Optional[bool] = ...,
+        env: Optional[dict[str, str]] = ...,
+    ) -> ...: ...
 
     def __init__(
         self,
@@ -417,7 +417,6 @@ class CopilotClient:
         async with self._models_cache_lock:
             self._models_cache = None
 
-        # Kill CLI process
         # Kill CLI process (only if we spawned it)
         if self._process and not self._is_external_server:
             self._process.terminate()
