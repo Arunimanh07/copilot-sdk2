@@ -408,16 +408,23 @@ public class SessionTests(E2ETestFixture fixture, ITestOutputHelper output) : E2
     {
         var session = await Client.CreateSessionAsync();
 
+        // Set up wait for tool execution to start BEFORE sending
+        var toolStartTask = TestHelper.GetNextEventOfTypeAsync<ToolExecutionStartEvent>(session);
+
         using var cts = new CancellationTokenSource();
 
-        // Cancel before any response can arrive
+        // Start SendAndWaitAsync - don't await it yet
         var sendTask = session.SendAndWaitAsync(
-            new MessageOptions { Prompt = "Run 'sleep 2 && echo done'" },
+            new MessageOptions { Prompt = "run the shell command 'sleep 10' (note this works on both bash and PowerShell)" },
             cancellationToken: cts.Token);
 
+        // Wait for the tool to begin executing before cancelling
+        await toolStartTask;
+
+        // Cancel the token
         cts.Cancel();
 
-        await Assert.ThrowsAsync<OperationCanceledException>(() => sendTask);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => sendTask);
     }
 
     [Fact]
