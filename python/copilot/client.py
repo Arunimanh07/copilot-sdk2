@@ -164,7 +164,7 @@ class CopilotClient:
                 Mutually exclusive with cli_path and use_stdio.
             cwd: Working directory for the CLI process. Accepts strings
                 or path-like objects (default: current working directory).
-            port: Port for the CLI server in TCP mode (default: 0 for random).
+            port: Port for the CLI server in TCP mode (default: 0 for OS-assigned).
             use_stdio: Use stdio transport instead of TCP (default: True,
                 forced to False when cli_url is set).
             log_level: Log level (default: "info").
