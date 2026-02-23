@@ -1015,10 +1015,23 @@ class FleetApi:
         self._client = client
         self._session_id = session_id
 
-    async def start(self, params: SessionFleetStartParams) -> SessionFleetStartResult:
+    async def start(
+        self, params: SessionFleetStartParams, *, timeout: float = 600.0
+    ) -> SessionFleetStartResult:
+        """Start a fleet.
+
+        Args:
+            params: Fleet start parameters.
+            timeout: Request timeout in seconds. Defaults to 600s (10 min)
+                because fleet.start blocks until the fleet completes and
+                the session goes idle, which routinely exceeds the default
+                30s JSON-RPC timeout.
+        """
         params_dict = {k: v for k, v in params.to_dict().items() if v is not None}
         params_dict["sessionId"] = self._session_id
-        return SessionFleetStartResult.from_dict(await self._client.request("session.fleet.start", params_dict))
+        return SessionFleetStartResult.from_dict(
+            await self._client.request("session.fleet.start", params_dict, timeout=timeout)
+        )
 
 
 class SessionRpc:
