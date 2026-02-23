@@ -621,7 +621,7 @@ function emitServerInstanceMethod(
 
     let requestClassName: string | null = null;
     if (paramEntries.length > 0) {
-        requestClassName = `${methodName}Request`;
+        requestClassName = `${typeToClassName(method.rpcMethod)}Request`;
         const reqClass = emitRpcClass(requestClassName, method.params!, "internal", classes);
         if (reqClass) classes.push(reqClass);
     }
@@ -685,7 +685,7 @@ function emitSessionApiClass(className: string, node: Record<string, unknown>, c
         const paramEntries = (method.params?.properties ? Object.entries(method.params.properties) : []).filter(([k]) => k !== "sessionId");
         const requiredSet = new Set(method.params?.required || []);
 
-        const requestClassName = `${methodName}Request`;
+        const requestClassName = `${typeToClassName(method.rpcMethod)}Request`;
         if (method.params) {
             const reqClass = emitRpcClass(requestClassName, method.params, "internal", classes);
             if (reqClass) classes.push(reqClass);
