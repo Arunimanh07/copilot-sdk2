@@ -404,6 +404,23 @@ public class SessionTests(E2ETestFixture fixture, ITestOutputHelper output) : E2
     }
 
     [Fact]
+    public async Task SendAndWait_Throws_OperationCanceledException_When_Token_Cancelled()
+    {
+        var session = await Client.CreateSessionAsync();
+
+        using var cts = new CancellationTokenSource();
+
+        // Cancel before any response can arrive
+        var sendTask = session.SendAndWaitAsync(
+            new MessageOptions { Prompt = "Run 'sleep 2 && echo done'" },
+            cancellationToken: cts.Token);
+
+        cts.Cancel();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => sendTask);
+    }
+
+    [Fact]
     public async Task Should_Create_Session_With_Custom_Config_Dir()
     {
         var customConfigDir = Path.Join(Ctx.HomeDir, "custom-config");
