@@ -158,7 +158,7 @@ class CopilotSession:
             The final assistant message event, or None if none was received.
 
         Raises:
-            asyncio.TimeoutError: If the timeout is reached before session becomes idle.
+            TimeoutError: If the timeout is reached before session becomes idle.
             Exception: If the session has been destroyed or the connection fails.
 
         Example:
