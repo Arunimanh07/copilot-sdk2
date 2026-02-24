@@ -11,7 +11,8 @@ import json
 import threading
 import uuid
 from collections.abc import Awaitable
-from typing import Any, Callable, Optional, Union
+from typing import Any, Optional, Union
+from collections.abc import Callable
 
 
 class JsonRpcError(Exception):
@@ -49,19 +50,19 @@ class JsonRpcClient:
         """
         self.process = process
         self.pending_requests: dict[str, asyncio.Future] = {}
-        self.notification_handler: Optional[Callable[[str, dict], None]] = None
+        self.notification_handler: Callable[[str, dict], None] | None = None
         self.request_handlers: dict[str, RequestHandler] = {}
         self._running = False
-        self._read_thread: Optional[threading.Thread] = None
-        self._stderr_thread: Optional[threading.Thread] = None
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._read_thread: threading.Thread | None = None
+        self._stderr_thread: threading.Thread | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
         self._write_lock = threading.Lock()
         self._pending_lock = threading.Lock()
-        self._process_exit_error: Optional[str] = None
+        self._process_exit_error: str | None = None
         self._stderr_output: list[str] = []
         self._stderr_lock = threading.Lock()
 
-    def start(self, loop: Optional[asyncio.AbstractEventLoop] = None):
+    def start(self, loop: asyncio.AbstractEventLoop | None = None):
         """Start listening for messages in background thread"""
         if not self._running:
             self._running = True
@@ -104,7 +105,7 @@ class JsonRpcClient:
             self._stderr_thread.join(timeout=1.0)
 
     async def request(
-        self, method: str, params: Optional[dict] = None, timeout: float = 30.0
+        self, method: str, params: dict | None = None, timeout: float = 30.0
     ) -> Any:
         """
         Send a JSON-RPC request and wait for response
@@ -146,7 +147,7 @@ class JsonRpcClient:
             with self._pending_lock:
                 self.pending_requests.pop(request_id, None)
 
-    async def notify(self, method: str, params: Optional[dict] = None):
+    async def notify(self, method: str, params: dict | None = None):
         """
         Send a JSON-RPC notification (no response expected)
 
@@ -255,7 +256,7 @@ class JsonRpcClient:
             remaining -= len(chunk)
         return b"".join(chunks)
 
-    def _read_message(self) -> Optional[dict]:
+    def _read_message(self) -> dict | None:
         """
         Read a single JSON-RPC message with Content-Length header (blocking)
 
@@ -364,7 +365,7 @@ class JsonRpcClient:
         await self._send_message(response)
 
     async def _send_error_response(
-        self, request_id: str, code: int, message: str, data: Optional[dict]
+        self, request_id: str, code: int, message: str, data: dict | None
     ):
         response = {
             "jsonrpc": "2.0",

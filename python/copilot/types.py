@@ -6,9 +6,10 @@ from __future__ import annotations
 
 from collections.abc import Awaitable
 from dataclasses import dataclass
-from typing import Any, Callable, Literal, TypedDict, Union
+from typing import Any, Literal, TypedDict, Union
+from collections.abc import Callable
 
-from typing_extensions import NotRequired
+from typing import NotRequired
 
 # Import generated SessionEvent types
 from .generated.session_events import SessionEvent
