@@ -96,16 +96,28 @@ await client.stop()
 
 **CopilotClient Options:**
 
-- `cli_path` (str): Path to CLI executable (default: "copilot" or `COPILOT_CLI_PATH` env var)
-- `cli_url` (str): URL of existing CLI server (e.g., `"localhost:8080"`, `"http://127.0.0.1:9000"`, or just `"8080"`). When provided, the client will not spawn a CLI process.
-- `cwd` (str): Working directory for CLI process
-- `port` (int): Server port for TCP mode (default: 0 for random)
-- `use_stdio` (bool): Use stdio transport instead of TCP (default: True)
-- `log_level` (str): Log level (default: "info")
-- `auto_start` (bool): Auto-start server on first use (default: True)
-- `auto_restart` (bool): Auto-restart on crash (default: True)
-- `github_token` (str): GitHub token for authentication. When provided, takes priority over other auth methods.
-- `use_logged_in_user` (bool): Whether to use logged-in user for authentication (default: True, but False when `github_token` is provided). Cannot be used with `cli_url`.
+The client supports two connection modes: **spawning a local CLI process** (default) or **connecting to an existing server** via `cli_url`. Some options only apply to one mode.
+
+*General options (both modes):*
+
+- `auto_start` (bool): Automatically connect to the server when the first session is created, so you don't need to call `start()` explicitly (default: `True`).
+
+*Spawning a local CLI process (default):*
+
+- `cli_path` (str): Path to CLI executable (default: bundled binary, or `COPILOT_CLI_PATH` env var). Mutually exclusive with `cli_url`.
+- `cli_args` (list[str]): Extra arguments passed to the CLI executable (inserted before SDK-managed args).
+- `cwd` (str): Working directory for the CLI process (default: current working directory).
+- `port` (int): Server port for TCP mode (default: `0` for random).
+- `use_stdio` (bool): Use stdio transport instead of TCP (default: `True`). Mutually exclusive with `cli_url`.
+- `log_level` (str): Log level for the CLI server (default: `"info"`).
+- `auto_restart` (bool): Automatically restart the CLI server if it crashes (default: `True`).
+- `env` (dict[str, str]): Environment variables for the CLI process.
+- `github_token` (str): GitHub token for authentication. When provided, takes priority over other auth methods. Mutually exclusive with `cli_url`.
+- `use_logged_in_user` (bool): Whether to use logged-in user for authentication via stored OAuth tokens or `gh` CLI auth (default: `True`, but `False` when `github_token` is provided). Mutually exclusive with `cli_url`.
+
+*Connecting to an existing server:*
+
+- `cli_url` (str): URL of an existing CLI server (e.g., `"localhost:8080"`, `"http://127.0.0.1:9000"`, or just `"8080"`). When provided, the client connects over TCP instead of spawning a CLI process. The external server manages its own authentication.
 
 **SessionConfig Options (for `create_session`):**
 
