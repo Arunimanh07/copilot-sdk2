@@ -414,7 +414,7 @@ class CopilotClient:
         if not self._is_external_server:
             self._actual_port = None
 
-    async def create_session(self, config: Optional[SessionConfig] = None) -> CopilotSession:
+    async def create_session(self, config: SessionConfig) -> CopilotSession:
         """
         Create a new conversation session with the Copilot CLI.
 
@@ -448,7 +448,13 @@ class CopilotClient:
             else:
                 raise RuntimeError("Client not connected. Call start() first.")
 
-        cfg = config or {}
+        cfg = config
+
+        if not cfg.get("on_permission_request"):
+            raise ValueError(
+                "An on_permission_request handler is required when creating a session. "
+                'For example, to allow all permissions, use {"on_permission_request": PermissionHandler.approve_all}.'
+            )
 
         tool_defs = []
         tools = cfg.get("tools")
@@ -580,7 +586,7 @@ class CopilotClient:
         return session
 
     async def resume_session(
-        self, session_id: str, config: Optional[ResumeSessionConfig] = None
+        self, session_id: str, config: ResumeSessionConfig
     ) -> CopilotSession:
         """
         Resume an existing conversation session by its ID.
@@ -614,7 +620,13 @@ class CopilotClient:
             else:
                 raise RuntimeError("Client not connected. Call start() first.")
 
-        cfg = config or {}
+        cfg = config
+
+        if not cfg.get("on_permission_request"):
+            raise ValueError(
+                "An on_permission_request handler is required when resuming a session. "
+                'For example, to allow all permissions, use {"on_permission_request": PermissionHandler.approve_all}.'
+            )
 
         tool_defs = []
         tools = cfg.get("tools")
