@@ -50,7 +50,7 @@ public class PermissionTests(E2ETestFixture fixture, ITestOutputHelper output) :
             {
                 return Task.FromResult(new PermissionRequestResult
                 {
-                    Kind = "denied-no-approval-rule-and-could-not-request-from-user"
+                    Kind = "denied-interactively-by-user"
                 });
             }
         });

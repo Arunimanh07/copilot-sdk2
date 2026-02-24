@@ -51,7 +51,7 @@ class TestPermissions:
             request: PermissionRequest, invocation: dict
         ) -> PermissionRequestResult:
             # Deny all permissions
-            return {"kind": "denied-no-approval-rule-and-could-not-request-from-user"}
+            return {"kind": "denied-interactively-by-user"}
 
         session = await ctx.client.create_session({"on_permission_request": on_permission_request})
 

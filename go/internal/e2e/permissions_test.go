@@ -117,7 +117,7 @@ func TestPermissions(t *testing.T) {
 		ctx.ConfigureForTest(t)
 
 		onPermissionRequest := func(request copilot.PermissionRequest, invocation copilot.PermissionInvocation) (copilot.PermissionRequestResult, error) {
-			return copilot.PermissionRequestResult{Kind: "denied-no-approval-rule-and-could-not-request-from-user"}, nil
+			return copilot.PermissionRequestResult{Kind: "denied-interactively-by-user"}, nil
 		}
 
 		session, err := client.CreateSession(t.Context(), &copilot.SessionConfig{
