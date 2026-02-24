@@ -5,6 +5,7 @@
 using GitHub.Copilot.SDK.Test.Harness;
 using Microsoft.Extensions.AI;
 using System.ComponentModel;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Xunit;
@@ -206,8 +207,12 @@ public partial class ToolsTests(E2ETestFixture fixture, ITestOutputHelper output
         Assert.NotNull(assistantMessage);
         Assert.Contains("HELLO", assistantMessage!.Data.Content ?? string.Empty);
 
-        // Should have received a custom-tool permission request
-        Assert.Contains(permissionRequests, r => r.Kind == "custom-tool");
+        // Should have received a custom-tool permission request with the correct tool name
+        var customToolRequest = permissionRequests.FirstOrDefault(r => r.Kind == "custom-tool");
+        Assert.NotNull(customToolRequest);
+        Assert.True(customToolRequest!.ExtensionData?.ContainsKey("toolName") ?? false);
+        var toolName = ((JsonElement)customToolRequest.ExtensionData!["toolName"]).GetString();
+        Assert.Equal("encrypt_string", toolName);
 
         [Description("Encrypts a string")]
         static string EncryptStringForPermission([Description("String to encrypt")] string input)

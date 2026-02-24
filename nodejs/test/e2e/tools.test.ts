@@ -7,7 +7,7 @@ import { join } from "path";
 import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { defineTool, approveAll } from "../../src/index.js";
-import type { PermissionRequest, PermissionRequestResult } from "../../src/index.js";
+import type { PermissionRequest } from "../../src/index.js";
 import { createSdkTestContext } from "./harness/sdkTestContext";
 
 describe("Custom tools", async () => {
