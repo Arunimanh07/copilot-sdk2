@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, expect, it } from "vitest";
+import { approveAll } from "../../src/index.js";
 import type { CustomAgentConfig } from "../../src/index.js";
 import { createSdkTestContext } from "./harness/sdkTestContext.js";
 
@@ -25,7 +26,7 @@ describe("Agent Selection RPC", async () => {
             },
         ];
 
-        const session = await client.createSession({ customAgents });
+        const session = await client.createSession({ onPermissionRequest: approveAll, customAgents });
 
         const result = await session.rpc.agent.list();
         expect(result.agents).toBeDefined();
@@ -49,7 +50,7 @@ describe("Agent Selection RPC", async () => {
             },
         ];
 
-        const session = await client.createSession({ customAgents });
+        const session = await client.createSession({ onPermissionRequest: approveAll, customAgents });
 
         const result = await session.rpc.agent.getCurrent();
         expect(result.agent).toBeNull();
@@ -67,7 +68,7 @@ describe("Agent Selection RPC", async () => {
             },
         ];
 
-        const session = await client.createSession({ customAgents });
+        const session = await client.createSession({ onPermissionRequest: approveAll, customAgents });
 
         // Select the agent
         const selectResult = await session.rpc.agent.select({ name: "test-agent" });
@@ -93,7 +94,7 @@ describe("Agent Selection RPC", async () => {
             },
         ];
 
-        const session = await client.createSession({ customAgents });
+        const session = await client.createSession({ onPermissionRequest: approveAll, customAgents });
 
         // Select then deselect
         await session.rpc.agent.select({ name: "test-agent" });
@@ -107,7 +108,7 @@ describe("Agent Selection RPC", async () => {
     });
 
     it("should return empty list when no custom agents configured", async () => {
-        const session = await client.createSession();
+        const session = await client.createSession({ onPermissionRequest: approveAll });
 
         const result = await session.rpc.agent.list();
         expect(result.agents).toEqual([]);
@@ -120,7 +121,7 @@ describe("Session Compact RPC", async () => {
     const { copilotClient: client } = await createSdkTestContext();
 
     it("should compact session history after messages", async () => {
-        const session = await client.createSession();
+        const session = await client.createSession({ onPermissionRequest: approveAll });
 
         // Send a message to create some history
         await session.sendAndWait({ prompt: "What is 2+2?" });

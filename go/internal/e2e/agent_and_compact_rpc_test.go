@@ -26,6 +26,7 @@ func TestAgentSelectionRpc(t *testing.T) {
 		}
 
 		session, err := client.CreateSession(t.Context(), &copilot.SessionConfig{
+			OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 			CustomAgents: []copilot.CustomAgentConfig{
 				{
 					Name:        "test-agent",
@@ -80,6 +81,7 @@ func TestAgentSelectionRpc(t *testing.T) {
 		}
 
 		session, err := client.CreateSession(t.Context(), &copilot.SessionConfig{
+			OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 			CustomAgents: []copilot.CustomAgentConfig{
 				{
 					Name:        "test-agent",
@@ -119,6 +121,7 @@ func TestAgentSelectionRpc(t *testing.T) {
 		}
 
 		session, err := client.CreateSession(t.Context(), &copilot.SessionConfig{
+			OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 			CustomAgents: []copilot.CustomAgentConfig{
 				{
 					Name:        "test-agent",
@@ -173,6 +176,7 @@ func TestAgentSelectionRpc(t *testing.T) {
 		}
 
 		session, err := client.CreateSession(t.Context(), &copilot.SessionConfig{
+			OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 			CustomAgents: []copilot.CustomAgentConfig{
 				{
 					Name:        "test-agent",
@@ -222,7 +226,9 @@ func TestAgentSelectionRpc(t *testing.T) {
 			t.Fatalf("Failed to start client: %v", err)
 		}
 
-		session, err := client.CreateSession(t.Context(), nil)
+		session, err := client.CreateSession(t.Context(), &copilot.SessionConfig{
+			OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
+		})
 		if err != nil {
 			t.Fatalf("Failed to create session: %v", err)
 		}
@@ -254,7 +260,9 @@ func TestSessionCompactionRpc(t *testing.T) {
 	t.Run("should compact session history after messages", func(t *testing.T) {
 		ctx.ConfigureForTest(t)
 
-		session, err := client.CreateSession(t.Context(), nil)
+		session, err := client.CreateSession(t.Context(), &copilot.SessionConfig{
+			OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
+		})
 		if err != nil {
 			t.Fatalf("Failed to create session: %v", err)
 		}

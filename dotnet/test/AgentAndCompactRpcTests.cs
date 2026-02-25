@@ -33,7 +33,7 @@ public class AgentAndCompactRpcTests(E2ETestFixture fixture, ITestOutputHelper o
             }
         };
 
-        var session = await Client.CreateSessionAsync(new SessionConfig { CustomAgents = customAgents });
+        var session = await CreateSessionAsync(new SessionConfig { CustomAgents = customAgents });
 
         var result = await session.Rpc.Agent.ListAsync();
         Assert.NotNull(result.Agents);
@@ -58,7 +58,7 @@ public class AgentAndCompactRpcTests(E2ETestFixture fixture, ITestOutputHelper o
             }
         };
 
-        var session = await Client.CreateSessionAsync(new SessionConfig { CustomAgents = customAgents });
+        var session = await CreateSessionAsync(new SessionConfig { CustomAgents = customAgents });
 
         var result = await session.Rpc.Agent.GetCurrentAsync();
         Assert.Null(result.Agent);
@@ -78,7 +78,7 @@ public class AgentAndCompactRpcTests(E2ETestFixture fixture, ITestOutputHelper o
             }
         };
 
-        var session = await Client.CreateSessionAsync(new SessionConfig { CustomAgents = customAgents });
+        var session = await CreateSessionAsync(new SessionConfig { CustomAgents = customAgents });
 
         // Select the agent
         var selectResult = await session.Rpc.Agent.SelectAsync("test-agent");
@@ -106,7 +106,7 @@ public class AgentAndCompactRpcTests(E2ETestFixture fixture, ITestOutputHelper o
             }
         };
 
-        var session = await Client.CreateSessionAsync(new SessionConfig { CustomAgents = customAgents });
+        var session = await CreateSessionAsync(new SessionConfig { CustomAgents = customAgents });
 
         // Select then deselect
         await session.Rpc.Agent.SelectAsync("test-agent");
