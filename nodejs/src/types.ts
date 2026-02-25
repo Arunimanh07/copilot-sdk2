@@ -211,7 +211,7 @@ export type SystemMessageConfig = SystemMessageAppendConfig | SystemMessageRepla
  * Permission request types from the server
  */
 export interface PermissionRequest {
-    kind: "shell" | "write" | "mcp" | "read" | "url";
+    kind: "shell" | "write" | "mcp" | "read" | "url" | "custom-tool";
     toolCallId?: string;
     [key: string]: unknown;
 }
@@ -675,7 +675,7 @@ export interface SessionConfig {
      * Handler for permission requests from the server.
      * When provided, the server will call this handler to request permission for operations.
      */
-    onPermissionRequest?: PermissionHandler;
+    onPermissionRequest: PermissionHandler;
 
     /**
      * Handler for user input requests from the agent.

@@ -44,14 +44,14 @@ type ClientOptions struct {
 	// If Env contains duplicate environment keys, only the last value in the
 	// slice for each duplicate key is used.
 	Env []string
-	// GithubToken is the GitHub token to use for authentication.
+	// GitHubToken is the GitHub token to use for authentication.
 	// When provided, the token is passed to the CLI server via environment variable.
 	// This takes priority over other authentication methods.
-	GithubToken string
+	GitHubToken string
 	// UseLoggedInUser controls whether to use the logged-in user for authentication.
 	// When true, the CLI server will attempt to use stored OAuth tokens or gh CLI auth.
-	// When false, only explicit tokens (GithubToken or environment variables) are used.
-	// Default: true (but defaults to false when GithubToken is provided).
+	// When false, only explicit tokens (GitHubToken or environment variables) are used.
+	// Default: true (but defaults to false when GitHubToken is provided).
 	// Use Bool(false) to explicitly disable.
 	UseLoggedInUser *bool
 }
@@ -104,6 +104,32 @@ type PermissionRequest struct {
 	Kind       string         `json:"kind"`
 	ToolCallID string         `json:"toolCallId,omitempty"`
 	Extra      map[string]any `json:"-"` // Additional fields vary by kind
+}
+
+// UnmarshalJSON implements custom JSON unmarshaling for PermissionRequest
+// to capture additional fields (varying by kind) into the Extra map.
+func (p *PermissionRequest) UnmarshalJSON(data []byte) error {
+	// Unmarshal known fields via an alias to avoid infinite recursion
+	type Alias PermissionRequest
+	var alias Alias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*p = PermissionRequest(alias)
+
+	// Unmarshal all fields into a generic map
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	// Remove known fields, keep the rest as Extra
+	delete(raw, "kind")
+	delete(raw, "toolCallId")
+	if len(raw) > 0 {
+		p.Extra = raw
+	}
+	return nil
 }
 
 // PermissionRequestResult represents the result of a permission request

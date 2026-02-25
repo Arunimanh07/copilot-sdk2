@@ -99,7 +99,7 @@ That's it! When your application calls `copilot.NewClient` without a `CLIPath` n
 - `Stop() error` - Stop the CLI server
 - `ForceStop()` - Forcefully stop without graceful cleanup
 - `CreateSession(config *SessionConfig) (*Session, error)` - Create a new session
-- `ResumeSession(sessionID string) (*Session, error)` - Resume an existing session
+- `ResumeSession(sessionID string, config *ResumeSessionConfig) (*Session, error)` - Resume an existing session
 - `ResumeSessionWithOptions(sessionID string, config *ResumeSessionConfig) (*Session, error)` - Resume with additional configuration
 - `ListSessions(filter *SessionListFilter) ([]SessionMetadata, error)` - List sessions (with optional filter)
 - `DeleteSession(sessionID string) error` - Delete a session permanently
@@ -138,8 +138,8 @@ Event types: `SessionLifecycleCreated`, `SessionLifecycleDeleted`, `SessionLifec
 - `AutoStart` (\*bool): Auto-start server on first use (default: true). Use `Bool(false)` to disable.
 - `AutoRestart` (\*bool): Auto-restart on crash (default: true). Use `Bool(false)` to disable.
 - `Env` ([]string): Environment variables for CLI process (default: inherits from current process)
-- `GithubToken` (string): GitHub token for authentication. When provided, takes priority over other auth methods.
-- `UseLoggedInUser` (\*bool): Whether to use logged-in user for authentication (default: true, but false when `GithubToken` is provided). Cannot be used with `CLIUrl`.
+- `GitHubToken` (string): GitHub token for authentication. When provided, takes priority over other auth methods.
+- `UseLoggedInUser` (\*bool): Whether to use logged-in user for authentication (default: true, but false when `GitHubToken` is provided). Cannot be used with `CLIUrl`.
 
 **SessionConfig:**
 

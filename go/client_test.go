@@ -21,7 +21,9 @@ func TestClient_HandleToolCallRequest(t *testing.T) {
 		client := NewClient(&ClientOptions{CLIPath: cliPath})
 		t.Cleanup(func() { client.ForceStop() })
 
-		session, err := client.CreateSession(t.Context(), nil)
+		session, err := client.CreateSession(t.Context(), &SessionConfig{
+			OnPermissionRequest: PermissionHandler.ApproveAll,
+		})
 		if err != nil {
 			t.Fatalf("Failed to create session: %v", err)
 		}
@@ -255,17 +257,17 @@ func TestClient_URLParsing(t *testing.T) {
 }
 
 func TestClient_AuthOptions(t *testing.T) {
-	t.Run("should accept GithubToken option", func(t *testing.T) {
+	t.Run("should accept GitHubToken option", func(t *testing.T) {
 		client := NewClient(&ClientOptions{
-			GithubToken: "gho_test_token",
+			GitHubToken: "gho_test_token",
 		})
 
-		if client.options.GithubToken != "gho_test_token" {
-			t.Errorf("Expected GithubToken to be 'gho_test_token', got %q", client.options.GithubToken)
+		if client.options.GitHubToken != "gho_test_token" {
+			t.Errorf("Expected GitHubToken to be 'gho_test_token', got %q", client.options.GitHubToken)
 		}
 	})
 
-	t.Run("should default UseLoggedInUser to nil when no GithubToken", func(t *testing.T) {
+	t.Run("should default UseLoggedInUser to nil when no GitHubToken", func(t *testing.T) {
 		client := NewClient(&ClientOptions{})
 
 		if client.options.UseLoggedInUser != nil {
@@ -283,9 +285,9 @@ func TestClient_AuthOptions(t *testing.T) {
 		}
 	})
 
-	t.Run("should allow explicit UseLoggedInUser true with GithubToken", func(t *testing.T) {
+	t.Run("should allow explicit UseLoggedInUser true with GitHubToken", func(t *testing.T) {
 		client := NewClient(&ClientOptions{
-			GithubToken:     "gho_test_token",
+			GitHubToken:     "gho_test_token",
 			UseLoggedInUser: Bool(true),
 		})
 
@@ -294,12 +296,12 @@ func TestClient_AuthOptions(t *testing.T) {
 		}
 	})
 
-	t.Run("should throw error when GithubToken is used with CLIUrl", func(t *testing.T) {
+	t.Run("should throw error when GitHubToken is used with CLIUrl", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r == nil {
 				t.Error("Expected panic for auth options with CLIUrl")
 			} else {
-				matched, _ := regexp.MatchString("GithubToken and UseLoggedInUser cannot be used with CLIUrl", r.(string))
+				matched, _ := regexp.MatchString("GitHubToken and UseLoggedInUser cannot be used with CLIUrl", r.(string))
 				if !matched {
 					t.Errorf("Expected panic message about auth options, got: %v", r)
 				}
@@ -308,7 +310,7 @@ func TestClient_AuthOptions(t *testing.T) {
 
 		NewClient(&ClientOptions{
 			CLIUrl:      "localhost:8080",
-			GithubToken: "gho_test_token",
+			GitHubToken: "gho_test_token",
 		})
 	})
 
@@ -317,7 +319,7 @@ func TestClient_AuthOptions(t *testing.T) {
 			if r := recover(); r == nil {
 				t.Error("Expected panic for auth options with CLIUrl")
 			} else {
-				matched, _ := regexp.MatchString("GithubToken and UseLoggedInUser cannot be used with CLIUrl", r.(string))
+				matched, _ := regexp.MatchString("GitHubToken and UseLoggedInUser cannot be used with CLIUrl", r.(string))
 				if !matched {
 					t.Errorf("Expected panic message about auth options, got: %v", r)
 				}
@@ -446,37 +448,77 @@ func TestResumeSessionRequest_ClientName(t *testing.T) {
 }
 
 func TestMergeExcludedTools(t *testing.T) {
-t.Run("adds tool names to excluded tools", func(t *testing.T) {
-tools := []Tool{{Name: "edit_file"}, {Name: "read_file"}}
-got := mergeExcludedTools(nil, tools)
-want := []string{"edit_file", "read_file"}
-if !reflect.DeepEqual(got, want) {
-t.Errorf("got %v, want %v", got, want)
-}
-})
+	t.Run("adds tool names to excluded tools", func(t *testing.T) {
+		tools := []Tool{{Name: "edit_file"}, {Name: "read_file"}}
+		got := mergeExcludedTools(nil, tools)
+		want := []string{"edit_file", "read_file"}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	})
 
-t.Run("deduplicates with existing excluded tools", func(t *testing.T) {
-excluded := []string{"edit_file", "run_shell"}
-tools := []Tool{{Name: "edit_file"}, {Name: "read_file"}}
-got := mergeExcludedTools(excluded, tools)
-want := []string{"edit_file", "run_shell", "read_file"}
-if !reflect.DeepEqual(got, want) {
-t.Errorf("got %v, want %v", got, want)
-}
-})
+	t.Run("deduplicates with existing excluded tools", func(t *testing.T) {
+		excluded := []string{"edit_file", "run_shell"}
+		tools := []Tool{{Name: "edit_file"}, {Name: "read_file"}}
+		got := mergeExcludedTools(excluded, tools)
+		want := []string{"edit_file", "run_shell", "read_file"}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	})
 
-t.Run("returns original list when no tools provided", func(t *testing.T) {
-excluded := []string{"edit_file"}
-got := mergeExcludedTools(excluded, nil)
-if !reflect.DeepEqual(got, excluded) {
-t.Errorf("got %v, want %v", got, excluded)
-}
-})
+	t.Run("returns original list when no tools provided", func(t *testing.T) {
+		excluded := []string{"edit_file"}
+		got := mergeExcludedTools(excluded, nil)
+		if !reflect.DeepEqual(got, excluded) {
+			t.Errorf("got %v, want %v", got, excluded)
+		}
+	})
 
-t.Run("returns nil when both inputs are empty", func(t *testing.T) {
-got := mergeExcludedTools(nil, nil)
-if got != nil {
-t.Errorf("got %v, want nil", got)
+	t.Run("returns nil when both inputs are empty", func(t *testing.T) {
+		got := mergeExcludedTools(nil, nil)
+		if got != nil {
+			t.Errorf("got %v, want nil", got)
+		}
+	})
 }
-})
+
+func TestClient_CreateSession_RequiresPermissionHandler(t *testing.T) {
+	t.Run("returns error when config is nil", func(t *testing.T) {
+		client := NewClient(nil)
+		_, err := client.CreateSession(t.Context(), nil)
+		if err == nil {
+			t.Fatal("Expected error when OnPermissionRequest is nil")
+		}
+		matched, _ := regexp.MatchString("OnPermissionRequest.*is required", err.Error())
+		if !matched {
+			t.Errorf("Expected error about OnPermissionRequest being required, got: %v", err)
+		}
+	})
+
+	t.Run("returns error when OnPermissionRequest is not set", func(t *testing.T) {
+		client := NewClient(nil)
+		_, err := client.CreateSession(t.Context(), &SessionConfig{})
+		if err == nil {
+			t.Fatal("Expected error when OnPermissionRequest is nil")
+		}
+		matched, _ := regexp.MatchString("OnPermissionRequest.*is required", err.Error())
+		if !matched {
+			t.Errorf("Expected error about OnPermissionRequest being required, got: %v", err)
+		}
+	})
+}
+
+func TestClient_ResumeSession_RequiresPermissionHandler(t *testing.T) {
+	t.Run("returns error when config is nil", func(t *testing.T) {
+		client := NewClient(nil)
+		_, err := client.ResumeSessionWithOptions(t.Context(), "some-id", nil)
+		if err == nil {
+			t.Fatal("Expected error when OnPermissionRequest is nil")
+		}
+		matched, _ := regexp.MatchString("OnPermissionRequest.*is required", err.Error())
+		if !matched {
+			t.Errorf("Expected error about OnPermissionRequest being required, got: %v", err)
+		}
+	})
 }

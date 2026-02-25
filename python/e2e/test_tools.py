@@ -34,7 +34,9 @@ class TestTools:
         def encrypt_string(params: EncryptParams, invocation: ToolInvocation) -> str:
             return params.input.upper()
 
-        session = await ctx.client.create_session({"tools": [encrypt_string]})
+        session = await ctx.client.create_session(
+            {"tools": [encrypt_string], "on_permission_request": PermissionHandler.approve_all}
+        )
 
         await session.send({"prompt": "Use encrypt_string to encrypt this string: Hello"})
         assistant_message = await get_final_assistant_message(session)
@@ -45,7 +47,9 @@ class TestTools:
         def get_user_location() -> str:
             raise Exception("Melbourne")
 
-        session = await ctx.client.create_session({"tools": [get_user_location]})
+        session = await ctx.client.create_session(
+            {"tools": [get_user_location], "on_permission_request": PermissionHandler.approve_all}
+        )
 
         await session.send(
             {"prompt": "What is my location? If you can't find out, just say 'unknown'."}
@@ -108,7 +112,9 @@ class TestTools:
                 City(countryId=12, cityName="San Lorenzo", population=204356),
             ]
 
-        session = await ctx.client.create_session({"tools": [db_query]})
+        session = await ctx.client.create_session(
+            {"tools": [db_query], "on_permission_request": PermissionHandler.approve_all}
+        )
         expected_session_id = session.session_id
 
         await session.send(
@@ -126,3 +132,61 @@ class TestTools:
         assert "San Lorenzo" in response_content
         assert "135460" in response_content.replace(",", "")
         assert "204356" in response_content.replace(",", "")
+
+    async def test_invokes_custom_tool_with_permission_handler(self, ctx: E2ETestContext):
+        class EncryptParams(BaseModel):
+            input: str = Field(description="String to encrypt")
+
+        @define_tool("encrypt_string", description="Encrypts a string")
+        def encrypt_string(params: EncryptParams, invocation: ToolInvocation) -> str:
+            return params.input.upper()
+
+        permission_requests = []
+
+        def on_permission_request(request, invocation):
+            permission_requests.append(request)
+            return {"kind": "approved"}
+
+        session = await ctx.client.create_session(
+            {
+                "tools": [encrypt_string],
+                "on_permission_request": on_permission_request,
+            }
+        )
+
+        await session.send({"prompt": "Use encrypt_string to encrypt this string: Hello"})
+        assistant_message = await get_final_assistant_message(session)
+        assert "HELLO" in assistant_message.data.content
+
+        # Should have received a custom-tool permission request
+        custom_tool_requests = [r for r in permission_requests if r.get("kind") == "custom-tool"]
+        assert len(custom_tool_requests) > 0
+        assert custom_tool_requests[0].get("toolName") == "encrypt_string"
+
+    async def test_denies_custom_tool_when_permission_denied(self, ctx: E2ETestContext):
+        tool_handler_called = False
+
+        class EncryptParams(BaseModel):
+            input: str = Field(description="String to encrypt")
+
+        @define_tool("encrypt_string", description="Encrypts a string")
+        def encrypt_string(params: EncryptParams, invocation: ToolInvocation) -> str:
+            nonlocal tool_handler_called
+            tool_handler_called = True
+            return params.input.upper()
+
+        def on_permission_request(request, invocation):
+            return {"kind": "denied-interactively-by-user"}
+
+        session = await ctx.client.create_session(
+            {
+                "tools": [encrypt_string],
+                "on_permission_request": on_permission_request,
+            }
+        )
+
+        await session.send({"prompt": "Use encrypt_string to encrypt this string: Hello"})
+        await get_final_assistant_message(session)
+
+        # The tool handler should NOT have been called since permission was denied
+        assert not tool_handler_called
