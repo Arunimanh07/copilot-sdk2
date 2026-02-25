@@ -63,7 +63,6 @@ func TestTools(t *testing.T) {
 						return strings.ToUpper(params.Input), nil
 					}),
 			},
-			OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 		})
 		if err != nil {
 			t.Fatalf("Failed to create session: %v", err)
@@ -97,7 +96,6 @@ func TestTools(t *testing.T) {
 						return nil, errors.New("Melbourne")
 					}),
 			},
-			OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 		})
 		if err != nil {
 			t.Fatalf("Failed to create session: %v", err)
@@ -216,7 +214,6 @@ func TestTools(t *testing.T) {
 						}, nil
 					}),
 			},
-			OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 		})
 		if err != nil {
 			t.Fatalf("Failed to create session: %v", err)
