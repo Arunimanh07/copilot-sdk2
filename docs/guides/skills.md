@@ -49,7 +49,7 @@ async def main():
     await client.start()
 
     session = await client.create_session(
-        lambda req: {"kind": "approved"},
+        lambda req, inv: {"kind": "approved"},
         "gpt-4.1",
         skill_directories=[
             "./skills/code-review",

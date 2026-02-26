@@ -493,6 +493,12 @@ class CopilotClient:
             ...     streaming=True,
             ... )
         """
+        if not on_permission_request or not callable(on_permission_request):
+            raise ValueError(
+                "A valid on_permission_request handler is required. "
+                "Use PermissionHandler.approve_all or provide a custom handler."
+            )
+
         if not self._client:
             if self.options["auto_start"]:
                 await self.start()

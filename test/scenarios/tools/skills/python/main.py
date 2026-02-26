@@ -15,11 +15,11 @@ async def main():
         skills_dir = str(Path(__file__).resolve().parent.parent / "sample-skills")
 
         session = await client.create_session(
-            lambda _: {"kind": "approved"},
+            lambda _, __: {"kind": "approved"},
             "claude-haiku-4.5",
             skill_directories=[skills_dir],
             hooks={
-                "on_pre_tool_use": lambda _: {"permission_decision": "allow"},
+                "on_pre_tool_use": lambda _, __: {"permissionDecision": "allow"},
             },
         )
 
