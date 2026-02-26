@@ -103,21 +103,22 @@ class JsonRpcClient:
         if self._stderr_thread:
             self._stderr_thread.join(timeout=1.0)
 
-    async def request(self, method: str, params: dict | None = None, timeout: float = 30.0) -> Any:
+    async def request(self, method: str, params: dict | None = None, timeout: float | None = None) -> Any:
         """
         Send a JSON-RPC request and wait for response
 
         Args:
             method: Method name
             params: Optional parameters
-            timeout: Request timeout in seconds (default 30s)
+            timeout: Optional request timeout in seconds. If None (default),
+                waits indefinitely for the server to respond.
 
         Returns:
             The result from the response
 
         Raises:
             JsonRpcError: If server returns an error
-            asyncio.TimeoutError: If request times out
+            asyncio.TimeoutError: If request times out (only when timeout is set)
         """
         request_id = str(uuid.uuid4())
 
@@ -139,7 +140,9 @@ class JsonRpcClient:
         await self._send_message(message)
 
         try:
-            return await asyncio.wait_for(future, timeout=timeout)
+            if timeout is not None:
+                return await asyncio.wait_for(future, timeout=timeout)
+            return await future
         finally:
             with self._pending_lock:
                 self.pending_requests.pop(request_id, None)

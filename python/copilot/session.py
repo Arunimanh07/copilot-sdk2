@@ -9,7 +9,7 @@ import asyncio
 import inspect
 import threading
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from .generated.rpc import SessionRpc
 from .generated.session_events import SessionEvent, SessionEventType, session_event_from_dict
@@ -335,7 +335,7 @@ class CopilotSession:
             result = handler(request, {"session_id": self.session_id})
             if inspect.isawaitable(result):
                 result = await result
-            return result
+            return cast(PermissionRequestResult, result)
         except Exception:  # pylint: disable=broad-except
             # Handler failed, deny permission
             return {"kind": "denied-no-approval-rule-and-could-not-request-from-user"}
@@ -387,7 +387,7 @@ class CopilotSession:
             )
             if inspect.isawaitable(result):
                 result = await result
-            return result
+            return cast(UserInputResponse, result)
         except Exception:
             raise
 
