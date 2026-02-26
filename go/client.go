@@ -1152,7 +1152,10 @@ func (c *Client) startCLIServer(ctx context.Context) error {
 			select {
 			case <-timeout:
 				killErr := c.killProcess()
-				return errors.Join(fmt.Errorf("timeout waiting for CLI server to start"), killErr)
+				return errors.Join(errors.New("timeout waiting for CLI server to start"), killErr)
+			case <-c.processDone:
+				killErr := c.killProcess()
+				return errors.Join(errors.New("CLI server process exited before reporting port"), killErr)
 			default:
 				if scanner.Scan() {
 					line := scanner.Text()
