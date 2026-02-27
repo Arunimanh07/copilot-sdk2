@@ -505,5 +505,5 @@ session = await client.create_session(
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.11+
 - GitHub Copilot CLI installed and accessible
