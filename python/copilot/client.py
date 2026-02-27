@@ -579,6 +579,9 @@ class CopilotClient:
         session_id = response["sessionId"]
         workspace_path = response.get("workspacePath")
         session = CopilotSession(session_id, self._client, workspace_path)
+        usage_info = response.get("usageInfo")
+        if usage_info:
+            session.usage_info = usage_info
         session._register_tools(tools)
         session._register_permission_handler(on_permission_request)
         if on_user_input_request:
@@ -761,6 +764,9 @@ class CopilotClient:
         resumed_session_id = response["sessionId"]
         workspace_path = response.get("workspacePath")
         session = CopilotSession(resumed_session_id, self._client, workspace_path)
+        usage_info = response.get("usageInfo")
+        if usage_info:
+            session.usage_info = usage_info
         session._register_tools(cfg.get("tools"))
         session._register_permission_handler(on_permission_request)
         if on_user_input_request:

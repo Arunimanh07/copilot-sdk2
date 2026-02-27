@@ -82,6 +82,7 @@ class CopilotSession:
         self._user_input_handler_lock = threading.Lock()
         self._hooks: Optional[SessionHooks] = None
         self._hooks_lock = threading.Lock()
+        self.usage_info = None
         self._rpc: Optional[SessionRpc] = None
 
     @property
@@ -243,6 +244,9 @@ class CopilotSession:
         Args:
             event: The session event to dispatch to all handlers.
         """
+        if hasattr(event, "usage_info") and event.usage_info:
+            self.usage_info = event.usage_info
+
         with self._event_handlers_lock:
             handlers = list(self._event_handlers)
 
