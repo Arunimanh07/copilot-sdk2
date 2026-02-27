@@ -220,10 +220,12 @@ class TestExcludedToolsFromRegisteredTools:
             def edit_file(params) -> str:
                 return "ok"
 
-            await client.create_session({
-                "tools": [edit_file],
-                "excluded_tools": ["edit_file", "other_tool"],
-            })
+            await client.create_session(
+                {
+                    "tools": [edit_file],
+                    "excluded_tools": ["edit_file", "other_tool"],
+                }
+            )
             excluded = captured["session.create"]["excludedTools"]
             assert excluded.count("edit_file") == 1
             assert "other_tool" in excluded
