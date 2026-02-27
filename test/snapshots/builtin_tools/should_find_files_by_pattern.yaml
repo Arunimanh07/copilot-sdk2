@@ -46,8 +46,8 @@ conversations:
       - role: tool
         tool_call_id: toolcall_1
         content: |-
-          ./src/app.ts
           ./src/index.ts
+          ./src/app.ts
       - role: assistant
         content: |-
           Found 2 TypeScript files:
