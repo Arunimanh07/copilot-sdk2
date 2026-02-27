@@ -34,6 +34,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -93,6 +94,9 @@ type Client struct {
 	osProcess                 atomic.Pointer[os.Process]
 	negotiatedProtocolVersion int
 	onListModels              func(ctx context.Context) ([]ModelInfo, error)
+	stderrBuf                 []byte
+	stderrBufMux              sync.Mutex
+	stderrDone                chan struct{} // closed when the current process's stderr drain goroutine finishes
 
 	// RPC provides typed server-scoped RPC methods.
 	// This field is nil until the client is connected via Start().
@@ -280,15 +284,17 @@ func (c *Client) Start(ctx context.Context) error {
 	// Connect to the server
 	if err := c.connectToServer(ctx); err != nil {
 		killErr := c.killProcess()
+		stderrErr := c.stderrError()
 		c.state = StateError
-		return errors.Join(err, killErr)
+		return errors.Join(err, killErr, stderrErr)
 	}
 
 	// Verify protocol version compatibility
 	if err := c.verifyProtocolVersion(ctx); err != nil {
 		killErr := c.killProcess()
+		stderrErr := c.stderrError()
 		c.state = StateError
-		return errors.Join(err, killErr)
+		return errors.Join(err, killErr, stderrErr)
 	}
 
 	c.state = StateConnected
@@ -344,6 +350,9 @@ func (c *Client) Stop() error {
 		}
 	}
 	c.process = nil
+	c.stderrBufMux.Lock()
+	c.stderrBuf = nil
+	c.stderrBufMux.Unlock()
 
 	// Close external TCP connection if exists
 	if c.isExternalServer && c.conn != nil {
@@ -417,6 +426,9 @@ func (c *Client) ForceStop() {
 		_ = c.killProcess() // Ignore errors since we're force stopping
 	}
 	c.process = nil
+	c.stderrBufMux.Lock()
+	c.stderrBuf = nil
+	c.stderrBufMux.Unlock()
 
 	// Close external TCP connection if exists
 	if c.isExternalServer && c.conn != nil {
@@ -441,6 +453,42 @@ func (c *Client) ForceStop() {
 	}
 
 	c.RPC = nil
+}
+
+func (c *Client) getStderrOutput() string {
+	c.stderrBufMux.Lock()
+	defer c.stderrBufMux.Unlock()
+	return string(c.stderrBuf)
+}
+
+func (c *Client) stderrError() error {
+	if output := c.getStderrOutput(); output != "" {
+		return errors.New("stderr: " + output)
+	}
+	return nil
+}
+
+func (c *Client) startStderrDrain(stderr io.ReadCloser, done chan struct{}) {
+	go func() {
+		defer close(done)
+		buf := make([]byte, 1024)
+		for {
+			n, err := stderr.Read(buf)
+			if n > 0 {
+				c.stderrBufMux.Lock()
+				// Append to buffer, keep tail if > 64KB
+				c.stderrBuf = append(c.stderrBuf, buf[:n]...)
+				if len(c.stderrBuf) > 64*1024 {
+					n := copy(c.stderrBuf, c.stderrBuf[len(c.stderrBuf)-64*1024:])
+					c.stderrBuf = c.stderrBuf[:n]
+				}
+				c.stderrBufMux.Unlock()
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
 }
 
 func (c *Client) ensureConnected() error {
@@ -1176,6 +1224,11 @@ func (c *Client) startCLIServer(ctx context.Context) error {
 		c.process.Env = append(c.process.Env, "COPILOT_SDK_AUTH_TOKEN="+c.options.GitHubToken)
 	}
 
+	// Clear previous stderr buffer
+	c.stderrBufMux.Lock()
+	c.stderrBuf = nil
+	c.stderrBufMux.Unlock()
+
 	if c.useStdio {
 		// For stdio mode, we need stdin/stdout pipes
 		stdin, err := c.process.StdinPipe()
@@ -1188,11 +1241,17 @@ func (c *Client) startCLIServer(ctx context.Context) error {
 			return fmt.Errorf("failed to create stdout pipe: %w", err)
 		}
 
-		if err := c.process.Start(); err != nil {
-			return fmt.Errorf("failed to start CLI server: %w", err)
+		stderr, err := c.process.StderrPipe()
+		if err != nil {
+			return fmt.Errorf("failed to create stderr pipe: %w", err)
 		}
 
-		c.monitorProcess()
+		if err := c.process.Start(); err != nil {
+			closeErr := stderr.Close()
+			return errors.Join(fmt.Errorf("failed to start CLI server: %w", err), closeErr)
+		}
+
+		c.monitorProcess(stderr)
 
 		// Create JSON-RPC client immediately
 		c.client = jsonrpc2.NewClient(stdin, stdout)
@@ -1209,11 +1268,17 @@ func (c *Client) startCLIServer(ctx context.Context) error {
 			return fmt.Errorf("failed to create stdout pipe: %w", err)
 		}
 
-		if err := c.process.Start(); err != nil {
-			return fmt.Errorf("failed to start CLI server: %w", err)
+		stderr, err := c.process.StderrPipe()
+		if err != nil {
+			return fmt.Errorf("failed to create stderr pipe: %w", err)
 		}
 
-		c.monitorProcess()
+		if err := c.process.Start(); err != nil {
+			closeErr := stderr.Close()
+			return errors.Join(fmt.Errorf("failed to start CLI server: %w", err), closeErr)
+		}
+
+		c.monitorProcess(stderr)
 
 		scanner := bufio.NewScanner(stdout)
 		timeout := time.After(10 * time.Second)
@@ -1223,10 +1288,12 @@ func (c *Client) startCLIServer(ctx context.Context) error {
 			select {
 			case <-timeout:
 				killErr := c.killProcess()
-				return errors.Join(errors.New("timeout waiting for CLI server to start"), killErr)
+				stderrErr := c.stderrError()
+				return errors.Join(errors.New("timeout waiting for CLI server to start"), killErr, stderrErr)
 			case <-c.processDone:
 				killErr := c.killProcess()
-				return errors.Join(errors.New("CLI server process exited before reporting port"), killErr)
+				stderrErr := c.stderrError()
+				return errors.Join(errors.New("CLI server process exited before reporting port"), killErr, stderrErr)
 			default:
 				if scanner.Scan() {
 					line := scanner.Text()
@@ -1234,7 +1301,8 @@ func (c *Client) startCLIServer(ctx context.Context) error {
 						port, err := strconv.Atoi(matches[1])
 						if err != nil {
 							killErr := c.killProcess()
-							return errors.Join(fmt.Errorf("failed to parse port: %w", err), killErr)
+							stderrErr := c.stderrError()
+							return errors.Join(fmt.Errorf("failed to parse port: %w", err), killErr, stderrErr)
 						}
 						c.actualPort = port
 						return nil
@@ -1246,13 +1314,17 @@ func (c *Client) startCLIServer(ctx context.Context) error {
 }
 
 func (c *Client) killProcess() error {
+	var err error
 	if p := c.osProcess.Swap(nil); p != nil {
-		if err := p.Kill(); err != nil {
-			return fmt.Errorf("failed to kill CLI process: %w", err)
+		if err = p.Kill(); err != nil {
+			err = fmt.Errorf("failed to kill CLI process: %w", err)
 		}
 	}
+	if c.stderrDone != nil {
+		<-c.stderrDone
+	}
 	c.process = nil
-	return nil
+	return err
 }
 
 // monitorProcess signals when the CLI process exits and captures any exit error.
@@ -1260,7 +1332,10 @@ func (c *Client) killProcess() error {
 // error value, so goroutines from previous processes can't overwrite the
 // current one. Closing the channel synchronizes with readers, guaranteeing
 // they see the final processError value.
-func (c *Client) monitorProcess() {
+func (c *Client) monitorProcess(stderr io.ReadCloser) {
+	stderrDone := make(chan struct{})
+	c.stderrDone = stderrDone
+	c.startStderrDrain(stderr, stderrDone)
 	done := make(chan struct{})
 	c.processDone = done
 	proc := c.process
@@ -1269,10 +1344,20 @@ func (c *Client) monitorProcess() {
 	c.processErrorPtr = &processError
 	go func() {
 		waitErr := proc.Wait()
+		<-stderrDone
+		stderr := c.getStderrOutput()
 		if waitErr != nil {
-			processError = fmt.Errorf("CLI process exited: %w", waitErr)
+			if stderr != "" {
+				processError = fmt.Errorf("CLI process exited: %w\nstderr: %s", waitErr, stderr)
+			} else {
+				processError = fmt.Errorf("CLI process exited: %w", waitErr)
+			}
 		} else {
-			processError = errors.New("CLI process exited unexpectedly")
+			if stderr != "" {
+				processError = fmt.Errorf("CLI process exited unexpectedly\nstderr: %s", stderr)
+			} else {
+				processError = errors.New("CLI process exited unexpectedly")
+			}
 		}
 		close(done)
 	}()

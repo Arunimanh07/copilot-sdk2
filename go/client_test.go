@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -647,4 +649,97 @@ func TestClient_StartStopRace(t *testing.T) {
 	if err := <-errChan; err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestClient_StderrCapture(t *testing.T) {
+	buildStderrFixtureCLI := func(t *testing.T) string {
+		t.Helper()
+
+		tmpDir := t.TempDir()
+		mainPath := filepath.Join(tmpDir, "main.go")
+		binaryName := "stderr-fixture.exe"
+		binaryPath := filepath.Join(tmpDir, binaryName)
+
+		source := `package main
+
+		import (
+			"os"
+			"strconv"
+			"strings"
+		)
+
+		func main() {
+			if sizeString := os.Getenv("TEST_STDERR_SIZE"); sizeString != "" {
+				if size, _ := strconv.Atoi(sizeString); size > 0 {
+					_, _ = os.Stderr.WriteString(strings.Repeat("x", size))
+				}
+			}
+			if message := os.Getenv("TEST_STDERR"); message != "" {
+				_, _ = os.Stderr.WriteString(message)
+			}
+			os.Exit(1)
+		}`
+
+		if err := os.WriteFile(mainPath, []byte(source), 0600); err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := exec.Command("go", "build", "-o", binaryPath, mainPath)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatal(err, "\n", string(output))
+		}
+
+		return binaryPath
+	}
+
+	fixturePath := buildStderrFixtureCLI(t)
+
+	t.Run("captures stderr on startup failure", func(t *testing.T) {
+		client := NewClient(&ClientOptions{
+			CLIPath: fixturePath,
+			Env:     append(os.Environ(), "TEST_STDERR=something went wrong"),
+		})
+
+		err := client.Start(t.Context())
+		if err == nil {
+			t.Fatal("Expected error, got nil")
+		}
+
+		if !strings.Contains(err.Error(), "something went wrong") {
+			t.Errorf("Expected error to contain stderr output, got: %v", err)
+		}
+	})
+
+	t.Run("caps stderr buffer", func(t *testing.T) {
+		client := NewClient(&ClientOptions{
+			CLIPath: fixturePath,
+			Env:     append(os.Environ(), "TEST_STDERR_SIZE=70000"),
+		})
+
+		if err := client.Start(t.Context()); err == nil {
+			t.Fatal("Expected error, got nil")
+		}
+
+		output := client.getStderrOutput()
+		if len(output) > 64*1024+100 { // Allow some slack but it should be close to 64KB
+			t.Errorf("Expected buffer to be capped around 64KB, got %d bytes", len(output))
+		}
+	})
+
+	t.Run("clears buffer on stop", func(t *testing.T) {
+		client := NewClient(&ClientOptions{})
+		client.stderrBufMux.Lock()
+		client.stderrBuf = []byte("dirty buffer")
+		client.stderrBufMux.Unlock()
+
+		if err := client.Stop(); err != nil {
+			t.Fatal(err)
+		}
+
+		client.stderrBufMux.Lock()
+		if client.stderrBuf != nil {
+			t.Error("Expected stderrBuf to be nil after Stop")
+		}
+		client.stderrBufMux.Unlock()
+	})
 }
