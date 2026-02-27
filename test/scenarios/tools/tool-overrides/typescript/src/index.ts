@@ -17,6 +17,7 @@ async function main() {
           parameters: z.object({
             query: z.string().describe("Search query"),
           }),
+          overridesBuiltInTool: true,
           handler: ({ query }) => `CUSTOM_GREP_RESULT: ${query}`,
         }),
       ],

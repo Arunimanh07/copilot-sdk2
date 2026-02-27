@@ -24,15 +24,16 @@ func main() {
 	}
 	defer client.Stop()
 
+	grepTool := copilot.DefineTool("grep", "A custom grep implementation that overrides the built-in",
+		func(params GrepParams, inv copilot.ToolInvocation) (string, error) {
+			return "CUSTOM_GREP_RESULT: " + params.Query, nil
+		})
+	grepTool.OverridesBuiltInTool = true
+
 	session, err := client.CreateSession(ctx, &copilot.SessionConfig{
 		Model:               "claude-haiku-4.5",
 		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
-		Tools: []copilot.Tool{
-			copilot.DefineTool("grep", "A custom grep implementation that overrides the built-in",
-				func(params GrepParams, inv copilot.ToolInvocation) (string, error) {
-					return "CUSTOM_GREP_RESULT: " + params.Query, nil
-				}),
-		},
+		Tools:               []copilot.Tool{grepTool},
 	})
 	if err != nil {
 		log.Fatal(err)

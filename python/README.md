@@ -212,14 +212,14 @@ The SDK automatically handles `tool.call`, executes your handler (sync or async)
 
 #### Overriding Built-in Tools
 
-If you register a tool with the same name as a built-in CLI tool (e.g. `edit_file`, `read_file`), your tool takes precedence. The SDK automatically adds the tool name to `excluded_tools`, so the built-in is disabled and your handler is called instead. This is useful when you need custom behavior for built-in operations.
+If you register a tool with the same name as a built-in CLI tool (e.g. `edit_file`, `read_file`), the SDK will throw an error unless you explicitly opt in by setting `overrides_built_in_tool=True`. This flag signals that you intend to replace the built-in tool with your custom implementation.
 
 ```python
 class EditFileParams(BaseModel):
     path: str = Field(description="File path")
     content: str = Field(description="New file content")
 
-@define_tool(name="edit_file", description="Custom file editor with project-specific validation")
+@define_tool(name="edit_file", description="Custom file editor with project-specific validation", overrides_built_in_tool=True)
 async def edit_file(params: EditFileParams) -> str:
     # your logic
 ```

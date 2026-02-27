@@ -4,74 +4,56 @@
 
 using Microsoft.Extensions.AI;
 using System.ComponentModel;
+using System.Text.Json;
 using Xunit;
 
 namespace GitHub.Copilot.SDK.Test;
 
-public class MergeExcludedToolsTests
+public class OverridesBuiltInToolTests
 {
     [Fact]
-    public void Tool_Names_Are_Added_To_ExcludedTools()
+    public void ToolDefinition_FromAIFunction_Sets_OverridesBuiltInTool()
     {
-        var tools = new List<AIFunction>
+        var fn = AIFunctionFactory.Create(Noop, "grep");
+        var def = CopilotClient.ToolDefinition.FromAIFunction(fn, overridesBuiltInTool: true);
+
+        Assert.Equal("grep", def.Name);
+        Assert.True(def.OverridesBuiltInTool);
+    }
+
+    [Fact]
+    public void ToolDefinition_FromAIFunction_Omits_OverridesBuiltInTool_When_False()
+    {
+        var fn = AIFunctionFactory.Create(Noop, "custom_tool");
+        var def = CopilotClient.ToolDefinition.FromAIFunction(fn, overridesBuiltInTool: false);
+
+        Assert.Equal("custom_tool", def.Name);
+        Assert.Null(def.OverridesBuiltInTool);
+    }
+
+    [Fact]
+    public void SessionConfig_BuiltInToolOverrides_Is_Used()
+    {
+        var config = new SessionConfig
         {
-            AIFunctionFactory.Create(Noop, "my_tool"),
+            Tools = new List<AIFunction> { AIFunctionFactory.Create(Noop, "grep") },
+            BuiltInToolOverrides = new HashSet<string> { "grep" },
         };
 
-        var result = CopilotClient.MergeExcludedTools(null, tools);
-
-        Assert.NotNull(result);
-        Assert.Contains("my_tool", result!);
+        Assert.Contains("grep", config.BuiltInToolOverrides);
     }
 
     [Fact]
-    public void Merges_With_Existing_ExcludedTools_And_Deduplicates()
+    public void ResumeSessionConfig_BuiltInToolOverrides_Is_Used()
     {
-        var existing = new List<string> { "view", "my_tool" };
-        var tools = new List<AIFunction>
+        var config = new ResumeSessionConfig
         {
-            AIFunctionFactory.Create(Noop, "my_tool"),
-            AIFunctionFactory.Create(Noop, "another_tool"),
+            Tools = new List<AIFunction> { AIFunctionFactory.Create(Noop, "grep") },
+            BuiltInToolOverrides = new HashSet<string> { "grep" },
         };
 
-        var result = CopilotClient.MergeExcludedTools(existing, tools);
-
-        Assert.NotNull(result);
-        Assert.Equal(3, result!.Count);
-        Assert.Contains("view", result);
-        Assert.Contains("my_tool", result);
-        Assert.Contains("another_tool", result);
-    }
-
-    [Fact]
-    public void Returns_Null_When_No_Tools_Provided()
-    {
-        var result = CopilotClient.MergeExcludedTools(null, null);
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void Returns_ExcludedTools_Unchanged_When_Tools_Empty()
-    {
-        var existing = new List<string> { "view" };
-        var result = CopilotClient.MergeExcludedTools(existing, new List<AIFunction>());
-
-        Assert.Same(existing, result);
-    }
-
-    [Fact]
-    public void Returns_Tool_Names_When_ExcludedTools_Null()
-    {
-        var tools = new List<AIFunction>
-        {
-            AIFunctionFactory.Create(Noop, "my_tool"),
-        };
-
-        var result = CopilotClient.MergeExcludedTools(null, tools);
-
-        Assert.NotNull(result);
-        Assert.Single(result!);
-        Assert.Equal("my_tool", result[0]);
+        Assert.NotNull(config.BuiltInToolOverrides);
+        Assert.Contains("grep", config.BuiltInToolOverrides!);
     }
 
     [Description("No-op")]

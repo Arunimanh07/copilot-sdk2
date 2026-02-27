@@ -176,9 +176,9 @@ class TestAuthOptions:
             )
 
 
-class TestExcludedToolsFromRegisteredTools:
+class TestOverridesBuiltInTool:
     @pytest.mark.asyncio
-    async def test_tools_added_to_excluded_tools(self):
+    async def test_overrides_built_in_tool_sent_in_tool_definition(self):
         client = CopilotClient({"cli_path": CLI_PATH})
         await client.start()
 
@@ -192,17 +192,20 @@ class TestExcludedToolsFromRegisteredTools:
 
             client._client.request = mock_request
 
-            @define_tool(description="Edit a file")
-            def edit_file(params) -> str:
+            @define_tool(description="Custom grep", overrides_built_in_tool=True)
+            def grep(params) -> str:
                 return "ok"
 
-            await client.create_session({"tools": [edit_file]})
-            assert "edit_file" in captured["session.create"]["excludedTools"]
+            await client.create_session({"tools": [grep], "on_permission_request": PermissionHandler.approve_all})
+            tool_defs = captured["session.create"]["tools"]
+            assert len(tool_defs) == 1
+            assert tool_defs[0]["name"] == "grep"
+            assert tool_defs[0]["overridesBuiltInTool"] is True
         finally:
             await client.force_stop()
 
     @pytest.mark.asyncio
-    async def test_deduplication_with_existing_excluded_tools(self):
+    async def test_does_not_merge_tool_names_into_excluded_tools(self):
         client = CopilotClient({"cli_path": CLI_PATH})
         await client.start()
 
@@ -216,48 +219,49 @@ class TestExcludedToolsFromRegisteredTools:
 
             client._client.request = mock_request
 
-            @define_tool(description="Edit a file")
-            def edit_file(params) -> str:
+            @define_tool(description="Custom grep", overrides_built_in_tool=True)
+            def grep(params) -> str:
                 return "ok"
 
-            await client.create_session(
-                {
-                    "tools": [edit_file],
-                    "excluded_tools": ["edit_file", "other_tool"],
-                }
-            )
-            excluded = captured["session.create"]["excludedTools"]
-            assert excluded.count("edit_file") == 1
-            assert "other_tool" in excluded
-        finally:
-            await client.force_stop()
-
-    @pytest.mark.asyncio
-    async def test_no_excluded_tools_when_no_tools(self):
-        client = CopilotClient({"cli_path": CLI_PATH})
-        await client.start()
-
-        try:
-            captured = {}
-            original_request = client._client.request
-
-            async def mock_request(method, params):
-                captured[method] = params
-                return await original_request(method, params)
-
-            client._client.request = mock_request
-            await client.create_session({})
+            await client.create_session({"tools": [grep], "on_permission_request": PermissionHandler.approve_all})
             assert "excludedTools" not in captured["session.create"]
         finally:
             await client.force_stop()
 
     @pytest.mark.asyncio
-    async def test_resume_session_adds_tools_to_excluded(self):
+    async def test_preserves_user_excluded_tools(self):
         client = CopilotClient({"cli_path": CLI_PATH})
         await client.start()
 
         try:
-            session = await client.create_session({})
+            captured = {}
+            original_request = client._client.request
+
+            async def mock_request(method, params):
+                captured[method] = params
+                return await original_request(method, params)
+
+            client._client.request = mock_request
+
+            @define_tool(description="Custom grep", overrides_built_in_tool=True)
+            def grep(params) -> str:
+                return "ok"
+
+            await client.create_session(
+                {"tools": [grep], "excluded_tools": ["bash"], "on_permission_request": PermissionHandler.approve_all}
+            )
+            excluded = captured["session.create"]["excludedTools"]
+            assert excluded == ["bash"]
+        finally:
+            await client.force_stop()
+
+    @pytest.mark.asyncio
+    async def test_resume_session_sends_overrides_built_in_tool(self):
+        client = CopilotClient({"cli_path": CLI_PATH})
+        await client.start()
+
+        try:
+            session = await client.create_session({"on_permission_request": PermissionHandler.approve_all})
 
             captured = {}
             original_request = client._client.request
@@ -268,12 +272,14 @@ class TestExcludedToolsFromRegisteredTools:
 
             client._client.request = mock_request
 
-            @define_tool(description="Edit a file")
-            def edit_file(params) -> str:
+            @define_tool(description="Custom grep", overrides_built_in_tool=True)
+            def grep(params) -> str:
                 return "ok"
 
-            await client.resume_session(session.session_id, {"tools": [edit_file]})
-            assert "edit_file" in captured["session.resume"]["excludedTools"]
+            await client.resume_session(session.session_id, {"tools": [grep], "on_permission_request": PermissionHandler.approve_all})
+            tool_defs = captured["session.resume"]["tools"]
+            assert len(tool_defs) == 1
+            assert tool_defs[0]["overridesBuiltInTool"] is True
         finally:
             await client.force_stop()
 

@@ -386,10 +386,11 @@ public partial class CopilotClient : IDisposable, IAsyncDisposable
             config.SessionId,
             config.ClientName,
             config.ReasoningEffort,
-            config.Tools?.Select(ToolDefinition.FromAIFunction).ToList(),
+            config.Tools?.Select(f => ToolDefinition.FromAIFunction(f,
+                config.BuiltInToolOverrides?.Contains(f.Name) == true)).ToList(),
             config.SystemMessage,
             config.AvailableTools,
-            MergeExcludedTools(config.ExcludedTools, config.Tools),
+            config.ExcludedTools,
             config.Provider,
             (bool?)true,
             config.OnUserInputRequest != null ? true : null,
@@ -477,10 +478,11 @@ public partial class CopilotClient : IDisposable, IAsyncDisposable
             config.ClientName,
             config.Model,
             config.ReasoningEffort,
-            config.Tools?.Select(ToolDefinition.FromAIFunction).ToList(),
+            config.Tools?.Select(f => ToolDefinition.FromAIFunction(f,
+                config.BuiltInToolOverrides?.Contains(f.Name) == true)).ToList(),
             config.SystemMessage,
             config.AvailableTools,
-            MergeExcludedTools(config.ExcludedTools, config.Tools),
+            config.ExcludedTools,
             config.Provider,
             (bool?)true,
             config.OnUserInputRequest != null ? true : null,
@@ -860,14 +862,6 @@ public partial class CopilotClient : IDisposable, IAsyncDisposable
         {
             try { handler(evt); } catch { /* Ignore handler errors */ }
         }
-    }
-
-    internal static List<string>? MergeExcludedTools(List<string>? excludedTools, ICollection<AIFunction>? tools)
-    {
-        var toolNames = tools?.Select(t => t.Name).ToList();
-        if (toolNames is null or { Count: 0 }) return excludedTools;
-        if (excludedTools is null or { Count: 0 }) return toolNames;
-        return excludedTools.Union(toolNames).ToList();
     }
 
     internal static async Task<T> InvokeRpcAsync<T>(JsonRpc rpc, string method, object?[]? args, CancellationToken cancellationToken)
@@ -1424,10 +1418,12 @@ public partial class CopilotClient : IDisposable, IAsyncDisposable
     internal record ToolDefinition(
         string Name,
         string? Description,
-        JsonElement Parameters /* JSON schema */)
+        JsonElement Parameters, /* JSON schema */
+        bool? OverridesBuiltInTool = null)
     {
-        public static ToolDefinition FromAIFunction(AIFunction function)
-            => new ToolDefinition(function.Name, function.Description, function.JsonSchema);
+        public static ToolDefinition FromAIFunction(AIFunction function, bool overridesBuiltInTool = false)
+            => new ToolDefinition(function.Name, function.Description, function.JsonSchema,
+                overridesBuiltInTool ? true : null);
     }
 
     internal record CreateSessionResponse(

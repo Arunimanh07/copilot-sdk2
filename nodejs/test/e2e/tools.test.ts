@@ -172,6 +172,7 @@ describe("Custom tools", async () => {
                         query: z.string().describe("Search query"),
                     }),
                     handler: ({ query }) => `CUSTOM_GREP_RESULT: ${query}`,
+                    overridesBuiltInTool: true,
                 }),
             ],
         });

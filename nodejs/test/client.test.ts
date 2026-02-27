@@ -294,70 +294,71 @@ describe("CopilotClient", () => {
         });
     });
 
-    describe("excludedTools merging with config.tools", () => {
-        it("adds tool names from config.tools to excludedTools in session.create", async () => {
+    describe("overridesBuiltInTool in tool definitions", () => {
+        it("sends overridesBuiltInTool in tool definition on session.create", async () => {
             const client = new CopilotClient();
             await client.start();
             onTestFinished(() => client.forceStop());
 
             const spy = vi.spyOn((client as any).connection!, "sendRequest");
             await client.createSession({
-                tools: [{ name: "edit_file", description: "edit", handler: async () => "ok" }],
-            });
-
-            expect(spy).toHaveBeenCalledWith(
-                "session.create",
-                expect.objectContaining({ excludedTools: ["edit_file"] })
-            );
-        });
-
-        it("merges and deduplicates with existing excludedTools", async () => {
-            const client = new CopilotClient();
-            await client.start();
-            onTestFinished(() => client.forceStop());
-
-            const spy = vi.spyOn((client as any).connection!, "sendRequest");
-            await client.createSession({
-                tools: [{ name: "edit_file", description: "edit", handler: async () => "ok" }],
-                excludedTools: ["edit_file", "run_command"],
+                onPermissionRequest: approveAll,
+                tools: [{ name: "grep", description: "custom grep", handler: async () => "ok", overridesBuiltInTool: true }],
             });
 
             const payload = spy.mock.calls.find((c) => c[0] === "session.create")![1] as any;
-            expect(payload.excludedTools).toEqual(
-                expect.arrayContaining(["edit_file", "run_command"])
-            );
-            expect(payload.excludedTools).toHaveLength(2);
+            expect(payload.tools).toEqual([
+                expect.objectContaining({ name: "grep", overridesBuiltInTool: true })
+            ]);
         });
 
-        it("leaves excludedTools unchanged when no tools provided", async () => {
+        it("does not merge tool names into excludedTools", async () => {
             const client = new CopilotClient();
             await client.start();
             onTestFinished(() => client.forceStop());
 
             const spy = vi.spyOn((client as any).connection!, "sendRequest");
-            await client.createSession({ excludedTools: ["run_command"] });
-
-            expect(spy).toHaveBeenCalledWith(
-                "session.create",
-                expect.objectContaining({ excludedTools: ["run_command"] })
-            );
-        });
-
-        it("adds tool names from config.tools to excludedTools in session.resume", async () => {
-            const client = new CopilotClient();
-            await client.start();
-            onTestFinished(() => client.forceStop());
-
-            const session = await client.createSession();
-            const spy = vi.spyOn((client as any).connection!, "sendRequest");
-            await client.resumeSession(session.sessionId, {
-                tools: [{ name: "edit_file", description: "edit", handler: async () => "ok" }],
+            await client.createSession({
+                onPermissionRequest: approveAll,
+                tools: [{ name: "grep", description: "custom grep", handler: async () => "ok", overridesBuiltInTool: true }],
             });
 
-            expect(spy).toHaveBeenCalledWith(
-                "session.resume",
-                expect.objectContaining({ excludedTools: ["edit_file"] })
-            );
+            const payload = spy.mock.calls.find((c) => c[0] === "session.create")![1] as any;
+            expect(payload.excludedTools).toBeUndefined();
+        });
+
+        it("preserves user-specified excludedTools without adding tool names", async () => {
+            const client = new CopilotClient();
+            await client.start();
+            onTestFinished(() => client.forceStop());
+
+            const spy = vi.spyOn((client as any).connection!, "sendRequest");
+            await client.createSession({
+                onPermissionRequest: approveAll,
+                tools: [{ name: "grep", description: "custom grep", handler: async () => "ok", overridesBuiltInTool: true }],
+                excludedTools: ["bash"],
+            });
+
+            const payload = spy.mock.calls.find((c) => c[0] === "session.create")![1] as any;
+            expect(payload.excludedTools).toEqual(["bash"]);
+        });
+
+        it("sends overridesBuiltInTool in tool definition on session.resume", async () => {
+            const client = new CopilotClient();
+            await client.start();
+            onTestFinished(() => client.forceStop());
+
+            const session = await client.createSession({ onPermissionRequest: approveAll });
+            const spy = vi.spyOn((client as any).connection!, "sendRequest");
+            await client.resumeSession(session.sessionId, {
+                onPermissionRequest: approveAll,
+                tools: [{ name: "grep", description: "custom grep", handler: async () => "ok", overridesBuiltInTool: true }],
+            });
+
+            const payload = spy.mock.calls.find((c) => c[0] === "session.resume")![1] as any;
+            expect(payload.tools).toEqual([
+                expect.objectContaining({ name: "grep", overridesBuiltInTool: true })
+            ]);
         });
     });
 });

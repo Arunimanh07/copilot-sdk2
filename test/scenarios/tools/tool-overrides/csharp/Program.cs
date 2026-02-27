@@ -17,6 +17,7 @@ try
         Model = "claude-haiku-4.5",
         OnPermissionRequest = PermissionHandler.ApproveAll,
         Tools = [AIFunctionFactory.Create(CustomGrep, "grep")],
+        BuiltInToolOverrides = new HashSet<string> { "grep" },
     });
 
     var response = await session.SendAndWaitAsync(new MessageOptions

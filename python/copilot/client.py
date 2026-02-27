@@ -467,12 +467,14 @@ class CopilotClient:
         tools = cfg.get("tools")
         if tools:
             for tool in tools:
-                definition = {
+                definition: dict[str, Any] = {
                     "name": tool.name,
                     "description": tool.description,
                 }
                 if tool.parameters:
                     definition["parameters"] = tool.parameters
+                if tool.overrides_built_in_tool:
+                    definition["overridesBuiltInTool"] = True
                 tool_defs.append(definition)
 
         payload: dict[str, Any] = {}
@@ -497,9 +499,6 @@ class CopilotClient:
         if available_tools is not None:
             payload["availableTools"] = available_tools
         excluded_tools = list(cfg.get("excluded_tools") or [])
-        if tools:
-            tool_names = [t.name for t in tools]
-            excluded_tools = list(dict.fromkeys(excluded_tools + tool_names))
         if excluded_tools:
             payload["excludedTools"] = excluded_tools
 
@@ -642,12 +641,14 @@ class CopilotClient:
         tools = cfg.get("tools")
         if tools:
             for tool in tools:
-                definition = {
+                definition: dict[str, Any] = {
                     "name": tool.name,
                     "description": tool.description,
                 }
                 if tool.parameters:
                     definition["parameters"] = tool.parameters
+                if tool.overrides_built_in_tool:
+                    definition["overridesBuiltInTool"] = True
                 tool_defs.append(definition)
 
         payload: dict[str, Any] = {"sessionId": session_id}
@@ -678,9 +679,6 @@ class CopilotClient:
             payload["availableTools"] = available_tools
 
         excluded_tools = list(cfg.get("excluded_tools") or [])
-        if tools:
-            tool_names = [t.name for t in tools]
-            excluded_tools = list(dict.fromkeys(excluded_tools + tool_names))
         if excluded_tools:
             payload["excludedTools"] = excluded_tools
 

@@ -158,6 +158,7 @@ public partial class ToolsTests(E2ETestFixture fixture, ITestOutputHelper output
         var session = await CreateSessionAsync(new SessionConfig
         {
             Tools = [AIFunctionFactory.Create(CustomGrep, "grep")],
+            BuiltInToolOverrides = ["grep"],
             OnPermissionRequest = PermissionHandler.ApproveAll,
         });
 
