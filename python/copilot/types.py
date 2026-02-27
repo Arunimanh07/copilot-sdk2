@@ -4,11 +4,9 @@ Type definitions for the Copilot SDK
 
 from __future__ import annotations
 
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Literal, TypedDict, Union
-
-from typing_extensions import NotRequired
+from typing import Any, Literal, NotRequired, TypedDict
 
 # Import generated SessionEvent types
 from .generated.session_events import SessionEvent
@@ -65,7 +63,7 @@ class SelectionAttachment(TypedDict):
 
 
 # Attachment type - union of all attachment types
-Attachment = Union[FileAttachment, DirectoryAttachment, SelectionAttachment]
+Attachment = FileAttachment | DirectoryAttachment | SelectionAttachment
 
 
 # Options for creating a CopilotClient
@@ -73,6 +71,8 @@ class CopilotClientOptions(TypedDict, total=False):
     """Options for creating a CopilotClient"""
 
     cli_path: str  # Path to the Copilot CLI executable (default: "copilot")
+    # Extra arguments to pass to the CLI executable (inserted before SDK-managed args)
+    cli_args: list[str]
     # Working directory for the CLI process (default: current process's cwd)
     cwd: str
     port: int  # Port for the CLI server (TCP mode only, default: 0)
@@ -125,7 +125,7 @@ class ToolInvocation(TypedDict):
     arguments: Any
 
 
-ToolHandler = Callable[[ToolInvocation], Union[ToolResult, Awaitable[ToolResult]]]
+ToolHandler = Callable[[ToolInvocation], ToolResult | Awaitable[ToolResult]]
 
 
 @dataclass
@@ -160,14 +160,14 @@ class SystemMessageReplaceConfig(TypedDict):
 
 
 # Union type - use one or the other
-SystemMessageConfig = Union[SystemMessageAppendConfig, SystemMessageReplaceConfig]
+SystemMessageConfig = SystemMessageAppendConfig | SystemMessageReplaceConfig
 
 
 # Permission request types
 class PermissionRequest(TypedDict, total=False):
     """Permission request from the server"""
 
-    kind: Literal["shell", "write", "mcp", "read", "url"]
+    kind: Literal["shell", "write", "mcp", "read", "url", "custom-tool"]
     toolCallId: str
     # Additional fields vary by kind
 
@@ -184,10 +184,16 @@ class PermissionRequestResult(TypedDict, total=False):
     rules: list[Any]
 
 
-PermissionHandler = Callable[
+_PermissionHandlerFn = Callable[
     [PermissionRequest, dict[str, str]],
-    Union[PermissionRequestResult, Awaitable[PermissionRequestResult]],
+    PermissionRequestResult | Awaitable[PermissionRequestResult],
 ]
+
+
+class PermissionHandler:
+    @staticmethod
+    def approve_all(request: Any, invocation: Any) -> dict:
+        return {"kind": "approved"}
 
 
 # ============================================================================
@@ -212,7 +218,7 @@ class UserInputResponse(TypedDict):
 
 UserInputHandler = Callable[
     [UserInputRequest, dict[str, str]],
-    Union[UserInputResponse, Awaitable[UserInputResponse]],
+    UserInputResponse | Awaitable[UserInputResponse],
 ]
 
 
@@ -249,7 +255,7 @@ class PreToolUseHookOutput(TypedDict, total=False):
 
 PreToolUseHandler = Callable[
     [PreToolUseHookInput, dict[str, str]],
-    Union[PreToolUseHookOutput, None, Awaitable[Union[PreToolUseHookOutput, None]]],
+    PreToolUseHookOutput | None | Awaitable[PreToolUseHookOutput | None],
 ]
 
 
@@ -273,7 +279,7 @@ class PostToolUseHookOutput(TypedDict, total=False):
 
 PostToolUseHandler = Callable[
     [PostToolUseHookInput, dict[str, str]],
-    Union[PostToolUseHookOutput, None, Awaitable[Union[PostToolUseHookOutput, None]]],
+    PostToolUseHookOutput | None | Awaitable[PostToolUseHookOutput | None],
 ]
 
 
@@ -295,11 +301,7 @@ class UserPromptSubmittedHookOutput(TypedDict, total=False):
 
 UserPromptSubmittedHandler = Callable[
     [UserPromptSubmittedHookInput, dict[str, str]],
-    Union[
-        UserPromptSubmittedHookOutput,
-        None,
-        Awaitable[Union[UserPromptSubmittedHookOutput, None]],
-    ],
+    UserPromptSubmittedHookOutput | None | Awaitable[UserPromptSubmittedHookOutput | None],
 ]
 
 
@@ -321,7 +323,7 @@ class SessionStartHookOutput(TypedDict, total=False):
 
 SessionStartHandler = Callable[
     [SessionStartHookInput, dict[str, str]],
-    Union[SessionStartHookOutput, None, Awaitable[Union[SessionStartHookOutput, None]]],
+    SessionStartHookOutput | None | Awaitable[SessionStartHookOutput | None],
 ]
 
 
@@ -345,7 +347,7 @@ class SessionEndHookOutput(TypedDict, total=False):
 
 SessionEndHandler = Callable[
     [SessionEndHookInput, dict[str, str]],
-    Union[SessionEndHookOutput, None, Awaitable[Union[SessionEndHookOutput, None]]],
+    SessionEndHookOutput | None | Awaitable[SessionEndHookOutput | None],
 ]
 
 
@@ -370,7 +372,7 @@ class ErrorOccurredHookOutput(TypedDict, total=False):
 
 ErrorOccurredHandler = Callable[
     [ErrorOccurredHookInput, dict[str, str]],
-    Union[ErrorOccurredHookOutput, None, Awaitable[Union[ErrorOccurredHookOutput, None]]],
+    ErrorOccurredHookOutput | None | Awaitable[ErrorOccurredHookOutput | None],
 ]
 
 
@@ -412,7 +414,7 @@ class MCPRemoteServerConfig(TypedDict, total=False):
     headers: NotRequired[dict[str, str]]  # HTTP headers
 
 
-MCPServerConfig = Union[MCPLocalServerConfig, MCPRemoteServerConfig]
+MCPServerConfig = MCPLocalServerConfig | MCPRemoteServerConfig
 
 
 # ============================================================================
@@ -460,6 +462,9 @@ class SessionConfig(TypedDict, total=False):
     """Configuration for creating a session"""
 
     session_id: str  # Optional custom session ID
+    # Client name to identify the application using the SDK.
+    # Included in the User-Agent header for API requests.
+    client_name: str
     model: str  # Model to use for this session. Use client.list_models() to see available models.
     # Reasoning effort level for models that support it.
     # Only valid for models where capabilities.supports.reasoning_effort is True.
@@ -471,7 +476,7 @@ class SessionConfig(TypedDict, total=False):
     # List of tool names to disable (ignored if available_tools is set)
     excluded_tools: list[str]
     # Handler for permission requests from the server
-    on_permission_request: PermissionHandler
+    on_permission_request: _PermissionHandlerFn
     # Handler for user input requests from the agent (enables ask_user tool)
     on_user_input_request: UserInputHandler
     # Hook handlers for intercepting session lifecycle events
@@ -527,6 +532,9 @@ class ProviderConfig(TypedDict, total=False):
 class ResumeSessionConfig(TypedDict, total=False):
     """Configuration for resuming a session"""
 
+    # Client name to identify the application using the SDK.
+    # Included in the User-Agent header for API requests.
+    client_name: str
     # Model to use for this session. Can change the model when resuming.
     model: str
     tools: list[Tool]
@@ -538,8 +546,8 @@ class ResumeSessionConfig(TypedDict, total=False):
     provider: ProviderConfig
     # Reasoning effort level for models that support it.
     reasoning_effort: ReasoningEffort
-    on_permission_request: PermissionHandler
-    # Handler for user input requests from the agent (enables ask_user tool)
+    on_permission_request: _PermissionHandlerFn
+    # Handler for user input requestsfrom the agent (enables ask_user tool)
     on_user_input_request: UserInputHandler
     # Hook handlers for intercepting session lifecycle events
     hooks: SessionHooks
@@ -919,6 +927,61 @@ class ModelInfo:
 
 
 @dataclass
+class SessionContext:
+    """Working directory context for a session"""
+
+    cwd: str  # Working directory where the session was created
+    gitRoot: str | None = None  # Git repository root (if in a git repo)
+    repository: str | None = None  # GitHub repository in "owner/repo" format
+    branch: str | None = None  # Current git branch
+
+    @staticmethod
+    def from_dict(obj: Any) -> SessionContext:
+        assert isinstance(obj, dict)
+        cwd = obj.get("cwd")
+        if cwd is None:
+            raise ValueError("Missing required field 'cwd' in SessionContext")
+        return SessionContext(
+            cwd=str(cwd),
+            gitRoot=obj.get("gitRoot"),
+            repository=obj.get("repository"),
+            branch=obj.get("branch"),
+        )
+
+    def to_dict(self) -> dict:
+        result: dict = {"cwd": self.cwd}
+        if self.gitRoot is not None:
+            result["gitRoot"] = self.gitRoot
+        if self.repository is not None:
+            result["repository"] = self.repository
+        if self.branch is not None:
+            result["branch"] = self.branch
+        return result
+
+
+@dataclass
+class SessionListFilter:
+    """Filter options for listing sessions"""
+
+    cwd: str | None = None  # Filter by exact cwd match
+    gitRoot: str | None = None  # Filter by git root
+    repository: str | None = None  # Filter by repository (owner/repo format)
+    branch: str | None = None  # Filter by branch
+
+    def to_dict(self) -> dict:
+        result: dict = {}
+        if self.cwd is not None:
+            result["cwd"] = self.cwd
+        if self.gitRoot is not None:
+            result["gitRoot"] = self.gitRoot
+        if self.repository is not None:
+            result["repository"] = self.repository
+        if self.branch is not None:
+            result["branch"] = self.branch
+        return result
+
+
+@dataclass
 class SessionMetadata:
     """Metadata about a session"""
 
@@ -927,6 +990,7 @@ class SessionMetadata:
     modifiedTime: str  # ISO 8601 timestamp when session was last modified
     isRemote: bool  # Whether the session is remote
     summary: str | None = None  # Optional summary of the session
+    context: SessionContext | None = None  # Working directory context
 
     @staticmethod
     def from_dict(obj: Any) -> SessionMetadata:
@@ -941,12 +1005,15 @@ class SessionMetadata:
                 f"startTime={startTime}, modifiedTime={modifiedTime}, isRemote={isRemote}"
             )
         summary = obj.get("summary")
+        context_dict = obj.get("context")
+        context = SessionContext.from_dict(context_dict) if context_dict else None
         return SessionMetadata(
             sessionId=str(sessionId),
             startTime=str(startTime),
             modifiedTime=str(modifiedTime),
             isRemote=bool(isRemote),
             summary=summary,
+            context=context,
         )
 
     def to_dict(self) -> dict:
@@ -957,6 +1024,8 @@ class SessionMetadata:
         result["isRemote"] = self.isRemote
         if self.summary is not None:
             result["summary"] = self.summary
+        if self.context is not None:
+            result["context"] = self.context.to_dict()
         return result
 
 

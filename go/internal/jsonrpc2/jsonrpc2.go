@@ -8,6 +8,7 @@ import (
 	"io"
 	"reflect"
 	"sync"
+	"sync/atomic"
 )
 
 // Error represents a JSON-RPC error response
@@ -54,9 +55,12 @@ type Client struct {
 	mu              sync.Mutex
 	pendingRequests map[string]chan *Response
 	requestHandlers map[string]RequestHandler
-	running         bool
+	running         atomic.Bool
 	stopChan        chan struct{}
 	wg              sync.WaitGroup
+	processDone     chan struct{} // closed when the underlying process exits
+	processError    error         // set before processDone is closed
+	processErrorMu  sync.RWMutex  // protects processError
 }
 
 // NewClient creates a new JSON-RPC client
@@ -70,19 +74,41 @@ func NewClient(stdin io.WriteCloser, stdout io.ReadCloser) *Client {
 	}
 }
 
+// SetProcessDone sets a channel that will be closed when the process exits,
+// and stores the error that should be returned to pending/future requests.
+func (c *Client) SetProcessDone(done chan struct{}, errPtr *error) {
+	c.processDone = done
+	// Monitor the channel and copy the error when it closes
+	go func() {
+		<-done
+		if errPtr != nil {
+			c.processErrorMu.Lock()
+			c.processError = *errPtr
+			c.processErrorMu.Unlock()
+		}
+	}()
+}
+
+// getProcessError returns the process exit error if the process has exited
+func (c *Client) getProcessError() error {
+	c.processErrorMu.RLock()
+	defer c.processErrorMu.RUnlock()
+	return c.processError
+}
+
 // Start begins listening for messages in a background goroutine
 func (c *Client) Start() {
-	c.running = true
+	c.running.Store(true)
 	c.wg.Add(1)
 	go c.readLoop()
 }
 
 // Stop stops the client and cleans up
 func (c *Client) Stop() {
-	if !c.running {
+	if !c.running.Load() {
 		return
 	}
-	c.running = false
+	c.running.Store(false)
 	close(c.stopChan)
 
 	// Close stdout to unblock the readLoop
@@ -172,6 +198,19 @@ func (c *Client) Request(method string, params any) (json.RawMessage, error) {
 		c.mu.Unlock()
 	}()
 
+	// Check if process already exited before sending
+	if c.processDone != nil {
+		select {
+		case <-c.processDone:
+			if err := c.getProcessError(); err != nil {
+				return nil, err
+			}
+			return nil, fmt.Errorf("process exited unexpectedly")
+		default:
+			// Process still running, continue
+		}
+	}
+
 	paramsData, err := json.Marshal(params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal params: %w", err)
@@ -189,7 +228,23 @@ func (c *Client) Request(method string, params any) (json.RawMessage, error) {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 
-	// Wait for response
+	// Wait for response, also checking for process exit
+	if c.processDone != nil {
+		select {
+		case response := <-responseChan:
+			if response.Error != nil {
+				return nil, response.Error
+			}
+			return response.Result, nil
+		case <-c.processDone:
+			if err := c.getProcessError(); err != nil {
+				return nil, err
+			}
+			return nil, fmt.Errorf("process exited unexpectedly")
+		case <-c.stopChan:
+			return nil, fmt.Errorf("client stopped")
+		}
+	}
 	select {
 	case response := <-responseChan:
 		if response.Error != nil {
@@ -244,14 +299,14 @@ func (c *Client) readLoop() {
 
 	reader := bufio.NewReader(c.stdout)
 
-	for c.running {
+	for c.running.Load() {
 		// Read Content-Length header
 		var contentLength int
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
 				// Only log unexpected errors (not EOF or closed pipe during shutdown)
-				if err != io.EOF && c.running {
+				if err != io.EOF && c.running.Load() {
 					fmt.Printf("Error reading header: %v\n", err)
 				}
 				return

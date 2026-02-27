@@ -1,10 +1,12 @@
 package copilot
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sync"
 	"testing"
 )
 
@@ -20,7 +22,9 @@ func TestClient_HandleToolCallRequest(t *testing.T) {
 		client := NewClient(&ClientOptions{CLIPath: cliPath})
 		t.Cleanup(func() { client.ForceStop() })
 
-		session, err := client.CreateSession(t.Context(), nil)
+		session, err := client.CreateSession(t.Context(), &SessionConfig{
+			OnPermissionRequest: PermissionHandler.ApproveAll,
+		})
 		if err != nil {
 			t.Fatalf("Failed to create session: %v", err)
 		}
@@ -254,17 +258,17 @@ func TestClient_URLParsing(t *testing.T) {
 }
 
 func TestClient_AuthOptions(t *testing.T) {
-	t.Run("should accept GithubToken option", func(t *testing.T) {
+	t.Run("should accept GitHubToken option", func(t *testing.T) {
 		client := NewClient(&ClientOptions{
-			GithubToken: "gho_test_token",
+			GitHubToken: "gho_test_token",
 		})
 
-		if client.options.GithubToken != "gho_test_token" {
-			t.Errorf("Expected GithubToken to be 'gho_test_token', got %q", client.options.GithubToken)
+		if client.options.GitHubToken != "gho_test_token" {
+			t.Errorf("Expected GitHubToken to be 'gho_test_token', got %q", client.options.GitHubToken)
 		}
 	})
 
-	t.Run("should default UseLoggedInUser to nil when no GithubToken", func(t *testing.T) {
+	t.Run("should default UseLoggedInUser to nil when no GitHubToken", func(t *testing.T) {
 		client := NewClient(&ClientOptions{})
 
 		if client.options.UseLoggedInUser != nil {
@@ -282,9 +286,9 @@ func TestClient_AuthOptions(t *testing.T) {
 		}
 	})
 
-	t.Run("should allow explicit UseLoggedInUser true with GithubToken", func(t *testing.T) {
+	t.Run("should allow explicit UseLoggedInUser true with GitHubToken", func(t *testing.T) {
 		client := NewClient(&ClientOptions{
-			GithubToken:     "gho_test_token",
+			GitHubToken:     "gho_test_token",
 			UseLoggedInUser: Bool(true),
 		})
 
@@ -293,12 +297,12 @@ func TestClient_AuthOptions(t *testing.T) {
 		}
 	})
 
-	t.Run("should throw error when GithubToken is used with CLIUrl", func(t *testing.T) {
+	t.Run("should throw error when GitHubToken is used with CLIUrl", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r == nil {
 				t.Error("Expected panic for auth options with CLIUrl")
 			} else {
-				matched, _ := regexp.MatchString("GithubToken and UseLoggedInUser cannot be used with CLIUrl", r.(string))
+				matched, _ := regexp.MatchString("GitHubToken and UseLoggedInUser cannot be used with CLIUrl", r.(string))
 				if !matched {
 					t.Errorf("Expected panic message about auth options, got: %v", r)
 				}
@@ -307,7 +311,7 @@ func TestClient_AuthOptions(t *testing.T) {
 
 		NewClient(&ClientOptions{
 			CLIUrl:      "localhost:8080",
-			GithubToken: "gho_test_token",
+			GitHubToken: "gho_test_token",
 		})
 	})
 
@@ -316,7 +320,7 @@ func TestClient_AuthOptions(t *testing.T) {
 			if r := recover(); r == nil {
 				t.Error("Expected panic for auth options with CLIUrl")
 			} else {
-				matched, _ := regexp.MatchString("GithubToken and UseLoggedInUser cannot be used with CLIUrl", r.(string))
+				matched, _ := regexp.MatchString("GitHubToken and UseLoggedInUser cannot be used with CLIUrl", r.(string))
 				if !matched {
 					t.Errorf("Expected panic message about auth options, got: %v", r)
 				}
@@ -388,4 +392,139 @@ func findCLIPathForTest() string {
 func fileExistsForTest(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+func TestCreateSessionRequest_ClientName(t *testing.T) {
+	t.Run("includes clientName in JSON when set", func(t *testing.T) {
+		req := createSessionRequest{ClientName: "my-app"}
+		data, err := json.Marshal(req)
+		if err != nil {
+			t.Fatalf("Failed to marshal: %v", err)
+		}
+		var m map[string]any
+		if err := json.Unmarshal(data, &m); err != nil {
+			t.Fatalf("Failed to unmarshal: %v", err)
+		}
+		if m["clientName"] != "my-app" {
+			t.Errorf("Expected clientName to be 'my-app', got %v", m["clientName"])
+		}
+	})
+
+	t.Run("omits clientName from JSON when empty", func(t *testing.T) {
+		req := createSessionRequest{}
+		data, _ := json.Marshal(req)
+		var m map[string]any
+		json.Unmarshal(data, &m)
+		if _, ok := m["clientName"]; ok {
+			t.Error("Expected clientName to be omitted when empty")
+		}
+	})
+}
+
+func TestResumeSessionRequest_ClientName(t *testing.T) {
+	t.Run("includes clientName in JSON when set", func(t *testing.T) {
+		req := resumeSessionRequest{SessionID: "s1", ClientName: "my-app"}
+		data, err := json.Marshal(req)
+		if err != nil {
+			t.Fatalf("Failed to marshal: %v", err)
+		}
+		var m map[string]any
+		if err := json.Unmarshal(data, &m); err != nil {
+			t.Fatalf("Failed to unmarshal: %v", err)
+		}
+		if m["clientName"] != "my-app" {
+			t.Errorf("Expected clientName to be 'my-app', got %v", m["clientName"])
+		}
+	})
+
+	t.Run("omits clientName from JSON when empty", func(t *testing.T) {
+		req := resumeSessionRequest{SessionID: "s1"}
+		data, _ := json.Marshal(req)
+		var m map[string]any
+		json.Unmarshal(data, &m)
+		if _, ok := m["clientName"]; ok {
+			t.Error("Expected clientName to be omitted when empty")
+		}
+	})
+}
+
+func TestClient_CreateSession_RequiresPermissionHandler(t *testing.T) {
+	t.Run("returns error when config is nil", func(t *testing.T) {
+		client := NewClient(nil)
+		_, err := client.CreateSession(t.Context(), nil)
+		if err == nil {
+			t.Fatal("Expected error when OnPermissionRequest is nil")
+		}
+		matched, _ := regexp.MatchString("OnPermissionRequest.*is required", err.Error())
+		if !matched {
+			t.Errorf("Expected error about OnPermissionRequest being required, got: %v", err)
+		}
+	})
+
+	t.Run("returns error when OnPermissionRequest is not set", func(t *testing.T) {
+		client := NewClient(nil)
+		_, err := client.CreateSession(t.Context(), &SessionConfig{})
+		if err == nil {
+			t.Fatal("Expected error when OnPermissionRequest is nil")
+		}
+		matched, _ := regexp.MatchString("OnPermissionRequest.*is required", err.Error())
+		if !matched {
+			t.Errorf("Expected error about OnPermissionRequest being required, got: %v", err)
+		}
+	})
+}
+
+func TestClient_ResumeSession_RequiresPermissionHandler(t *testing.T) {
+	t.Run("returns error when config is nil", func(t *testing.T) {
+		client := NewClient(nil)
+		_, err := client.ResumeSessionWithOptions(t.Context(), "some-id", nil)
+		if err == nil {
+			t.Fatal("Expected error when OnPermissionRequest is nil")
+		}
+		matched, _ := regexp.MatchString("OnPermissionRequest.*is required", err.Error())
+		if !matched {
+			t.Errorf("Expected error about OnPermissionRequest being required, got: %v", err)
+		}
+	})
+}
+
+func TestClient_StartStopRace(t *testing.T) {
+	cliPath := findCLIPathForTest()
+	if cliPath == "" {
+		t.Skip("CLI not found")
+	}
+	client := NewClient(&ClientOptions{CLIPath: cliPath})
+	defer client.ForceStop()
+	errChan := make(chan error)
+	wg := sync.WaitGroup{}
+	for range 10 {
+		wg.Add(3)
+		go func() {
+			defer wg.Done()
+			if err := client.Start(t.Context()); err != nil {
+				select {
+				case errChan <- err:
+				default:
+				}
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			if err := client.Stop(); err != nil {
+				select {
+				case errChan <- err:
+				default:
+				}
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			client.ForceStop()
+		}()
+	}
+	wg.Wait()
+	close(errChan)
+	if err := <-errChan; err != nil {
+		t.Fatal(err)
+	}
 }
