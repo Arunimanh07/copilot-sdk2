@@ -11,6 +11,7 @@
 export { CopilotClient } from "./client.js";
 export { CopilotSession, type AssistantMessageEvent } from "./session.js";
 export { defineTool, approveAll } from "./types.js";
+export { query } from "./query.js";
 export type {
     ConnectionState,
     CopilotClientOptions,
@@ -30,6 +31,7 @@ export type {
     PermissionHandler,
     PermissionRequest,
     PermissionRequestResult,
+    QueryOptions,
     ResumeSessionConfig,
     SessionConfig,
     SessionEvent,

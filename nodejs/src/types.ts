@@ -1052,3 +1052,55 @@ export interface ForegroundSessionInfo {
     /** Workspace path of the foreground session */
     workspacePath?: string;
 }
+
+// ============================================================================
+// Query Options (convenience API)
+// ============================================================================
+
+/**
+ * Options for the `query()` convenience function.
+ * Combines the essential CopilotClient and SessionConfig options
+ * into a single flat configuration.
+ */
+export interface QueryOptions {
+    /** The user prompt to send. */
+    prompt: string;
+
+    /** Tools exposed to the model. */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tools?: Tool<any>[];
+
+    /** Model to use (e.g. "gpt-5", "claude-sonnet-4.5"). */
+    model?: string;
+
+    /**
+     * Maximum number of agentic turns (assistant responses that include tool calls).
+     * The generator will end after this many tool-calling turns.
+     * If not set, the agent runs until it is idle.
+     */
+    maxTurns?: number;
+
+    /** Enable streaming delta events. @default true */
+    streaming?: boolean;
+
+    /**
+     * URL of an existing Copilot CLI server (e.g. "localhost:8080").
+     * When provided, the client will not spawn a CLI process.
+     */
+    cliUrl?: string;
+
+    /** Path to the CLI executable. */
+    cliPath?: string;
+
+    /** GitHub token for authentication. */
+    githubToken?: string;
+
+    /**
+     * Handler for permission requests.
+     * @default approveAll
+     */
+    onPermissionRequest?: PermissionHandler;
+
+    /** System message configuration. */
+    systemMessage?: SystemMessageConfig;
+}
