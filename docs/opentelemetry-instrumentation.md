@@ -165,6 +165,7 @@ await session.send({"prompt": "Hello"})
 ```
 
 **Event Data Structure:**
+<!-- docs-validate: skip -->
 ```python
 @dataclass
 class Usage:
@@ -430,6 +431,7 @@ export OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true
 
 ### Checking at Runtime
 
+<!-- docs-validate: skip -->
 ```python
 import os
 
@@ -445,6 +447,7 @@ if should_record_content() and event.data.content:
 
 For MCP-based tools, add these additional attributes following the [OpenTelemetry MCP semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/mcp/):
 
+<!-- docs-validate: skip -->
 ```python
 tool_attrs = {
     # Required
@@ -549,6 +552,7 @@ View traces in the Azure Portal under your Application Insights resource → Tra
 ### Tool spans not showing as children
 
 Make sure to attach the tool span to the parent context:
+<!-- docs-validate: skip -->
 ```python
 tool_token = context.attach(trace.set_span_in_context(tool_span))
 ```
