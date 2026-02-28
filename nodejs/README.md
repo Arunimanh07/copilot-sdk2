@@ -94,7 +94,7 @@ Stop the server and close all sessions. Returns a list of any errors encountered
 
 Force stop the CLI server without graceful cleanup. Use when `stop()` takes too long.
 
-##### `createSession(config?: SessionConfig): Promise<CopilotSession>`
+##### `createSession(config: SessionConfig): Promise<CopilotSession>`
 
 Create a new conversation session.
 
@@ -111,7 +111,7 @@ Create a new conversation session.
 - `onUserInputRequest?: UserInputHandler` - Handler for user input requests from the agent. Enables the `ask_user` tool. See [User Input Requests](#user-input-requests) section.
 - `hooks?: SessionHooks` - Hook handlers for session lifecycle events. See [Session Hooks](#session-hooks) section.
 
-##### `resumeSession(sessionId: string, config?: ResumeSessionConfig): Promise<CopilotSession>`
+##### `resumeSession(sessionId: string, config: ResumeSessionConfig): Promise<CopilotSession>`
 
 Resume an existing session. Returns the session with `workspacePath` populated if infinite sessions were enabled.
 
