@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -306,7 +308,7 @@ func (c *Client) readLoop() {
 			line, err := reader.ReadString('\n')
 			if err != nil {
 				// Only log unexpected errors (not EOF or closed pipe during shutdown)
-				if err != io.EOF && c.running.Load() {
+				if err != io.EOF && !errors.Is(err, os.ErrClosed) && c.running.Load() {
 					fmt.Printf("Error reading header: %v\n", err)
 				}
 				return
