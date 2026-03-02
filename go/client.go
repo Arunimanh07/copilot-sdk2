@@ -1342,7 +1342,7 @@ func (c *Client) handlePermissionRequest(req permissionRequestRequest) (*permiss
 		// Return denial on error
 		return &permissionRequestResponse{
 			Result: PermissionRequestResult{
-				Kind: "denied-no-approval-rule-and-could-not-request-from-user",
+				Kind: PermissionKindDeniedCouldNotRequestFromUser,
 			},
 		}, nil
 	}
