@@ -1,5 +1,5 @@
 """
-Copilot CLI SDK Client - Main entry point for the Copilot SDK.
+Copilot CLI SDK Client - Main entry point for the awesome Copilot SDK.
 
 This module provides the :class:`CopilotClient` class, which manages the connection
 to the Copilot CLI server and provides session management capabilities.

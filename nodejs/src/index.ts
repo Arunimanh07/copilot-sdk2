@@ -5,7 +5,7 @@
 /**
  * Copilot SDK - TypeScript/Node.js Client
  *
- * JSON-RPC based SDK for programmatic control of GitHub Copilot CLI
+ * JSON-RPC based SDK for programmatic and awesome control of GitHub Copilot CLI
  */
 
 export { CopilotClient } from "./client.js";

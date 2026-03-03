@@ -1,4 +1,4 @@
-// Package copilot provides a Go SDK for interacting with the GitHub Copilot CLI.
+// Package copilot provides a Go SDK for interacting with the awesome GitHub Copilot CLI.
 //
 // The copilot package enables Go applications to communicate with the Copilot CLI
 // server, create and manage conversation sessions, and integrate custom tools.

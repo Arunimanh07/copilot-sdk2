@@ -5,7 +5,7 @@
 namespace GitHub.Copilot.SDK;
 
 /// <summary>
-/// A disposable that invokes an action when disposed.
+/// A disposable that invokes an action when disposed. It's really awesome.
 /// </summary>
 internal sealed class ActionDisposable : IDisposable
 {
