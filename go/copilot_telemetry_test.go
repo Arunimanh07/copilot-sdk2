@@ -484,7 +484,7 @@ func TestOpenTelemetry_TwoLevelSpanHierarchy(t *testing.T) {
 	session := newTestSession(ct, false)
 
 	// Simulate send
-	session.turnTracker.beginSend(context.Background(), "Hello")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Hello")}})
 
 	// AssistantTurnStart creates the chat child span
 	session.dispatchEvent(SessionEvent{
@@ -562,7 +562,7 @@ func TestOpenTelemetry_MultiTurnAccumulatedUsage(t *testing.T) {
 	ct, exporter, _ := setupTestTelemetry(t, &TelemetryConfig{})
 
 	session := newTestSession(ct, false)
-	session.turnTracker.beginSend(context.Background(), "Hello")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Hello")}})
 
 	// Turn 1
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
@@ -600,7 +600,7 @@ func TestOpenTelemetry_VendorPrefixedAttributes(t *testing.T) {
 	ct, exporter, _ := setupTestTelemetry(t, &TelemetryConfig{})
 
 	session := newTestSession(ct, false)
-	session.turnTracker.beginSend(context.Background(), "Hello")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Hello")}})
 
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
 	session.dispatchEvent(SessionEvent{Type: AssistantUsage, Data: Data{
@@ -645,7 +645,7 @@ func TestOpenTelemetry_RichMessageContent(t *testing.T) {
 	ct, exporter, _ := setupTestTelemetry(t, &TelemetryConfig{EnableSensitiveData: Bool(true)})
 
 	session := newTestSession(ct, false)
-	session.turnTracker.beginSend(context.Background(), "Hello")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Hello")}})
 
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
 
@@ -694,7 +694,7 @@ func TestOpenTelemetry_ToolCallParts(t *testing.T) {
 	ct, exporter, _ := setupTestTelemetry(t, &TelemetryConfig{EnableSensitiveData: Bool(true)})
 
 	session := newTestSession(ct, false)
-	session.turnTracker.beginSend(context.Background(), "Hello")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Hello")}})
 
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
 
@@ -763,7 +763,7 @@ func TestOpenTelemetry_MCPServerToolTracking(t *testing.T) {
 	ct, exporter, _ := setupTestTelemetry(t, &TelemetryConfig{EnableSensitiveData: Bool(true)})
 
 	session := newTestSession(ct, false)
-	session.turnTracker.beginSend(context.Background(), "Hello")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Hello")}})
 
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
 
@@ -824,7 +824,7 @@ func TestOpenTelemetry_SessionTruncationEvent(t *testing.T) {
 	ct, exporter, _ := setupTestTelemetry(t, &TelemetryConfig{})
 
 	session := newTestSession(ct, false)
-	session.turnTracker.beginSend(context.Background(), "Hello")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Hello")}})
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
 
 	session.dispatchEvent(SessionEvent{
@@ -863,7 +863,7 @@ func TestOpenTelemetry_CompactionEvents(t *testing.T) {
 	ct, exporter, _ := setupTestTelemetry(t, &TelemetryConfig{})
 
 	session := newTestSession(ct, false)
-	session.turnTracker.beginSend(context.Background(), "Hello")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Hello")}})
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
 
 	session.dispatchEvent(SessionEvent{Type: SessionCompactionStart})
@@ -902,7 +902,7 @@ func TestOpenTelemetry_SkillInvokedEvent(t *testing.T) {
 	ct, exporter, _ := setupTestTelemetry(t, &TelemetryConfig{EnableSensitiveData: Bool(true)})
 
 	session := newTestSession(ct, false)
-	session.turnTracker.beginSend(context.Background(), "Hello")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Hello")}})
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
 
 	session.dispatchEvent(SessionEvent{
@@ -944,7 +944,7 @@ func TestOpenTelemetry_SessionErrorCompletesTurn(t *testing.T) {
 	ct, exporter, _ := setupTestTelemetry(t, &TelemetryConfig{})
 
 	session := newTestSession(ct, false)
-	session.turnTracker.beginSend(context.Background(), "")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("")}})
 
 	errMsg := "model rate limited"
 	session.dispatchEvent(SessionEvent{
@@ -969,11 +969,11 @@ func TestOpenTelemetry_CompleteOnDispose(t *testing.T) {
 	ct, exporter, _ := setupTestTelemetry(t, &TelemetryConfig{})
 
 	session := newTestSession(ct, false)
-	session.turnTracker.beginSend(context.Background(), "Hello")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Hello")}})
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
 
 	// Simulate dispose while turn is active
-	session.turnTracker.completeOnDispose()
+	session.telemetryTracker.completeOnDispose()
 
 	spans := exporter.GetSpans()
 	// Should have chat span + invoke_agent span, both with error
@@ -995,7 +995,7 @@ func TestOpenTelemetry_StreamingChunkMetrics(t *testing.T) {
 	ct, _, reader := setupTestTelemetry(t, &TelemetryConfig{})
 
 	session := newTestSession(ct, true) // streaming=true
-	session.turnTracker.beginSend(context.Background(), "")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("")}})
 
 	// Start a chat turn
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
@@ -1032,7 +1032,7 @@ func TestOpenTelemetry_SubagentSpans(t *testing.T) {
 	ct, exporter, _ := setupTestTelemetry(t, &TelemetryConfig{})
 
 	session := newTestSession(ct, false)
-	session.turnTracker.beginSend(context.Background(), "Hello")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Hello")}})
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
 
 	// Subagent started
@@ -1100,7 +1100,7 @@ func TestOpenTelemetry_ToolCallParentContext(t *testing.T) {
 	ct, _, _ := setupTestTelemetry(t, &TelemetryConfig{})
 
 	session := newTestSession(ct, false)
-	session.turnTracker.beginSend(context.Background(), "Hello")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Hello")}})
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
 
 	// Simulate tool execution start to register pending parent
@@ -1132,7 +1132,7 @@ func TestOpenTelemetry_ModelChangeUpdatesResponseModel(t *testing.T) {
 	ct, _, _ := setupTestTelemetry(t, &TelemetryConfig{})
 
 	session := newTestSession(ct, false)
-	session.turnTracker.beginSend(context.Background(), "")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("")}})
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
 
 	newModel := "gpt-4-turbo"
@@ -1141,11 +1141,11 @@ func TestOpenTelemetry_ModelChangeUpdatesResponseModel(t *testing.T) {
 		Data: Data{NewModel: &newModel},
 	})
 
-	session.turnTracker.mu.Lock()
-	if session.turnTracker.turnResponseModel != "gpt-4-turbo" {
-		t.Errorf("Expected response model to be updated to gpt-4-turbo, got %q", session.turnTracker.turnResponseModel)
+	session.telemetryTracker.mu.Lock()
+	if session.telemetryTracker.turnResponseModel != "gpt-4-turbo" {
+		t.Errorf("Expected response model to be updated to gpt-4-turbo, got %q", session.telemetryTracker.turnResponseModel)
 	}
-	session.turnTracker.mu.Unlock()
+	session.telemetryTracker.mu.Unlock()
 
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnEnd})
 	session.dispatchEvent(SessionEvent{Type: SessionIdle})
@@ -1157,10 +1157,10 @@ func TestOpenTelemetry_SpanReuseWithinTurn(t *testing.T) {
 	session := newTestSession(ct, false)
 
 	// First send
-	session.turnTracker.beginSend(context.Background(), "First question")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("First question")}})
 
 	// Second send within the same turn (no SessionIdle yet)
-	session.turnTracker.beginSend(context.Background(), "Another question")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Another question")}})
 
 	// Complete
 	session.dispatchEvent(SessionEvent{Type: SessionIdle})
@@ -1182,7 +1182,7 @@ func TestOpenTelemetry_FinishReasons(t *testing.T) {
 	ct, exporter, _ := setupTestTelemetry(t, &TelemetryConfig{})
 
 	session := newTestSession(ct, false)
-	session.turnTracker.beginSend(context.Background(), "Hello")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Hello")}})
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnEnd})
 	session.dispatchEvent(SessionEvent{Type: SessionIdle})
@@ -1214,7 +1214,7 @@ func TestOpenTelemetry_MessageContentExcludedWhenSensitiveDisabled(t *testing.T)
 	tools := []Tool{{Name: "myTool", Description: "A tool", Parameters: map[string]any{"type": "object"}}}
 	session.configureTelemetryContext("gpt-4", nil, sysMsg, tools, false, "", "")
 
-	session.turnTracker.beginSend(context.Background(), "Hello")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Hello")}})
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
 	session.dispatchEvent(SessionEvent{
 		Type: AssistantMessage,
@@ -1247,7 +1247,7 @@ func TestOpenTelemetry_CacheTokenAttributes(t *testing.T) {
 	ct, exporter, _ := setupTestTelemetry(t, &TelemetryConfig{})
 
 	session := newTestSession(ct, false)
-	session.turnTracker.beginSend(context.Background(), "Hello")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Hello")}})
 
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
 	session.dispatchEvent(SessionEvent{
@@ -1277,7 +1277,7 @@ func TestOpenTelemetry_ChunkTimingUsesChat(t *testing.T) {
 	ct, _, reader := setupTestTelemetry(t, &TelemetryConfig{})
 
 	session := newTestSession(ct, true) // streaming=true
-	session.turnTracker.beginSend(context.Background(), "")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("")}})
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
 
 	session.dispatchEvent(SessionEvent{
@@ -1311,7 +1311,7 @@ func TestOpenTelemetry_TokenUsageMetricsUseChat(t *testing.T) {
 	ct, _, reader := setupTestTelemetry(t, &TelemetryConfig{})
 
 	session := newTestSession(ct, false)
-	session.turnTracker.beginSend(context.Background(), "Hello")
+	session.telemetryTracker.processEvent(SessionEvent{Type: UserMessage, Data: Data{Content: ptrString("Hello")}})
 	session.dispatchEvent(SessionEvent{Type: AssistantTurnStart, Data: Data{}})
 	session.dispatchEvent(SessionEvent{
 		Type: AssistantUsage,

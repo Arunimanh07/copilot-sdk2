@@ -105,10 +105,6 @@ internal sealed class CopilotTelemetry : IDisposable
             return null;
         }
 
-        string displayName = string.IsNullOrWhiteSpace(agentName)
-            ? OpenTelemetryConsts.GenAI.OperationNames.InvokeAgent
-            : $"{OpenTelemetryConsts.GenAI.OperationNames.InvokeAgent} {agentName}";
-
         ActivityTagsCollection tags = new()
         {
             { OpenTelemetryConsts.GenAI.Operation.Name, OpenTelemetryConsts.GenAI.OperationNames.InvokeAgent },
@@ -117,29 +113,19 @@ internal sealed class CopilotTelemetry : IDisposable
             { OpenTelemetryConsts.GenAI.Conversation.Id, sessionId },
         };
 
-        if (!string.IsNullOrWhiteSpace(model))
-        {
-            tags.Add(OpenTelemetryConsts.GenAI.Request.Model, model);
-        }
-
-        if (!string.IsNullOrWhiteSpace(agentName))
-        {
-            tags.Add(OpenTelemetryConsts.GenAI.Agent.Name, agentName);
-        }
-
-        if (!string.IsNullOrWhiteSpace(agentDescription))
-        {
-            tags.Add(OpenTelemetryConsts.GenAI.Agent.Description, agentDescription);
-        }
+        AddIfNotEmpty(tags, OpenTelemetryConsts.GenAI.Request.Model, model);
+        AddIfNotEmpty(tags, OpenTelemetryConsts.GenAI.Agent.Name, agentName);
+        AddIfNotEmpty(tags, OpenTelemetryConsts.GenAI.Agent.Description, agentDescription);
 
         if (!string.IsNullOrWhiteSpace(serverAddress))
         {
             tags.Add(OpenTelemetryConsts.Server.Address, serverAddress);
-            if (serverPort is int port)
-            {
-                tags.Add(OpenTelemetryConsts.Server.Port, port);
-            }
+            AddIfNotNull(tags, OpenTelemetryConsts.Server.Port, serverPort);
         }
+
+        string displayName = string.IsNullOrWhiteSpace(agentName)
+            ? OpenTelemetryConsts.GenAI.OperationNames.InvokeAgent
+            : $"{OpenTelemetryConsts.GenAI.OperationNames.InvokeAgent} {agentName}";
 
         return ActivitySource.StartActivity(displayName, ActivityKind.Client, parentContext, tags);
     }
@@ -158,34 +144,24 @@ internal sealed class CopilotTelemetry : IDisposable
             return null;
         }
 
-        string displayName = string.IsNullOrWhiteSpace(model)
-            ? OpenTelemetryConsts.GenAI.OperationNames.Chat
-            : $"{OpenTelemetryConsts.GenAI.OperationNames.Chat} {model}";
-
         ActivityTagsCollection tags = new()
         {
             { OpenTelemetryConsts.GenAI.Operation.Name, OpenTelemetryConsts.GenAI.OperationNames.Chat },
             { OpenTelemetryConsts.GenAI.Provider.Name, providerName },
         };
 
-        if (!string.IsNullOrWhiteSpace(model))
-        {
-            tags.Add(OpenTelemetryConsts.GenAI.Request.Model, model);
-        }
-
-        if (!string.IsNullOrWhiteSpace(conversationId))
-        {
-            tags.Add(OpenTelemetryConsts.GenAI.Conversation.Id, conversationId);
-        }
+        AddIfNotEmpty(tags, OpenTelemetryConsts.GenAI.Request.Model, model);
+        AddIfNotEmpty(tags, OpenTelemetryConsts.GenAI.Conversation.Id, conversationId);
 
         if (!string.IsNullOrWhiteSpace(serverAddress))
         {
             tags.Add(OpenTelemetryConsts.Server.Address, serverAddress);
-            if (serverPort is int port)
-            {
-                tags.Add(OpenTelemetryConsts.Server.Port, port);
-            }
+            AddIfNotNull(tags, OpenTelemetryConsts.Server.Port, serverPort);
         }
+
+        string displayName = string.IsNullOrWhiteSpace(model)
+            ? OpenTelemetryConsts.GenAI.OperationNames.Chat
+            : $"{OpenTelemetryConsts.GenAI.OperationNames.Chat} {model}";
 
         return ActivitySource.StartActivity(displayName, ActivityKind.Client, parentContext, tags);
     }
@@ -198,8 +174,6 @@ internal sealed class CopilotTelemetry : IDisposable
             return null;
         }
 
-        string displayName = $"{OpenTelemetryConsts.GenAI.OperationNames.ExecuteTool} {toolName}";
-
         ActivityTagsCollection tags = new()
         {
             { OpenTelemetryConsts.GenAI.Operation.Name, OpenTelemetryConsts.GenAI.OperationNames.ExecuteTool },
@@ -208,15 +182,14 @@ internal sealed class CopilotTelemetry : IDisposable
             { OpenTelemetryConsts.GenAI.Tool.Type, "function" },
         };
 
-        if (!string.IsNullOrWhiteSpace(description))
-        {
-            tags.Add(OpenTelemetryConsts.GenAI.Tool.Description, description);
-        }
+        AddIfNotEmpty(tags, OpenTelemetryConsts.GenAI.Tool.Description, description);
 
-        if (EnableSensitiveData && arguments is not null)
+        if (arguments is not null && EnableSensitiveData)
         {
             tags.Add(OpenTelemetryConsts.GenAI.Tool.CallArguments, SerializeTagValue(arguments));
         }
+
+        string displayName = $"{OpenTelemetryConsts.GenAI.OperationNames.ExecuteTool} {toolName}";
 
         return ActivitySource.StartActivity(displayName, ActivityKind.Internal, parentContext, tags);
     }
@@ -233,30 +206,21 @@ internal sealed class CopilotTelemetry : IDisposable
         Exception? error,
         string operationName)
     {
-        if (!TokenUsageHistogram.Enabled)
+        if (TokenUsageHistogram.Enabled)
         {
-            return;
-        }
+            if (inputTokens is int inputCount)
+            {
+                TagList tags = CreateMetricTags(operationName, requestModel, responseModel, providerName, serverAddress, serverPort, error);
+                tags.Add(OpenTelemetryConsts.GenAI.Token.Type, OpenTelemetryConsts.TokenTypeInput);
+                TokenUsageHistogram.Record(inputCount, tags);
+            }
 
-        TagList baseTags = CreateMetricTags(operationName, requestModel, responseModel, providerName, serverAddress, serverPort);
-
-        if (error is not null)
-        {
-            baseTags.Add(OpenTelemetryConsts.Error.Type, error.GetType().Name);
-        }
-
-        if (inputTokens is int inputCount)
-        {
-            TagList tags = baseTags;
-            tags.Add(OpenTelemetryConsts.GenAI.Token.Type, OpenTelemetryConsts.TokenTypeInput);
-            TokenUsageHistogram.Record(inputCount, tags);
-        }
-
-        if (outputTokens is int outputCount)
-        {
-            TagList tags = baseTags;
-            tags.Add(OpenTelemetryConsts.GenAI.Token.Type, OpenTelemetryConsts.TokenTypeOutput);
-            TokenUsageHistogram.Record(outputCount, tags);
+            if (outputTokens is int outputCount)
+            {
+                TagList tags = CreateMetricTags(operationName, requestModel, responseModel, providerName, serverAddress, serverPort, error);
+                tags.Add(OpenTelemetryConsts.GenAI.Token.Type, OpenTelemetryConsts.TokenTypeOutput);
+                TokenUsageHistogram.Record(outputCount, tags);
+            }
         }
     }
 
@@ -273,14 +237,9 @@ internal sealed class CopilotTelemetry : IDisposable
     {
         if (OperationDurationHistogram.Enabled)
         {
-            TagList tags = CreateMetricTags(operationName, requestModel, responseModel, providerName, serverAddress, serverPort);
-
-            if (error is not null)
-            {
-                tags.Add(OpenTelemetryConsts.Error.Type, error.GetType().Name);
-            }
-
-            OperationDurationHistogram.Record(durationSeconds, tags);
+            OperationDurationHistogram.Record(
+                durationSeconds,
+                CreateMetricTags(operationName, requestModel, responseModel, providerName, serverAddress, serverPort, error));
         }
     }
 
@@ -330,8 +289,8 @@ internal sealed class CopilotTelemetry : IDisposable
 
     public void SetExecuteToolResult(Activity? activity, object? result)
     {
-        if (EnableSensitiveData &&
-            result is not null &&
+        if (result is not null &&
+            EnableSensitiveData &&
             activity is { IsAllDataRequested: true })
         {
             activity.SetTag(OpenTelemetryConsts.GenAI.Tool.CallResult, SerializeTagValue(result));
@@ -373,13 +332,46 @@ internal sealed class CopilotTelemetry : IDisposable
         return (null, null);
     }
 
+    private static void AddIfNotEmpty(ActivityTagsCollection tags, string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            tags.Add(key, value);
+        }
+    }
+
+    private static void AddIfNotNull(ActivityTagsCollection tags, string key, int? value)
+    {
+        if (value is int v)
+        {
+            tags.Add(key, v);
+        }
+    }
+
+    private static void AddAsInt64IfNotZero(ActivityTagsCollection tags, string key, double value)
+    {
+        if (value != 0)
+        {
+            tags.Add(key, (long)value);
+        }
+    }
+
+    private static void AddAsInt64IfNotNull(ActivityTagsCollection tags, string key, double? value)
+    {
+        if (value is double d)
+        {
+            tags.Add(key, (long)d);
+        }
+    }
+
     private static TagList CreateMetricTags(
         string operationName,
         string? requestModel,
         string? responseModel,
         string providerName,
         string? serverAddress,
-        int? serverPort)
+        int? serverPort,
+        Exception? error = null)
     {
         TagList tags = default;
         tags.Add(OpenTelemetryConsts.GenAI.Operation.Name, operationName);
@@ -402,6 +394,11 @@ internal sealed class CopilotTelemetry : IDisposable
             {
                 tags.Add(OpenTelemetryConsts.Server.Port, port);
             }
+        }
+
+        if (error is not null)
+        {
+            tags.Add(OpenTelemetryConsts.Error.Type, error.GetType().Name);
         }
 
         return tags;
@@ -547,12 +544,9 @@ internal sealed class CopilotTelemetry : IDisposable
         {
             lock (_lock)
             {
-                if (_pendingToolParents is not null && _pendingToolParents.Remove(toolCallId, out var ctx))
-                {
-                    return ctx;
-                }
-
-                return _agentActivity?.Context ?? default;
+                return _pendingToolParents is not null && _pendingToolParents.Remove(toolCallId, out var ctx)
+                    ? ctx
+                    : _agentActivity?.Context ?? default;
             }
         }
 
@@ -567,47 +561,11 @@ internal sealed class CopilotTelemetry : IDisposable
                 if (_agentActivity is not null)
                 {
                     var disposeError = new ObjectDisposedException("Session disposed while agent turn was in progress");
-                    CompleteChatTurnLocked(disposeError);
-                    CompleteAgentTurnLocked(disposeError);
+                    CompleteChatTurn(disposeError);
+                    CompleteAgentTurn(disposeError);
                 }
             }
         }
-
-        /// <summary>
-        /// Called at the start of each <c>SendAsync</c>. Starts a new invoke_agent span
-        /// if one isn't already active, and records a user message event.
-        /// </summary>
-        internal void BeginSend(string? prompt)
-        {
-            lock (_lock)
-            {
-                if (_agentActivity is null)
-                {
-                    _agentActivity = _telemetry.StartInvokeAgentActivity(
-                        _sessionId,
-                        _requestModel,
-                        ProviderName,
-                        ServerAddress,
-                        ServerPort,
-                        _agentName,
-                        _agentDescription);
-                    _agentTimestamp = Stopwatch.GetTimestamp();
-                    _agentInputMessages = [];
-                }
-
-                // Agent-level input = what the caller sent (all user prompts).
-                if (_agentInputMessages is not null && !string.IsNullOrWhiteSpace(prompt))
-                {
-                    _agentInputMessages.Add(new("user", [new("text", Content: prompt)]));
-                }
-
-                // Record the user prompt as an input message on the first chat
-                // turn's message list when that turn starts. Stash it here for now.
-                _pendingUserPrompt = prompt;
-            }
-        }
-
-        private string? _pendingUserPrompt;
 
         /// <summary>
         /// Processes a dispatched session event, enriching the current span and
@@ -617,13 +575,30 @@ internal sealed class CopilotTelemetry : IDisposable
         {
             lock (_lock)
             {
+                // A UserMessageEvent starts a new invoke_agent span (if not already
+                // active) and records the user prompt.
+                if (sessionEvent is UserMessageEvent userMsg)
+                {
+                    var prompt = userMsg.Data?.Content;
+                    EnsureAgentSpan();
+
+                    if (!string.IsNullOrWhiteSpace(prompt))
+                    {
+                        var msg = new OtelMsg("user", [new("text", Content: prompt)]);
+                        _agentInputMessages?.Add(msg);
+                        (_inputMessages ??= []).Add(msg);
+                    }
+
+                    return;
+                }
+
                 // Route subagent events by ParentToolCallId.
                 var parentToolCallId = GetParentToolCallId(sessionEvent);
                 if (!string.IsNullOrEmpty(parentToolCallId))
                 {
-                    if (_activeSubagents?.TryGetValue(parentToolCallId, out var subagentState) == true)
+                    if (_activeSubagents?.TryGetValue(parentToolCallId, out var subagentState) is true)
                     {
-                        ProcessSubagentEventLocked(subagentState, sessionEvent);
+                        ProcessSubagentEvent(subagentState, sessionEvent);
                     }
 
                     return;
@@ -633,19 +608,21 @@ internal sealed class CopilotTelemetry : IDisposable
                 switch (sessionEvent)
                 {
                     case SubagentStartedEvent started:
-                        BeginSubagentLocked(started);
+                        BeginSubagent(started);
                         return;
+
                     case SubagentCompletedEvent completed when completed.Data is not null:
-                        CompleteSubagentLocked(completed.Data.ToolCallId, error: null);
+                        CompleteSubagent(completed.Data.ToolCallId, error: null);
                         return;
+
                     case SubagentFailedEvent failed when failed.Data is not null:
-                        CompleteSubagentLocked(failed.Data.ToolCallId,
+                        CompleteSubagent(failed.Data.ToolCallId,
                             new InvalidOperationException($"Subagent '{failed.Data.AgentName}' failed: {failed.Data.Error}"));
                         return;
                 }
 
                 // Record chunk timing for main agent events during a turn.
-                RecordOutputChunkMetricLocked();
+                RecordOutputChunkMetric();
 
                 // Per-turn event processing (writes to the chat child span).
                 if (_turnActivity is not null)
@@ -675,6 +652,7 @@ internal sealed class CopilotTelemetry : IDisposable
 
                         case AssistantUsageEvent usageEvent:
                             _responseModel = usageEvent.Data.Model;
+
                             if (!string.IsNullOrWhiteSpace(usageEvent.Data.ApiCallId))
                             {
                                 _responseId = usageEvent.Data.ApiCallId;
@@ -683,36 +661,28 @@ internal sealed class CopilotTelemetry : IDisposable
                             {
                                 _responseId = usageEvent.Data.ProviderCallId;
                             }
-                            if (usageEvent.Data.InputTokens is double inTok)
-                            {
-                                _inputTokens += (int)inTok;
-                            }
-                            if (usageEvent.Data.OutputTokens is double outTok)
-                            {
-                                _outputTokens += (int)outTok;
-                            }
-                            if (usageEvent.Data.CacheReadTokens is double cacheRead)
-                            {
-                                _cacheReadTokens += (int)cacheRead;
-                            }
-                            if (usageEvent.Data.CacheWriteTokens is double cacheWrite)
-                            {
-                                _cacheCreationTokens += (int)cacheWrite;
-                            }
+
+                            _inputTokens += usageEvent.Data.InputTokens is double inTok ? (int)inTok : 0;
+                            _outputTokens += usageEvent.Data.OutputTokens is double outTok ? (int)outTok : 0;
+                            _cacheReadTokens += usageEvent.Data.CacheReadTokens is double cacheRead ? (int)cacheRead : 0;
+                            _cacheCreationTokens += usageEvent.Data.CacheWriteTokens is double cacheWrite ? (int)cacheWrite : 0;
 
                             // Copilot-specific vendor attributes
                             if (usageEvent.Data.Cost is double cost)
                             {
                                 _turnCost = (_turnCost ?? 0) + cost;
                             }
+
                             if (usageEvent.Data.Duration is double dur)
                             {
                                 _turnServerDuration = (_turnServerDuration ?? 0) + dur;
                             }
+
                             if (!string.IsNullOrWhiteSpace(usageEvent.Data.Initiator))
                             {
                                 _turnInitiator = usageEvent.Data.Initiator;
                             }
+
                             if (usageEvent.Data.CopilotUsage is { } copilotUsage)
                             {
                                 _turnAiu = (_turnAiu ?? 0) + copilotUsage.TotalNanoAiu;
@@ -723,54 +693,45 @@ internal sealed class CopilotTelemetry : IDisposable
                             _responseModel = modelChangeEvent.Data.NewModel;
                             break;
 
-                        case ToolExecutionStartEvent toolStartEvent:
+                        case ToolExecutionStartEvent { Data: { } startData }:
                             {
-                                if (toolStartEvent.Data is { } startData)
+                                var isServerTool = startData.McpServerName is not null;
+                                if (isServerTool && startData.ToolCallId is not null)
                                 {
-                                    var isServerTool = startData.McpServerName is not null;
-                                    if (isServerTool && startData.ToolCallId is not null)
-                                    {
-                                        _serverToolCallIds ??= [];
-                                        _serverToolCallIds[startData.ToolCallId] = startData.McpServerName!;
-                                    }
+                                    (_serverToolCallIds ??= [])[startData.ToolCallId] = startData.McpServerName!;
+                                }
 
-                                    _outputMessages?.Add(new("assistant",
-                                    [
-                                        new(isServerTool ? "server_tool_call" : "tool_call",
+                                _outputMessages?.Add(new("assistant",
+                                [
+                                    new(isServerTool ? "server_tool_call" : "tool_call",
                                         Id: startData.ToolCallId,
                                         Name: startData.ToolName,
                                         Arguments: startData.Arguments,
                                         McpServerName: startData.McpServerName)
-                                    ]));
+                                ]));
 
-                                    // For main agent tool calls, parent is the root invoke_agent.
-                                    if (_agentActivity is not null && startData.ToolCallId is not null)
-                                    {
-                                        _pendingToolParents ??= [];
-                                        _pendingToolParents[startData.ToolCallId] = _agentActivity.Context;
-                                    }
+                                // For main agent tool calls, parent is the root invoke_agent.
+                                if (_agentActivity is not null && startData.ToolCallId is not null)
+                                {
+                                    _pendingToolParents ??= [];
+                                    _pendingToolParents[startData.ToolCallId] = _agentActivity.Context;
                                 }
 
                                 break;
                             }
 
-                        case ToolExecutionCompleteEvent toolCompleteEvent:
+                        case ToolExecutionCompleteEvent { Data: { } toolData }:
                             {
-                                if (toolCompleteEvent.Data is { } toolData)
-                                {
-                                    var resultContent = toolData.Result?.Content ?? toolData.Error?.Message;
-                                    string? serverName = null;
-                                    var isServerTool = _serverToolCallIds is not null
-                                        && _serverToolCallIds.Remove(toolData.ToolCallId, out serverName);
+                                string? serverName = null;
+                                var isServerTool = _serverToolCallIds is not null && _serverToolCallIds.Remove(toolData.ToolCallId, out serverName);
 
-                                    _inputMessages?.Add(new("tool",
-                                    [
-                                        new(isServerTool ? "server_tool_call_response" : "tool_call_response",
+                                _inputMessages?.Add(new("tool",
+                                [
+                                    new(isServerTool ? "server_tool_call_response" : "tool_call_response",
                                         Id: toolData.ToolCallId,
-                                        Response: resultContent,
+                                        Response: toolData.Result?.Content ?? toolData.Error?.Message,
                                         McpServerName: serverName)
-                                    ]));
-                                }
+                                ]));
 
                                 break;
                             }
@@ -788,38 +749,19 @@ internal sealed class CopilotTelemetry : IDisposable
                             case SessionTruncationEvent { Data: { } trunc }:
                                 {
                                     ActivityTagsCollection truncTags = [];
-                                    if (trunc.TokenLimit != 0)
-                                    {
-                                        truncTags.Add(OpenTelemetryConsts.GenAI.CopilotEvent.TokenLimit, (long)trunc.TokenLimit);
-                                    }
-                                    if (trunc.PreTruncationTokensInMessages != 0)
-                                    {
-                                        truncTags.Add(OpenTelemetryConsts.GenAI.CopilotEvent.PreTokens, (long)trunc.PreTruncationTokensInMessages);
-                                    }
-                                    if (trunc.PostTruncationTokensInMessages != 0)
-                                    {
-                                        truncTags.Add(OpenTelemetryConsts.GenAI.CopilotEvent.PostTokens, (long)trunc.PostTruncationTokensInMessages);
-                                    }
-                                    if (trunc.PreTruncationMessagesLength != 0)
-                                    {
-                                        truncTags.Add(OpenTelemetryConsts.GenAI.CopilotEvent.PreMessages, (long)trunc.PreTruncationMessagesLength);
-                                    }
-                                    if (trunc.PostTruncationMessagesLength != 0)
-                                    {
-                                        truncTags.Add(OpenTelemetryConsts.GenAI.CopilotEvent.PostMessages, (long)trunc.PostTruncationMessagesLength);
-                                    }
-                                    if (trunc.TokensRemovedDuringTruncation != 0)
-                                    {
-                                        truncTags.Add(OpenTelemetryConsts.GenAI.CopilotEvent.TokensRemoved, (long)trunc.TokensRemovedDuringTruncation);
-                                    }
-                                    if (trunc.MessagesRemovedDuringTruncation != 0)
-                                    {
-                                        truncTags.Add(OpenTelemetryConsts.GenAI.CopilotEvent.MessagesRemoved, (long)trunc.MessagesRemovedDuringTruncation);
-                                    }
+
+                                    AddAsInt64IfNotZero(truncTags, OpenTelemetryConsts.GenAI.CopilotEvent.TokenLimit, trunc.TokenLimit);
+                                    AddAsInt64IfNotZero(truncTags, OpenTelemetryConsts.GenAI.CopilotEvent.PreTokens, trunc.PreTruncationTokensInMessages);
+                                    AddAsInt64IfNotZero(truncTags, OpenTelemetryConsts.GenAI.CopilotEvent.PostTokens, trunc.PostTruncationTokensInMessages);
+                                    AddAsInt64IfNotZero(truncTags, OpenTelemetryConsts.GenAI.CopilotEvent.PreMessages, trunc.PreTruncationMessagesLength);
+                                    AddAsInt64IfNotZero(truncTags, OpenTelemetryConsts.GenAI.CopilotEvent.PostMessages, trunc.PostTruncationMessagesLength);
+                                    AddAsInt64IfNotZero(truncTags, OpenTelemetryConsts.GenAI.CopilotEvent.TokensRemoved, trunc.TokensRemovedDuringTruncation);
+                                    AddAsInt64IfNotZero(truncTags, OpenTelemetryConsts.GenAI.CopilotEvent.MessagesRemoved, trunc.MessagesRemovedDuringTruncation);
                                     if (trunc.PerformedBy is not null)
                                     {
                                         truncTags.Add(OpenTelemetryConsts.GenAI.CopilotEvent.PerformedBy, trunc.PerformedBy);
                                     }
+
                                     target.AddEvent(new(OpenTelemetryConsts.GenAI.CopilotEvent.SessionTruncation, tags: truncTags));
                                     break;
                                 }
@@ -831,34 +773,19 @@ internal sealed class CopilotTelemetry : IDisposable
                             case SessionCompactionCompleteEvent { Data: { } compaction }:
                                 {
                                     ActivityTagsCollection tags = new()
-                                {
-                                    { OpenTelemetryConsts.GenAI.CopilotEvent.Success, compaction.Success },
-                                };
+                                    {
+                                        { OpenTelemetryConsts.GenAI.CopilotEvent.Success, compaction.Success },
+                                    };
 
-                                    if (_telemetry.EnableSensitiveData && compaction.Error is not null)
+                                    if (compaction.Error is not null && _telemetry.EnableSensitiveData)
                                     {
                                         tags.Add(OpenTelemetryConsts.GenAI.CopilotEvent.Message, compaction.Error);
                                     }
 
-                                    if (compaction.PreCompactionTokens is { } preTokens)
-                                    {
-                                        tags.Add(OpenTelemetryConsts.GenAI.CopilotEvent.PreTokens, (long)preTokens);
-                                    }
-
-                                    if (compaction.PostCompactionTokens is { } postTokens)
-                                    {
-                                        tags.Add(OpenTelemetryConsts.GenAI.CopilotEvent.PostTokens, (long)postTokens);
-                                    }
-
-                                    if (compaction.TokensRemoved is { } tokensRemoved)
-                                    {
-                                        tags.Add(OpenTelemetryConsts.GenAI.CopilotEvent.TokensRemoved, (long)tokensRemoved);
-                                    }
-
-                                    if (compaction.MessagesRemoved is { } messagesRemoved)
-                                    {
-                                        tags.Add(OpenTelemetryConsts.GenAI.CopilotEvent.MessagesRemoved, (long)messagesRemoved);
-                                    }
+                                    AddAsInt64IfNotNull(tags, OpenTelemetryConsts.GenAI.CopilotEvent.PreTokens, compaction.PreCompactionTokens);
+                                    AddAsInt64IfNotNull(tags, OpenTelemetryConsts.GenAI.CopilotEvent.PostTokens, compaction.PostCompactionTokens);
+                                    AddAsInt64IfNotNull(tags, OpenTelemetryConsts.GenAI.CopilotEvent.TokensRemoved, compaction.TokensRemoved);
+                                    AddAsInt64IfNotNull(tags, OpenTelemetryConsts.GenAI.CopilotEvent.MessagesRemoved, compaction.MessagesRemoved);
 
                                     target.AddEvent(new(OpenTelemetryConsts.GenAI.CopilotEvent.SessionCompactionComplete, tags: tags));
                                     break;
@@ -867,10 +794,10 @@ internal sealed class CopilotTelemetry : IDisposable
                             case SkillInvokedEvent { Data: { } skill }:
                                 {
                                     ActivityTagsCollection tags = new()
-                                {
-                                    { OpenTelemetryConsts.GenAI.CopilotEvent.SkillName, skill.Name },
-                                    { OpenTelemetryConsts.GenAI.CopilotEvent.SkillPath, skill.Path },
-                                };
+                                    {
+                                        { OpenTelemetryConsts.GenAI.CopilotEvent.SkillName, skill.Name },
+                                        { OpenTelemetryConsts.GenAI.CopilotEvent.SkillPath, skill.Path },
+                                    };
 
                                     if (skill.PluginName is not null)
                                     {
@@ -898,7 +825,7 @@ internal sealed class CopilotTelemetry : IDisposable
                 switch (sessionEvent)
                 {
                     case AssistantTurnStartEvent turnStartEvent:
-                        BeginChatTurnLocked();
+                        BeginChatTurn();
                         if (turnStartEvent.Data is { } turnStartData)
                         {
                             _turnId = turnStartData.TurnId;
@@ -907,32 +834,44 @@ internal sealed class CopilotTelemetry : IDisposable
                         break;
 
                     case AssistantTurnEndEvent:
-                        CompleteChatTurnLocked(error: null);
+                        CompleteChatTurn(error: null);
                         break;
 
                     case SessionIdleEvent:
-                        CompleteChatTurnLocked(error: null);
-                        CompleteAgentTurnLocked(error: null);
+                        CompleteChatTurn(error: null);
+                        CompleteAgentTurn(error: null);
                         break;
 
                     case SessionErrorEvent errorEvent:
                         var ex = new InvalidOperationException($"Session error: {errorEvent.Data?.Message ?? "unknown error"}");
-                        CompleteChatTurnLocked(ex);
-                        CompleteAgentTurnLocked(ex);
+                        CompleteChatTurn(ex);
+                        CompleteAgentTurn(ex);
                         break;
                 }
             }
         }
 
         /// <summary>
-        /// Completes the current turn with an error (e.g. from a failed SendAsync).
+        /// Ensures the invoke_agent span exists, creating it on demand if needed.
+        /// This is called from both the user.message handler and BeginChatTurn
+        /// so that RPC-initiated turns (no user.message) still get an agent span.
+        /// Caller must hold <see cref="_lock"/>.
         /// </summary>
-        internal void CompleteTurnWithError(Exception error)
+        private void EnsureAgentSpan()
         {
-            lock (_lock)
+            Debug.Assert(Monitor.IsEntered(_lock));
+            if (_agentActivity is null)
             {
-                CompleteChatTurnLocked(error);
-                CompleteAgentTurnLocked(error);
+                _agentActivity = _telemetry.StartInvokeAgentActivity(
+                    _sessionId,
+                    _requestModel,
+                    ProviderName,
+                    ServerAddress,
+                    ServerPort,
+                    _agentName,
+                    _agentDescription);
+                _agentTimestamp = Stopwatch.GetTimestamp();
+                _agentInputMessages = [];
             }
         }
 
@@ -940,12 +879,16 @@ internal sealed class CopilotTelemetry : IDisposable
         /// Starts a new chat child span for an LLM turn.
         /// Caller must hold <see cref="_lock"/>.
         /// </summary>
-        private void BeginChatTurnLocked()
+        private void BeginChatTurn()
         {
             Debug.Assert(Monitor.IsEntered(_lock));
 
             // If there's already an active turn, complete it first (shouldn't normally happen).
-            CompleteChatTurnLocked(error: null);
+            CompleteChatTurn(error: null);
+
+            // Ensure the parent agent span exists — covers RPC-initiated turns
+            // where no user.message event preceded the assistant.turn_start.
+            EnsureAgentSpan();
 
             _responseModel = null;
             _responseId = null;
@@ -955,7 +898,7 @@ internal sealed class CopilotTelemetry : IDisposable
             _cacheCreationTokens = 0;
             _firstOutputChunkRecorded = false;
             _lastOutputChunkElapsed = TimeSpan.Zero;
-            _inputMessages = [];
+            _inputMessages ??= [];
             _outputMessages = [];
             _turnCost = null;
             _turnServerDuration = null;
@@ -963,13 +906,6 @@ internal sealed class CopilotTelemetry : IDisposable
             _turnAiu = null;
             _turnId = null;
             _turnInteractionId = null;
-
-            // Add stashed user prompt as input message for the first turn.
-            if (!string.IsNullOrWhiteSpace(_pendingUserPrompt))
-            {
-                _inputMessages.Add(new("user", [new("text", Content: _pendingUserPrompt)]));
-                _pendingUserPrompt = null;
-            }
 
             var parentContext = _agentActivity?.Context ?? default;
             _turnActivity = _telemetry.StartChatActivity(
@@ -987,48 +923,31 @@ internal sealed class CopilotTelemetry : IDisposable
         /// Completes the current chat child span with per-turn attributes and metrics.
         /// Caller must hold <see cref="_lock"/>.
         /// </summary>
-        private void CompleteChatTurnLocked(Exception? error)
+        private void CompleteChatTurn(Exception? error)
         {
             Debug.Assert(Monitor.IsEntered(_lock));
 
-            var activity = _turnActivity;
+            var activity = GetAndReset(ref _turnActivity);
             if (activity is null)
             {
                 return;
             }
 
-            var timestamp = _turnTimestamp;
-            var inputMessages = _inputMessages;
-            var outputMessages = _outputMessages;
-            var responseModel = _responseModel;
-            var responseId = _responseId;
-            var inputTokens = _inputTokens;
-            var outputTokens = _outputTokens;
-            var cacheReadTokens = _cacheReadTokens;
-            var cacheCreationTokens = _cacheCreationTokens;
-            var turnCost = _turnCost;
-            var turnServerDuration = _turnServerDuration;
-            var turnInitiator = _turnInitiator;
-            var turnAiu = _turnAiu;
-            var turnId = _turnId;
-            var turnInteractionId = _turnInteractionId;
-
-            _turnActivity = null;
-            _turnTimestamp = 0;
-            _inputMessages = null;
-            _outputMessages = null;
-            _responseModel = null;
-            _responseId = null;
-            _inputTokens = 0;
-            _outputTokens = 0;
-            _cacheReadTokens = 0;
-            _cacheCreationTokens = 0;
-            _turnCost = null;
-            _turnServerDuration = null;
-            _turnInitiator = null;
-            _turnAiu = null;
-            _turnId = null;
-            _turnInteractionId = null;
+            var timestamp = GetAndReset(ref _turnTimestamp);
+            var inputMessages = GetAndReset(ref _inputMessages);
+            var outputMessages = GetAndReset(ref _outputMessages);
+            var responseModel = GetAndReset(ref _responseModel);
+            var responseId = GetAndReset(ref _responseId);
+            var inputTokens = GetAndReset(ref _inputTokens);
+            var outputTokens = GetAndReset(ref _outputTokens);
+            var cacheReadTokens = GetAndReset(ref _cacheReadTokens);
+            var cacheCreationTokens = GetAndReset(ref _cacheCreationTokens);
+            var turnCost = GetAndReset(ref _turnCost);
+            var turnServerDuration = GetAndReset(ref _turnServerDuration);
+            var turnInitiator = GetAndReset(ref _turnInitiator);
+            var turnAiu = GetAndReset(ref _turnAiu);
+            var turnId = GetAndReset(ref _turnId);
+            var turnInteractionId = GetAndReset(ref _turnInteractionId);
 
             if (error is not null)
             {
@@ -1074,72 +993,25 @@ internal sealed class CopilotTelemetry : IDisposable
             // Set usage-related span attributes for this LLM turn
             if (activity.IsAllDataRequested)
             {
-                if (responseModel is not null)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Response.Model, responseModel);
-                }
-                if (responseId is not null)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Response.Id, responseId);
-                }
-                if (inputTokens > 0)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Usage.InputTokens, inputTokens);
-                }
-                if (outputTokens > 0)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Usage.OutputTokens, outputTokens);
-                }
-                if (cacheReadTokens > 0)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Usage.CacheReadInputTokens, cacheReadTokens);
-                }
-                if (cacheCreationTokens > 0)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Usage.CacheCreationInputTokens, cacheCreationTokens);
-                }
-
-                // Copilot vendor-prefixed attributes on chat spans
-                if (turnCost is not null)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Copilot.Cost, turnCost.Value);
-                }
-                if (turnServerDuration is not null)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Copilot.ServerDuration, turnServerDuration.Value);
-                }
-                if (turnInitiator is not null)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Copilot.Initiator, turnInitiator);
-                }
-                if (turnAiu is not null)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Copilot.Aiu, turnAiu.Value);
-                }
-                if (turnId is not null)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Copilot.TurnId, turnId);
-                }
-                if (turnInteractionId is not null)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Copilot.InteractionId, turnInteractionId);
-                }
+                SetTagIfNotEmpty(activity, OpenTelemetryConsts.GenAI.Response.Model, responseModel);
+                SetTagIfNotEmpty(activity, OpenTelemetryConsts.GenAI.Response.Id, responseId);
+                SetTagIfPositive(activity, OpenTelemetryConsts.GenAI.Usage.InputTokens, inputTokens);
+                SetTagIfPositive(activity, OpenTelemetryConsts.GenAI.Usage.OutputTokens, outputTokens);
+                SetTagIfPositive(activity, OpenTelemetryConsts.GenAI.Usage.CacheReadInputTokens, cacheReadTokens);
+                SetTagIfPositive(activity, OpenTelemetryConsts.GenAI.Usage.CacheCreationInputTokens, cacheCreationTokens);
+                SetTagIfNotNull(activity, OpenTelemetryConsts.GenAI.Copilot.Cost, turnCost);
+                SetTagIfNotNull(activity, OpenTelemetryConsts.GenAI.Copilot.ServerDuration, turnServerDuration);
+                SetTagIfNotEmpty(activity, OpenTelemetryConsts.GenAI.Copilot.Initiator, turnInitiator);
+                SetTagIfNotNull(activity, OpenTelemetryConsts.GenAI.Copilot.Aiu, turnAiu);
+                SetTagIfNotEmpty(activity, OpenTelemetryConsts.GenAI.Copilot.TurnId, turnId);
+                SetTagIfNotEmpty(activity, OpenTelemetryConsts.GenAI.Copilot.InteractionId, turnInteractionId);
             }
 
             // Set input/output message content as span attributes (sensitive)
             if (_telemetry.EnableSensitiveData)
             {
-                var inputMessagesJson = BuildMessagesJson(inputMessages);
-                if (!string.IsNullOrWhiteSpace(inputMessagesJson))
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Input.Messages, inputMessagesJson);
-                }
-
-                var outputMessagesJson = BuildMessagesJson(outputMessages, finishReason: finishReason);
-                if (!string.IsNullOrWhiteSpace(outputMessagesJson))
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Output.Messages, outputMessagesJson);
-                }
+                SetTagIfNotEmpty(activity, OpenTelemetryConsts.GenAI.Input.Messages, BuildMessagesJson(inputMessages));
+                SetTagIfNotEmpty(activity, OpenTelemetryConsts.GenAI.Output.Messages, BuildMessagesJson(outputMessages, finishReason: finishReason));
             }
 
             // Token usage metrics (per-turn)
@@ -1177,32 +1049,26 @@ internal sealed class CopilotTelemetry : IDisposable
         /// Completes the invoke_agent span and records overall operation duration.
         /// Caller must hold <see cref="_lock"/>.
         /// </summary>
-        private void CompleteAgentTurnLocked(Exception? error)
+        private void CompleteAgentTurn(Exception? error)
         {
             Debug.Assert(Monitor.IsEntered(_lock));
 
-            var activity = _agentActivity;
+            var activity = GetAndReset(ref _agentActivity);
             if (activity is null)
             {
                 return;
             }
 
-            var timestamp = _agentTimestamp;
-
-            _agentActivity = null;
-            _agentTimestamp = 0;
-            _pendingUserPrompt = null;
-            var agentInputMessages = _agentInputMessages;
-            var agentOutputMessages = _agentOutputMessages;
-            _agentInputMessages = null;
-            _agentOutputMessages = null;
+            var timestamp = GetAndReset(ref _agentTimestamp);
+            var agentInputMessages = GetAndReset(ref _agentInputMessages);
+            var agentOutputMessages = GetAndReset(ref _agentOutputMessages);
 
             // Complete any remaining subagents before closing the parent.
             if (_activeSubagents is { Count: > 0 })
             {
-                foreach (var key in _activeSubagents.Keys.ToList())
+                foreach (var activeSubagent in _activeSubagents)
                 {
-                    CompleteSubagentLocked(key, error);
+                    CompleteSubagent(activeSubagent.Key, error);
                 }
             }
 
@@ -1219,86 +1085,35 @@ internal sealed class CopilotTelemetry : IDisposable
             activity.SetTag(OpenTelemetryConsts.GenAI.Response.FinishReasons, new[] { finishReason });
 
             // Set accumulated usage across all chat turns on the invoke_agent span.
-            var agentResponseModel = _agentResponseModel;
-            var agentResponseId = _agentResponseId;
-            var agentTotalInputTokens = _agentTotalInputTokens;
-            var agentTotalOutputTokens = _agentTotalOutputTokens;
-            var agentTotalCacheReadTokens = _agentTotalCacheReadTokens;
-            var agentTotalCacheCreationTokens = _agentTotalCacheCreationTokens;
-            var agentTotalCost = _agentTotalCost;
-            var agentTotalAiu = _agentTotalAiu;
-            _agentResponseModel = null;
-            _agentResponseId = null;
-            _agentTotalInputTokens = 0;
-            _agentTotalOutputTokens = 0;
-            _agentTotalCacheReadTokens = 0;
-            _agentTotalCacheCreationTokens = 0;
-            _agentTotalCost = 0;
-            _agentTotalAiu = 0;
+            var agentResponseModel = GetAndReset(ref _agentResponseModel);
+            var agentResponseId = GetAndReset(ref _agentResponseId);
+            var agentTotalInputTokens = GetAndReset(ref _agentTotalInputTokens);
+            var agentTotalOutputTokens = GetAndReset(ref _agentTotalOutputTokens);
+            var agentTotalCacheReadTokens = GetAndReset(ref _agentTotalCacheReadTokens);
+            var agentTotalCacheCreationTokens = GetAndReset(ref _agentTotalCacheCreationTokens);
+            var agentTotalCost = GetAndReset(ref _agentTotalCost);
+            var agentTotalAiu = GetAndReset(ref _agentTotalAiu);
 
             if (activity.IsAllDataRequested)
             {
-                if (agentResponseModel is not null)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Response.Model, agentResponseModel);
-                }
-                if (agentResponseId is not null)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Response.Id, agentResponseId);
-                }
-                if (agentTotalInputTokens > 0)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Usage.InputTokens, agentTotalInputTokens);
-                }
-                if (agentTotalOutputTokens > 0)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Usage.OutputTokens, agentTotalOutputTokens);
-                }
-                if (agentTotalCacheReadTokens > 0)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Usage.CacheReadInputTokens, agentTotalCacheReadTokens);
-                }
-                if (agentTotalCacheCreationTokens > 0)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Usage.CacheCreationInputTokens, agentTotalCacheCreationTokens);
-                }
-
-                // Copilot vendor-prefixed attributes on invoke_agent span
-                if (agentTotalCost > 0)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Copilot.Cost, agentTotalCost);
-                }
-                if (agentTotalAiu > 0)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Copilot.Aiu, agentTotalAiu);
-                }
+                SetTagIfNotEmpty(activity, OpenTelemetryConsts.GenAI.Response.Model, agentResponseModel);
+                SetTagIfNotEmpty(activity, OpenTelemetryConsts.GenAI.Response.Id, agentResponseId);
+                SetTagIfPositive(activity, OpenTelemetryConsts.GenAI.Usage.InputTokens, agentTotalInputTokens);
+                SetTagIfPositive(activity, OpenTelemetryConsts.GenAI.Usage.OutputTokens, agentTotalOutputTokens);
+                SetTagIfPositive(activity, OpenTelemetryConsts.GenAI.Usage.CacheReadInputTokens, agentTotalCacheReadTokens);
+                SetTagIfPositive(activity, OpenTelemetryConsts.GenAI.Usage.CacheCreationInputTokens, agentTotalCacheCreationTokens);
+                SetTagIfPositive(activity, OpenTelemetryConsts.GenAI.Copilot.Cost, agentTotalCost);
+                SetTagIfPositive(activity, OpenTelemetryConsts.GenAI.Copilot.Aiu, agentTotalAiu);
             }
 
-            // Agent-level input = caller's message; output = agent's final response.
             if (_telemetry.EnableSensitiveData)
             {
-                var inputJson = BuildMessagesJson(agentInputMessages);
-                if (inputJson is not null)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Input.Messages, inputJson);
-                }
-
-                var outputJson = BuildMessagesJson(agentOutputMessages);
-                if (outputJson is not null)
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.Output.Messages, outputJson);
-                }
-
-                if (!string.IsNullOrWhiteSpace(_systemInstructionsJson))
-                {
-                    activity.SetTag(OpenTelemetryConsts.GenAI.SystemInstructions, _systemInstructionsJson);
-                }
+                SetTagIfNotEmpty(activity, OpenTelemetryConsts.GenAI.Input.Messages, BuildMessagesJson(agentInputMessages));
+                SetTagIfNotEmpty(activity, OpenTelemetryConsts.GenAI.Output.Messages, BuildMessagesJson(agentOutputMessages));
+                SetTagIfNotEmpty(activity, OpenTelemetryConsts.GenAI.SystemInstructions, _systemInstructionsJson);
             }
 
-            if (!string.IsNullOrWhiteSpace(_toolDefinitionsJson))
-            {
-                activity.SetTag(OpenTelemetryConsts.GenAI.Tool.Definitions, _toolDefinitionsJson);
-            }
+            SetTagIfNotEmpty(activity, OpenTelemetryConsts.GenAI.Tool.Definitions, _toolDefinitionsJson);
 
             if (_telemetry.OperationDurationHistogram.Enabled)
             {
@@ -1320,7 +1135,7 @@ internal sealed class CopilotTelemetry : IDisposable
         /// Records streaming chunk timing metrics.
         /// Caller must hold <see cref="_lock"/>.
         /// </summary>
-        private void RecordOutputChunkMetricLocked()
+        private void RecordOutputChunkMetric()
         {
             Debug.Assert(Monitor.IsEntered(_lock));
 
@@ -1360,21 +1175,24 @@ internal sealed class CopilotTelemetry : IDisposable
         /// Extracts <c>ParentToolCallId</c> from events that carry it.
         /// A non-null/non-empty value indicates the event belongs to a subagent.
         /// </summary>
-        private static string? GetParentToolCallId(SessionEvent evt) => evt switch
+        private static string? GetParentToolCallId(SessionEvent evt)
         {
-            AssistantUsageEvent e => e.Data?.ParentToolCallId,
-            AssistantMessageEvent e => e.Data?.ParentToolCallId,
-            AssistantMessageDeltaEvent e => e.Data?.ParentToolCallId,
-            ToolExecutionStartEvent e => e.Data?.ParentToolCallId,
-            ToolExecutionCompleteEvent e => e.Data?.ParentToolCallId,
-            _ => null,
-        };
+            return evt switch
+            {
+                AssistantUsageEvent e => e.Data?.ParentToolCallId,
+                AssistantMessageEvent e => e.Data?.ParentToolCallId,
+                AssistantMessageDeltaEvent e => e.Data?.ParentToolCallId,
+                ToolExecutionStartEvent e => e.Data?.ParentToolCallId,
+                ToolExecutionCompleteEvent e => e.Data?.ParentToolCallId,
+                _ => null,
+            };
+        }
 
         /// <summary>
         /// Creates a nested <c>invoke_agent</c> + <c>chat</c> span pair for a subagent.
         /// Caller must hold <see cref="_lock"/>.
         /// </summary>
-        private void BeginSubagentLocked(SubagentStartedEvent started)
+        private void BeginSubagent(SubagentStartedEvent started)
         {
             Debug.Assert(Monitor.IsEntered(_lock));
 
@@ -1424,7 +1242,7 @@ internal sealed class CopilotTelemetry : IDisposable
         /// Routes an event to its owning subagent's spans.
         /// Caller must hold <see cref="_lock"/>.
         /// </summary>
-        private void ProcessSubagentEventLocked(SubagentState subagent, SessionEvent sessionEvent)
+        private void ProcessSubagentEvent(SubagentState subagent, SessionEvent sessionEvent)
         {
             Debug.Assert(Monitor.IsEntered(_lock));
 
@@ -1449,26 +1267,10 @@ internal sealed class CopilotTelemetry : IDisposable
                         subagent.ResponseId = usageEvent.Data.ProviderCallId;
                     }
 
-                    if (usageEvent.Data.InputTokens is double inTok)
-                    {
-                        subagent.InputTokens += (int)inTok;
-                    }
-
-                    if (usageEvent.Data.OutputTokens is double outTok)
-                    {
-                        subagent.OutputTokens += (int)outTok;
-                    }
-
-                    if (usageEvent.Data.CacheReadTokens is double cacheRead)
-                    {
-                        subagent.CacheReadTokens += (int)cacheRead;
-                    }
-
-                    if (usageEvent.Data.CacheWriteTokens is double cacheWrite)
-                    {
-                        subagent.CacheCreationTokens += (int)cacheWrite;
-                    }
-
+                    subagent.InputTokens += usageEvent.Data.InputTokens is double inTok ? (int)inTok : 0;
+                    subagent.OutputTokens += usageEvent.Data.OutputTokens is double outTok ? (int)outTok : 0;
+                    subagent.CacheReadTokens += usageEvent.Data.CacheReadTokens is double cacheRead ? (int)cacheRead : 0;
+                    subagent.CacheCreationTokens += usageEvent.Data.CacheWriteTokens is double cacheWrite ? (int)cacheWrite : 0;
                     break;
 
                 case AssistantMessageEvent messageEvent:
@@ -1551,7 +1353,7 @@ internal sealed class CopilotTelemetry : IDisposable
         /// Completes a subagent's <c>chat</c> and <c>invoke_agent</c> spans.
         /// Caller must hold <see cref="_lock"/>.
         /// </summary>
-        private void CompleteSubagentLocked(string toolCallId, Exception? error)
+        private void CompleteSubagent(string toolCallId, Exception? error)
         {
             Debug.Assert(Monitor.IsEntered(_lock));
 
@@ -1575,55 +1377,24 @@ internal sealed class CopilotTelemetry : IDisposable
 
                 if (chatActivity.IsAllDataRequested)
                 {
-                    if (subagent.ResponseModel is not null)
-                    {
-                        chatActivity.SetTag(OpenTelemetryConsts.GenAI.Response.Model, subagent.ResponseModel);
-                    }
-
-                    if (subagent.ResponseId is not null)
-                    {
-                        chatActivity.SetTag(OpenTelemetryConsts.GenAI.Response.Id, subagent.ResponseId);
-                    }
-
-                    if (subagent.InputTokens > 0)
-                    {
-                        chatActivity.SetTag(OpenTelemetryConsts.GenAI.Usage.InputTokens, subagent.InputTokens);
-                    }
-
-                    if (subagent.OutputTokens > 0)
-                    {
-                        chatActivity.SetTag(OpenTelemetryConsts.GenAI.Usage.OutputTokens, subagent.OutputTokens);
-                    }
-
-                    if (subagent.CacheReadTokens > 0)
-                    {
-                        chatActivity.SetTag(OpenTelemetryConsts.GenAI.Usage.CacheReadInputTokens, subagent.CacheReadTokens);
-                    }
-
-                    if (subagent.CacheCreationTokens > 0)
-                    {
-                        chatActivity.SetTag(OpenTelemetryConsts.GenAI.Usage.CacheCreationInputTokens, subagent.CacheCreationTokens);
-                    }
+                    SetTagIfNotEmpty(chatActivity, OpenTelemetryConsts.GenAI.Response.Model, subagent.ResponseModel);
+                    SetTagIfNotEmpty(chatActivity, OpenTelemetryConsts.GenAI.Response.Id, subagent.ResponseId);
+                    SetTagIfPositive(chatActivity, OpenTelemetryConsts.GenAI.Usage.InputTokens, subagent.InputTokens);
+                    SetTagIfPositive(chatActivity, OpenTelemetryConsts.GenAI.Usage.OutputTokens, subagent.OutputTokens);
+                    SetTagIfPositive(chatActivity, OpenTelemetryConsts.GenAI.Usage.CacheReadInputTokens, subagent.CacheReadTokens);
+                    SetTagIfPositive(chatActivity, OpenTelemetryConsts.GenAI.Usage.CacheCreationInputTokens, subagent.CacheCreationTokens);
                 }
 
                 if (_telemetry.EnableSensitiveData)
                 {
                     if (subagent.InputMessages.Count > 0)
                     {
-                        var inputJson = BuildMessagesJson(subagent.InputMessages);
-                        if (inputJson is not null)
-                        {
-                            chatActivity.SetTag(OpenTelemetryConsts.GenAI.Input.Messages, inputJson);
-                        }
+                        SetTagIfNotEmpty(chatActivity, OpenTelemetryConsts.GenAI.Input.Messages, BuildMessagesJson(subagent.InputMessages));
                     }
 
                     if (subagent.OutputMessages.Count > 0)
                     {
-                        var outputJson = BuildMessagesJson(subagent.OutputMessages, finishReason: finishReason);
-                        if (outputJson is not null)
-                        {
-                            chatActivity.SetTag(OpenTelemetryConsts.GenAI.Output.Messages, outputJson);
-                        }
+                        SetTagIfNotEmpty(chatActivity, OpenTelemetryConsts.GenAI.Output.Messages, BuildMessagesJson(subagent.OutputMessages, finishReason: finishReason));
                     }
                 }
 
@@ -1654,45 +1425,18 @@ internal sealed class CopilotTelemetry : IDisposable
 
                 if (invokeActivity.IsAllDataRequested)
                 {
-                    if (subagent.ResponseModel is not null)
-                    {
-                        invokeActivity.SetTag(OpenTelemetryConsts.GenAI.Response.Model, subagent.ResponseModel);
-                    }
-
-                    if (subagent.ResponseId is not null)
-                    {
-                        invokeActivity.SetTag(OpenTelemetryConsts.GenAI.Response.Id, subagent.ResponseId);
-                    }
-
-                    if (subagent.InputTokens > 0)
-                    {
-                        invokeActivity.SetTag(OpenTelemetryConsts.GenAI.Usage.InputTokens, subagent.InputTokens);
-                    }
-
-                    if (subagent.OutputTokens > 0)
-                    {
-                        invokeActivity.SetTag(OpenTelemetryConsts.GenAI.Usage.OutputTokens, subagent.OutputTokens);
-                    }
-
-                    if (subagent.CacheReadTokens > 0)
-                    {
-                        invokeActivity.SetTag(OpenTelemetryConsts.GenAI.Usage.CacheReadInputTokens, subagent.CacheReadTokens);
-                    }
-
-                    if (subagent.CacheCreationTokens > 0)
-                    {
-                        invokeActivity.SetTag(OpenTelemetryConsts.GenAI.Usage.CacheCreationInputTokens, subagent.CacheCreationTokens);
-                    }
+                    SetTagIfNotEmpty(invokeActivity, OpenTelemetryConsts.GenAI.Response.Model, subagent.ResponseModel);
+                    SetTagIfNotEmpty(invokeActivity, OpenTelemetryConsts.GenAI.Response.Id, subagent.ResponseId);
+                    SetTagIfPositive(invokeActivity, OpenTelemetryConsts.GenAI.Usage.InputTokens, subagent.InputTokens);
+                    SetTagIfPositive(invokeActivity, OpenTelemetryConsts.GenAI.Usage.OutputTokens, subagent.OutputTokens);
+                    SetTagIfPositive(invokeActivity, OpenTelemetryConsts.GenAI.Usage.CacheReadInputTokens, subagent.CacheReadTokens);
+                    SetTagIfPositive(invokeActivity, OpenTelemetryConsts.GenAI.Usage.CacheCreationInputTokens, subagent.CacheCreationTokens);
                 }
 
                 if (_telemetry.EnableSensitiveData && subagent.OutputMessages.Count > 0)
                 {
-                    var outputJson = BuildMessagesJson(
-                        subagent.OutputMessages.Select(m => m with { FinishReason = finishReason }).ToList());
-                    if (outputJson is not null)
-                    {
-                        invokeActivity.SetTag(OpenTelemetryConsts.GenAI.Output.Messages, outputJson);
-                    }
+                    SetTagIfNotEmpty(invokeActivity, OpenTelemetryConsts.GenAI.Output.Messages,
+                        BuildMessagesJson(subagent.OutputMessages.Select(m => m with { FinishReason = finishReason }).ToList()));
                 }
 
                 if (_telemetry.OperationDurationHistogram.Enabled)
@@ -1874,6 +1618,45 @@ internal sealed class CopilotTelemetry : IDisposable
                 default:
                     writer.WriteStringValue(value.ToString());
                     break;
+            }
+        }
+
+        private static T? GetAndReset<T>(ref T? field)
+        {
+            var value = field;
+            field = default;
+            return value;
+        }
+
+        private static void SetTagIfNotEmpty(Activity activity, string key, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                activity.SetTag(key, value);
+            }
+        }
+
+        private static void SetTagIfPositive(Activity activity, string key, int value)
+        {
+            if (value > 0)
+            {
+                activity.SetTag(key, value);
+            }
+        }
+
+        private static void SetTagIfPositive(Activity activity, string key, double value)
+        {
+            if (value > 0)
+            {
+                activity.SetTag(key, value);
+            }
+        }
+
+        private static void SetTagIfNotNull<T>(Activity activity, string key, T? value) where T : struct
+        {
+            if (value.HasValue)
+            {
+                activity.SetTag(key, value.Value);
             }
         }
 

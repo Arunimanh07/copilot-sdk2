@@ -110,7 +110,7 @@ class CopilotSession:
 
         # Telemetry — tracker encapsulates per-turn state and logic
         self._telemetry = telemetry  # CopilotTelemetry | None (kept for client.py access)
-        self._turn_tracker: AgentTurnTracker | None = (
+        self._telemetry_tracker: AgentTurnTracker | None = (
             AgentTurnTracker(
                 telemetry,
                 session_id,
@@ -146,17 +146,17 @@ class CopilotSession:
     @property
     def telemetry_provider_name(self) -> str:
         """Provider name for telemetry metrics (internal)."""
-        return self._turn_tracker.provider_name if self._turn_tracker else "github"
+        return self._telemetry_tracker.provider_name if self._telemetry_tracker else "github"
 
     @property
     def telemetry_server_address(self) -> str | None:
         """Server address for telemetry metrics (internal)."""
-        return self._turn_tracker.server_address if self._turn_tracker else None
+        return self._telemetry_tracker.server_address if self._telemetry_tracker else None
 
     @property
     def telemetry_server_port(self) -> int | None:
         """Server port for telemetry metrics (internal)."""
-        return self._turn_tracker.server_port if self._turn_tracker else None
+        return self._telemetry_tracker.server_port if self._telemetry_tracker else None
 
     def get_telemetry_tool_call_parent_context(self, tool_call_id: str) -> Any | None:
         """Get the parent context for a tool call span (internal).
@@ -164,8 +164,8 @@ class CopilotSession:
         Uses tool-call-specific context when available (e.g. subagent context),
         otherwise falls back to the root invoke_agent context.
         """
-        if self._turn_tracker is not None:
-            return self._turn_tracker.get_tool_call_parent_context(tool_call_id)
+        if self._telemetry_tracker is not None:
+            return self._telemetry_tracker.get_tool_call_parent_context(tool_call_id)
         return None
 
     async def send(self, options: MessageOptions) -> str:
@@ -192,25 +192,16 @@ class CopilotSession:
             ...     "attachments": [{"type": "file", "path": "./src/main.py"}]
             ... })
         """
-        # Start or continue telemetry span for this turn
-        if self._turn_tracker is not None:
-            self._turn_tracker.begin_send(options["prompt"])
-
-        try:
-            response = await self._client.request(
-                "session.send",
-                {
-                    "sessionId": self.session_id,
-                    "prompt": options["prompt"],
-                    "attachments": options.get("attachments"),
-                    "mode": options.get("mode"),
-                },
-            )
-            return response["messageId"]
-        except Exception as exc:
-            if self._turn_tracker is not None:
-                self._turn_tracker.complete_turn_with_error(exc)
-            raise
+        response = await self._client.request(
+            "session.send",
+            {
+                "sessionId": self.session_id,
+                "prompt": options["prompt"],
+                "attachments": options.get("attachments"),
+                "mode": options.get("mode"),
+            },
+        )
+        return response["messageId"]
 
     async def send_and_wait(
         self, options: MessageOptions, timeout: float | None = None
@@ -266,17 +257,6 @@ class CopilotSession:
             if error_event:
                 raise error_event
             return last_assistant_message
-        except TimeoutError:
-            ex = TimeoutError(f"Timeout after {effective_timeout}s waiting for session.idle")
-            # Complete telemetry spans on timeout (idempotent if already completed).
-            if self._turn_tracker is not None:
-                self._turn_tracker.complete_turn_with_error(ex)
-            raise ex
-        except Exception as ex:
-            # Complete telemetry spans on error (idempotent if already completed).
-            if self._turn_tracker is not None:
-                self._turn_tracker.complete_turn_with_error(ex)
-            raise
         finally:
             unsubscribe()
 
@@ -327,8 +307,8 @@ class CopilotSession:
             event: The session event to dispatch to all handlers.
         """
         # Telemetry enrichment before user handlers
-        if self._turn_tracker is not None:
-            self._turn_tracker.process_event(event)
+        if self._telemetry_tracker is not None:
+            self._telemetry_tracker.process_event(event)
 
         with self._event_handlers_lock:
             handlers = list(self._event_handlers)
@@ -586,8 +566,8 @@ class CopilotSession:
             >>> await session.destroy()
         """
         # Close any open telemetry spans before destroying
-        if self._turn_tracker is not None:
-            self._turn_tracker.complete_on_dispose()
+        if self._telemetry_tracker is not None:
+            self._telemetry_tracker.complete_on_dispose()
 
         await self._client.request("session.destroy", {"sessionId": self.session_id})
         with self._event_handlers_lock:

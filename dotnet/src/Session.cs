@@ -54,7 +54,7 @@ public partial class CopilotSession : IAsyncDisposable
     private event SessionEventHandler? _eventHandlers;
     private readonly Dictionary<string, AIFunction> _toolHandlers = new();
     private readonly JsonRpc _rpc;
-    private readonly CopilotTelemetry.AgentTurnTracker? _turnTracker;
+    private readonly CopilotTelemetry.AgentTurnTracker? _telemetryTracker;
     private volatile PermissionRequestHandler? _permissionHandler;
     private volatile UserInputHandler? _userInputHandler;
     private SessionHooks? _hooks;
@@ -82,12 +82,12 @@ public partial class CopilotSession : IAsyncDisposable
     /// </value>
     public string? WorkspacePath { get; internal set; }
 
-    internal string TelemetryProviderName => _turnTracker?.ProviderName ?? OpenTelemetryConsts.DefaultProviderName;
-    internal string? TelemetryServerAddress => _turnTracker?.ServerAddress;
-    internal int? TelemetryServerPort => _turnTracker?.ServerPort;
-    internal ActivityContext TelemetryActivityContext => _turnTracker?.GetActivityContext() ?? default;
+    internal string TelemetryProviderName => _telemetryTracker?.ProviderName ?? OpenTelemetryConsts.DefaultProviderName;
+    internal string? TelemetryServerAddress => _telemetryTracker?.ServerAddress;
+    internal int? TelemetryServerPort => _telemetryTracker?.ServerPort;
+    internal ActivityContext TelemetryActivityContext => _telemetryTracker?.GetActivityContext() ?? default;
     internal ActivityContext GetTelemetryToolCallParentContext(string toolCallId) =>
-        _turnTracker?.GetToolCallParentContext(toolCallId) ?? default;
+        _telemetryTracker?.GetToolCallParentContext(toolCallId) ?? default;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CopilotSession"/> class.
@@ -119,7 +119,7 @@ public partial class CopilotSession : IAsyncDisposable
     {
         SessionId = sessionId;
         _rpc = rpc;
-        _turnTracker = telemetry is not null ? new CopilotTelemetry.AgentTurnTracker(telemetry, sessionId, model, provider, systemMessage, tools, streaming, agentName, agentDescription) : null;
+        _telemetryTracker = telemetry is not null ? new CopilotTelemetry.AgentTurnTracker(telemetry, sessionId, model, provider, systemMessage, tools, streaming, agentName, agentDescription) : null;
         WorkspacePath = workspacePath;
     }
 
@@ -156,27 +156,18 @@ public partial class CopilotSession : IAsyncDisposable
     /// </example>
     public async Task<string> SendAsync(MessageOptions options, CancellationToken cancellationToken = default)
     {
-        _turnTracker?.BeginSend(options.Prompt);
-        try
+        var request = new SendMessageRequest
         {
-            var request = new SendMessageRequest
-            {
-                SessionId = SessionId,
-                Prompt = options.Prompt,
-                Attachments = options.Attachments,
-                Mode = options.Mode
-            };
+            SessionId = SessionId,
+            Prompt = options.Prompt,
+            Attachments = options.Attachments,
+            Mode = options.Mode
+        };
 
-            var response = await InvokeRpcAsync<SendMessageResponse>(
-                "session.send", [request], cancellationToken);
+        var response = await InvokeRpcAsync<SendMessageResponse>(
+            "session.send", [request], cancellationToken);
 
-            return response.MessageId;
-        }
-        catch (Exception ex) when (_turnTracker is { } tracker)
-        {
-            tracker.CompleteTurnWithError(ex);
-            throw;
-        }
+        return response.MessageId;
     }
 
     /// <summary>
@@ -238,28 +229,18 @@ public partial class CopilotSession : IAsyncDisposable
 
         await SendAsync(options, cancellationToken);
 
-        try
-        {
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            cts.CancelAfter(effectiveTimeout);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(effectiveTimeout);
 
-            using var registration = cts.Token.Register(() =>
-            {
-                if (cancellationToken.IsCancellationRequested)
-                    tcs.TrySetCanceled(cancellationToken);
-                else
-                    tcs.TrySetException(new TimeoutException($"SendAndWaitAsync timed out after {effectiveTimeout}"));
-            });
-
-            return await tcs.Task;
-        }
-        catch (Exception ex) when (_turnTracker is { } tracker)
+        using var registration = cts.Token.Register(() =>
         {
-            // If timeout/cancellation occurs before DispatchEvent handles the turn-ending event,
-            // complete the telemetry span with the error (idempotent if already completed).
-            tracker.CompleteTurnWithError(ex);
-            throw;
-        }
+            if (cancellationToken.IsCancellationRequested)
+                tcs.TrySetCanceled(cancellationToken);
+            else
+                tcs.TrySetException(new TimeoutException($"SendAndWaitAsync timed out after {effectiveTimeout}"));
+        });
+
+        return await tcs.Task;
     }
 
     /// <summary>
@@ -309,7 +290,7 @@ public partial class CopilotSession : IAsyncDisposable
     /// </remarks>
     internal void DispatchEvent(SessionEvent sessionEvent)
     {
-        _turnTracker?.ProcessEvent(sessionEvent);
+        _telemetryTracker?.ProcessEvent(sessionEvent);
 
         // Reading the field once gives us a snapshot; delegates are immutable.
         _eventHandlers?.Invoke(sessionEvent);
@@ -620,7 +601,7 @@ public partial class CopilotSession : IAsyncDisposable
 
         _eventHandlers = null;
         _toolHandlers.Clear();
-        _turnTracker?.CompleteOnDispose();
+        _telemetryTracker?.CompleteOnDispose();
 
         _permissionHandler = null;
     }

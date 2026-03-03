@@ -121,6 +121,13 @@ function dispatchEvent(session: CopilotSession, event: SessionEvent) {
     session._dispatchEvent(event);
 }
 
+/** Send a message and dispatch the matching user.message event (unit tests
+ *  use mock connections that don't produce real events). */
+async function sendWithEvent(session: CopilotSession, prompt: string, extra: Record<string, unknown> = {}) {
+    await session.send({ prompt, ...extra });
+    dispatchEvent(session, makeEvent("user.message", { content: prompt }));
+}
+
 function makeEvent(type: string, data: Record<string, unknown> = {}): SessionEvent {
     return {
         id: "evt-1",
@@ -233,7 +240,7 @@ describe("CopilotTelemetry", () => {
                 baseUrl: "https://api.openai.com:8080/v1",
             });
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("session.idle"));
 
             const spans = getSpans();
@@ -254,8 +261,8 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "First" });
-            await session.send({ prompt: "Second" });
+            await sendWithEvent(session, "First");
+            await sendWithEvent(session, "Second");
             dispatchEvent(session, makeEvent("session.idle"));
 
             const spans = getSpans();
@@ -267,11 +274,11 @@ describe("CopilotTelemetry", () => {
             const session = createTestSession(telemetry);
 
             // First turn
-            await session.send({ prompt: "Turn 1" });
+            await sendWithEvent(session, "Turn 1");
             dispatchEvent(session, makeEvent("session.idle"));
 
             // Second turn
-            await session.send({ prompt: "Turn 2" });
+            await sendWithEvent(session, "Turn 2");
             dispatchEvent(session, makeEvent("session.idle"));
 
             const spans = getSpans();
@@ -341,7 +348,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry, { model: "gpt-4o" });
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("session.idle"));
 
             const scopeMetrics = await getMetrics();
@@ -354,7 +361,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry, { model: "gpt-4o" });
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(
                 session,
@@ -392,7 +399,7 @@ describe("CopilotTelemetry", () => {
                 streaming: true,
             });
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
 
             // Simulate streaming chunks
@@ -477,7 +484,7 @@ describe("CopilotTelemetry", () => {
                 ],
             });
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(session, makeEvent("assistant.message", { content: "Hi there!" }));
             dispatchEvent(session, makeEvent("session.idle"));
@@ -538,7 +545,7 @@ describe("CopilotTelemetry", () => {
                 ],
             });
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(session, makeEvent("assistant.message", { content: "Hi there!" }));
             dispatchEvent(session, makeEvent("session.idle"));
@@ -570,7 +577,7 @@ describe("CopilotTelemetry", () => {
             const conn = createMockConnection();
             const session = new CopilotSession("test-id", conn);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("session.idle"));
 
             const spans = getSpans();
@@ -589,7 +596,7 @@ describe("CopilotTelemetry", () => {
             });
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("session.idle"));
 
             const spans = getSpans();
@@ -612,7 +619,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(
                 session,
                 makeEvent("session.error", {
@@ -631,7 +638,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(
                 session,
@@ -654,7 +661,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(
                 session,
@@ -683,7 +690,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry, { model: "gpt-4o" });
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(
                 session,
@@ -718,7 +725,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(
                 session,
@@ -773,7 +780,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("session.idle"));
 
             const spans = getSpans();
@@ -804,7 +811,7 @@ describe("CopilotTelemetry", () => {
                 "A helpful agent" // agentDescription
             );
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("session.idle"));
 
             const spans = getSpans();
@@ -844,7 +851,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(session, makeEvent("session.idle"));
 
@@ -863,7 +870,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
 
             // Turn 1
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
@@ -900,7 +907,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
 
             // Turn 1
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
@@ -953,7 +960,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({ enableSensitiveData: true });
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Think step by step" });
+            await sendWithEvent(session, "Think step by step");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(
                 session,
@@ -983,7 +990,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({ enableSensitiveData: true });
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Get weather" });
+            await sendWithEvent(session, "Get weather");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
 
             // Tool execution start -> output message with tool_call part
@@ -1034,7 +1041,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({ enableSensitiveData: true });
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello world" });
+            await sendWithEvent(session, "Hello world");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(session, makeEvent("session.idle"));
 
@@ -1058,7 +1065,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(
                 session,
@@ -1093,7 +1100,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(
                 session,
@@ -1138,7 +1145,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(
                 session,
@@ -1176,7 +1183,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(
                 session,
@@ -1224,7 +1231,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({ enableSensitiveData: true });
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Use MCP tool" });
+            await sendWithEvent(session, "Use MCP tool");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
 
             dispatchEvent(
@@ -1289,7 +1296,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(
                 session,
                 makeEvent("assistant.turn_start", {
@@ -1333,7 +1340,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
 
             // Turn 1 with cost and AIU
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
@@ -1395,7 +1402,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(
                 session,
@@ -1432,7 +1439,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(session, makeEvent("session.compaction_start", {}));
             dispatchEvent(session, makeEvent("session.idle"));
@@ -1449,7 +1456,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(
                 session,
@@ -1486,7 +1493,7 @@ describe("CopilotTelemetry", () => {
             const telemetry = new CopilotTelemetry({});
             const session = createTestSession(telemetry);
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
 
             // Spans should not be finished yet
@@ -1522,7 +1529,7 @@ describe("CopilotTelemetry", () => {
                 streaming: true,
             });
 
-            await session.send({ prompt: "Hello" });
+            await sendWithEvent(session, "Hello");
             dispatchEvent(session, makeEvent("assistant.turn_start", { turnId: "turn-1" }));
             dispatchEvent(
                 session,

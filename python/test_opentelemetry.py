@@ -191,6 +191,19 @@ def _make_session_with_telemetry(
     )
 
 
+async def _send_with_event(session: CopilotSession, prompt: str = "Hello") -> None:
+    """Send a message and dispatch the matching user.message event.
+
+    Unit tests use mock connections that don't produce real events, so we
+    manually dispatch the user.message event that would normally arrive from
+    the CLI.
+    """
+    await session.send({"prompt": prompt})
+    session._dispatch_event(
+        _make_session_event(SessionEventType.USER_MESSAGE, content=prompt)
+    )
+
+
 def _get_metric_names(reader):
     """Collect all metric names from the reader."""
     data = reader.get_metrics_data()
@@ -638,7 +651,7 @@ class TestSensitiveDataGating:
             tools=[tool],
         )
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -702,7 +715,7 @@ class TestSensitiveDataGating:
             tools=[tool],
         )
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -776,7 +789,7 @@ class TestOptIn:
     def test_session_without_telemetry_has_no_span_state(self):
         session = _make_session_with_telemetry(telemetry=None)
         assert session._telemetry is None
-        assert session._turn_tracker is None
+        assert session._telemetry_tracker is None
 
 
 # ---------------------------------------------------------------------------
@@ -791,10 +804,10 @@ class TestSessionTelemetryIntegration:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
 
         # Span started but not ended yet (need idle event)
-        assert session._turn_tracker._agent_span is not None
+        assert session._telemetry_tracker._agent_span is not None
 
         # Dispatch turn start + turn end + idle to close spans
         session._dispatch_event(
@@ -819,7 +832,7 @@ class TestSessionTelemetryIntegration:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -844,7 +857,7 @@ class TestSessionTelemetryIntegration:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -885,7 +898,7 @@ class TestSessionTelemetryIntegration:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
 
         # Turn 1
         session._dispatch_event(
@@ -940,14 +953,14 @@ class TestSessionTelemetryIntegration:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
         session._dispatch_event(
             _make_session_event(SessionEventType.SESSION_MODEL_CHANGE, new_model="gpt-4o-mini")
         )
-        assert session._turn_tracker._response_model == "gpt-4o-mini"
+        assert session._telemetry_tracker._response_model == "gpt-4o-mini"
         session._dispatch_event(_make_session_event(SessionEventType.ASSISTANT_TURN_END))
         session._dispatch_event(_make_session_event(SessionEventType.SESSION_IDLE))
 
@@ -957,7 +970,7 @@ class TestSessionTelemetryIntegration:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -977,7 +990,7 @@ class TestSessionTelemetryIntegration:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -995,12 +1008,12 @@ class TestSessionTelemetryIntegration:
         session = _make_session_with_telemetry(telemetry, "s1")
 
         # First send creates the agent span
-        await session.send({"prompt": "First"})
-        span_after_first = session._turn_tracker._agent_span
+        await _send_with_event(session, "First")
+        span_after_first = session._telemetry_tracker._agent_span
 
         # Second send reuses the same span
-        await session.send({"prompt": "Second"})
-        assert session._turn_tracker._agent_span is span_after_first
+        await _send_with_event(session, "Second")
+        assert session._telemetry_tracker._agent_span is span_after_first
 
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
@@ -1023,7 +1036,7 @@ class TestStreamingChunkMetrics:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1", streaming=True)
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -1050,7 +1063,7 @@ class TestStreamingChunkMetrics:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1", streaming=True)
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -1086,10 +1099,10 @@ class TestConfigureTelemetryContext:
             provider={"type": "azure", "base_url": "https://myendpoint.openai.azure.com:443/v1"},
         )
 
-        assert session._turn_tracker._request_model == "gpt-4"
-        assert session._turn_tracker._provider_name == "azure.ai.openai"
-        assert session._turn_tracker._server_address == "myendpoint.openai.azure.com"
-        assert session._turn_tracker._server_port == 443
+        assert session._telemetry_tracker._request_model == "gpt-4"
+        assert session._telemetry_tracker._provider_name == "azure.ai.openai"
+        assert session._telemetry_tracker._server_address == "myendpoint.openai.azure.com"
+        assert session._telemetry_tracker._server_port == 443
 
     def test_noop_without_telemetry(self):
         session = _make_session_with_telemetry(telemetry=None, model="gpt-4")
@@ -1108,7 +1121,7 @@ class TestFinishReasons:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -1162,7 +1175,7 @@ class TestVendorPrefixedAttributes:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(
                 SessionEventType.ASSISTANT_TURN_START,
@@ -1205,7 +1218,7 @@ class TestVendorPrefixedAttributes:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
 
         # Turn 1
         session._dispatch_event(
@@ -1262,7 +1275,7 @@ class TestCustomSpanEvents:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -1300,7 +1313,7 @@ class TestCustomSpanEvents:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -1322,7 +1335,7 @@ class TestCustomSpanEvents:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -1361,7 +1374,7 @@ class TestCustomSpanEvents:
         )
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -1407,7 +1420,7 @@ class TestRichMessageContent:
         )
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Think about this"})
+        await _send_with_event(session, "Think about this")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -1444,7 +1457,7 @@ class TestRichMessageContent:
         )
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Use a tool"})
+        await _send_with_event(session, "Use a tool")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -1498,7 +1511,7 @@ class TestMcpServerToolTracking:
         )
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Use MCP tool"})
+        await _send_with_event(session, "Use MCP tool")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -1560,7 +1573,7 @@ class TestSubagentSpans:
         )
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -1645,7 +1658,7 @@ class TestSubagentSpans:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -1690,13 +1703,13 @@ class TestCompleteOnDispose:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
 
         # Dispose while turn is in progress
-        session._turn_tracker.complete_on_dispose()
+        session._telemetry_tracker.complete_on_dispose()
 
         spans = exporter.get_finished_spans()
         # Should have both chat and invoke_agent spans
@@ -1713,7 +1726,7 @@ class TestCompleteOnDispose:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -1739,7 +1752,7 @@ class TestToolCallParentContext:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )
@@ -1777,7 +1790,7 @@ class TestTokenUsageMetricsOperationName:
         telemetry = _make_telemetry(tracer_provider=tp, meter_provider=mp)
         session = _make_session_with_telemetry(telemetry, "s1")
 
-        await session.send({"prompt": "Hello"})
+        await _send_with_event(session, "Hello")
         session._dispatch_event(
             _make_session_event(SessionEventType.ASSISTANT_TURN_START, turn_id="t1")
         )

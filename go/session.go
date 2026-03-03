@@ -66,7 +66,7 @@ type Session struct {
 	hooks             *SessionHooks
 	hooksMux          sync.RWMutex
 	telemetry         *copilotTelemetry
-	turnTracker       *agentTurnTracker
+	telemetryTracker       *agentTurnTracker
 
 	// RPC provides typed session-scoped RPC methods.
 	RPC *rpc.SessionRpc
@@ -115,10 +115,6 @@ func newSession(sessionID string, client *jsonrpc2.Client, workspacePath string)
 //	    log.Printf("Failed to send message: %v", err)
 //	}
 func (s *Session) Send(ctx context.Context, options MessageOptions) (string, error) {
-	if s.turnTracker != nil {
-		s.turnTracker.beginSend(ctx, options.Prompt)
-	}
-
 	req := sessionSendRequest{
 		SessionID:   s.SessionID,
 		Prompt:      options.Prompt,
@@ -128,9 +124,6 @@ func (s *Session) Send(ctx context.Context, options MessageOptions) (string, err
 
 	result, err := s.client.Request("session.send", req)
 	if err != nil {
-		if s.turnTracker != nil {
-			s.turnTracker.completeTurnWithError(err)
-		}
 		return "", fmt.Errorf("failed to send message: %w", err)
 	}
 
@@ -217,18 +210,9 @@ func (s *Session) SendAndWait(ctx context.Context, options MessageOptions) (*Ses
 		mu.Unlock()
 		return result, nil
 	case err := <-errCh:
-		// Complete telemetry spans on session error (idempotent if already completed).
-		if s.turnTracker != nil {
-			s.turnTracker.completeTurnWithError(err)
-		}
 		return nil, err
 	case <-ctx.Done():
-		ctxErr := fmt.Errorf("waiting for session.idle: %w", ctx.Err())
-		// Complete telemetry spans on timeout/cancellation (idempotent if already completed).
-		if s.turnTracker != nil {
-			s.turnTracker.completeTurnWithError(ctxErr)
-		}
-		return nil, ctxErr
+		return nil, fmt.Errorf("waiting for session.idle: %w", ctx.Err())
 	}
 }
 
@@ -487,8 +471,8 @@ func (s *Session) handleHooksInvoke(hookType string, rawInput json.RawMessage) (
 // This is an internal method; handlers are called synchronously and any panics
 // are recovered to prevent crashing the event dispatcher.
 func (s *Session) dispatchEvent(event SessionEvent) {
-	if s.turnTracker != nil {
-		s.turnTracker.processEvent(event)
+	if s.telemetryTracker != nil {
+		s.telemetryTracker.processEvent(event)
 	}
 
 	s.handlerMutex.RLock()
@@ -561,8 +545,8 @@ func (s *Session) GetMessages(ctx context.Context) ([]SessionEvent, error) {
 //	}
 func (s *Session) Destroy() error {
 	// Close any open telemetry spans before destroying.
-	if s.turnTracker != nil {
-		s.turnTracker.completeOnDispose()
+	if s.telemetryTracker != nil {
+		s.telemetryTracker.completeOnDispose()
 	}
 
 	_, err := s.client.Request("session.destroy", sessionDestroyRequest{SessionID: s.SessionID})
@@ -629,17 +613,17 @@ func (s *Session) configureTelemetryContext(
 	if s.telemetry == nil {
 		return
 	}
-	s.turnTracker = newAgentTurnTracker(s.telemetry, s.SessionID, model, provider, systemMessage, tools, streaming, agentName, agentDescription)
+	s.telemetryTracker = newAgentTurnTracker(s.telemetry, s.SessionID, model, provider, systemMessage, tools, streaming, agentName, agentDescription)
 }
 
 // getToolCallParentContext returns the parent context for a tool call span.
 // For subagent tool calls this returns the subagent's invoke_agent context;
 // for main agent tool calls this returns the root invoke_agent context.
 func (s *Session) getToolCallParentContext(toolCallID string) context.Context {
-	if s.turnTracker == nil {
+	if s.telemetryTracker == nil {
 		return nil
 	}
-	return s.turnTracker.getToolCallParentContext(toolCallID)
+	return s.telemetryTracker.getToolCallParentContext(toolCallID)
 }
 
 // SetModel changes the model for this session.

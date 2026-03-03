@@ -573,8 +573,6 @@ type agentTurnTracker struct {
 	turnID             *string
 	turnInteractionID  *string
 
-	// Stashed user prompt for the first chat turn
-	pendingUserPrompt string
 }
 
 func newAgentTurnTracker(telemetry *copilotTelemetry, sessionID string, model string, provider *ProviderConfig, systemMessage *SystemMessageConfig, tools []Tool, streaming bool, agentName string, agentDescription string) *agentTurnTracker {
@@ -641,44 +639,33 @@ func (t *agentTurnTracker) completeOnDispose() {
 	}
 }
 
-// beginSend is called at the start of Send() to start a span and record the user message.
-func (t *agentTurnTracker) beginSend(ctx context.Context, prompt string) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if t.agentSpan == nil {
-		spanCtx, span := t.telemetry.startInvokeAgentSpan(
-			ctx,
-			t.sessionID,
-			t.requestModel,
-			t.providerName,
-			t.serverAddress,
-			t.serverPort,
-			t.agentName,
-			t.agentDescription,
-		)
-		t.agentSpan = span
-		t.agentSpanCtx = spanCtx
-		t.agentStartTime = time.Now()
-		t.agentInputMsgs = nil
-		t.agentOutputMsgs = nil
-	}
-
-	// Agent-level input = what the caller sent (all user prompts).
-	if prompt != "" {
-		t.agentInputMsgs = append(t.agentInputMsgs, otelMsg{
-			Role:  "user",
-			Parts: []otelPart{{Type: "text", Content: prompt}},
-		})
-	}
-
-	// Stash user prompt for the first chat turn's input messages.
-	t.pendingUserPrompt = prompt
-}
-
 // processEvent handles telemetry enrichment for dispatched events.
 func (t *agentTurnTracker) processEvent(event SessionEvent) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
+	// A user.message event starts a new invoke_agent span (if not already
+	// active) and records the user prompt.
+	if event.Type == UserMessage {
+		prompt := ""
+		if event.Data.Content != nil {
+			prompt = *event.Data.Content
+		}
+		t.ensureAgentSpan()
+
+		if prompt != "" {
+			t.agentInputMsgs = append(t.agentInputMsgs, otelMsg{
+				Role:  "user",
+				Parts: []otelPart{{Type: "text", Content: prompt}},
+			})
+			t.turnInputMsgs = append(t.turnInputMsgs, otelMsg{
+				Role:  "user",
+				Parts: []otelPart{{Type: "text", Content: prompt}},
+			})
+		}
+
+		return
+	}
 
 	// Route subagent events by parentToolCallId.
 	parentToolCallID := getParentToolCallID(event)
@@ -968,22 +955,42 @@ func (t *agentTurnTracker) processEvent(event SessionEvent) {
 	}
 }
 
-// completeTurnWithError completes the current turn with an error.
-func (t *agentTurnTracker) completeTurnWithError(err error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.completeChatTurnLocked(err)
-	t.completeAgentTurnLocked(err)
-}
-
 // ============================================================================
 // Chat turn lifecycle
 // ============================================================================
 
 // beginChatTurnLocked starts a new chat child span for an LLM turn. Caller must hold mu.
+// ensureAgentSpan ensures the invoke_agent span exists, creating it on demand
+// if needed. Called from both the user.message handler and beginChatTurnLocked
+// so that RPC-initiated turns (no user.message) still get an agent span.
+// Caller must hold mu.
+func (t *agentTurnTracker) ensureAgentSpan() {
+	if t.agentSpan == nil {
+		spanCtx, span := t.telemetry.startInvokeAgentSpan(
+			context.Background(),
+			t.sessionID,
+			t.requestModel,
+			t.providerName,
+			t.serverAddress,
+			t.serverPort,
+			t.agentName,
+			t.agentDescription,
+		)
+		t.agentSpan = span
+		t.agentSpanCtx = spanCtx
+		t.agentStartTime = time.Now()
+		t.agentInputMsgs = nil
+		t.agentOutputMsgs = nil
+	}
+}
+
 func (t *agentTurnTracker) beginChatTurnLocked() {
 	// If there's already an active turn, complete it first.
 	t.completeChatTurnLocked(nil)
+
+	// Ensure the parent agent span exists — covers RPC-initiated turns
+	// where no user.message event preceded the assistant.turn_start.
+	t.ensureAgentSpan()
 
 	t.turnResponseModel = ""
 	t.turnResponseID = ""
@@ -993,7 +1000,6 @@ func (t *agentTurnTracker) beginChatTurnLocked() {
 	t.turnCacheCreationTokens = 0
 	t.firstOutputChunkRecorded = false
 	t.lastOutputChunkTime = time.Time{}
-	t.turnInputMsgs = nil
 	t.turnOutputMsgs = nil
 	t.turnCost = nil
 	t.turnServerDuration = nil
@@ -1001,15 +1007,6 @@ func (t *agentTurnTracker) beginChatTurnLocked() {
 	t.turnAIU = nil
 	t.turnID = nil
 	t.turnInteractionID = nil
-
-	// Add stashed user prompt as input message for the first turn.
-	if t.pendingUserPrompt != "" {
-		t.turnInputMsgs = append(t.turnInputMsgs, otelMsg{
-			Role:  "user",
-			Parts: []otelPart{{Type: "text", Content: t.pendingUserPrompt}},
-		})
-		t.pendingUserPrompt = ""
-	}
 
 	parentCtx := t.agentSpanCtx
 	if parentCtx == nil {
@@ -1222,7 +1219,6 @@ func (t *agentTurnTracker) completeAgentTurnLocked(err error) {
 	t.agentSpan = nil
 	t.agentSpanCtx = nil
 	t.agentStartTime = time.Time{}
-	t.pendingUserPrompt = ""
 	t.agentInputMsgs = nil
 	t.agentOutputMsgs = nil
 

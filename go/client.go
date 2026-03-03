@@ -1354,7 +1354,7 @@ func (c *Client) executeToolCall(
 
 	if c.telemetry != nil {
 		toolSpanCtx := context.Background()
-		if session.turnTracker != nil {
+		if session.telemetryTracker != nil {
 			if tCtx := session.getToolCallParentContext(toolCallID); tCtx != nil {
 				toolSpanCtx = tCtx
 			}
@@ -1380,10 +1380,10 @@ func (c *Client) executeToolCall(
 			providerName := otelDefaultProviderName
 			var serverAddress string
 			var serverPort int
-			if session.turnTracker != nil {
-				providerName = session.turnTracker.getProviderName()
-				serverAddress = session.turnTracker.getServerAddress()
-				serverPort = session.turnTracker.getServerPort()
+			if session.telemetryTracker != nil {
+				providerName = session.telemetryTracker.getProviderName()
+				serverAddress = session.telemetryTracker.getServerAddress()
+				serverPort = session.telemetryTracker.getServerPort()
 			}
 			ctx := spanCtx
 			if ctx == nil {

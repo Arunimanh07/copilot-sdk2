@@ -788,9 +788,6 @@ class AgentTurnTracker:
         self._turn_id: str | None = None
         self._turn_interaction_id: str | None = None
 
-        # Stashed user prompt for the first chat turn
-        self._pending_user_prompt: str | None = None
-
     # -- Property accessors --------------------------------------------------
 
     @property
@@ -830,43 +827,10 @@ class AgentTurnTracker:
 
     # -- Public methods ------------------------------------------------------
 
-    def begin_send(self, prompt: str | None) -> None:
-        """Called at the start of send(); starts the invoke_agent span if needed."""
-        with self._lock:
-            if self._agent_span is None:
-                self._agent_span, self._agent_span_context = (
-                    self._telemetry.start_invoke_agent_span(
-                        self._session_id,
-                        self._request_model,
-                        self._provider_name,
-                        self._server_address,
-                        self._server_port,
-                        self._agent_name,
-                        self._agent_description,
-                    )
-                )
-                self._agent_start_time = time.monotonic()
-                self._agent_input_messages = []
-
-            # Agent-level input = what the caller sent (all user prompts).
-            if self._agent_input_messages is not None and prompt:
-                self._agent_input_messages.append(
-                    OtelMsg(role="user", parts=[OtelPart(type="text", content=prompt)])
-                )
-
-            # Stash user prompt for the first chat turn's input messages.
-            self._pending_user_prompt = prompt
-
     def process_event(self, event: SessionEvent) -> None:
         """Called from _dispatch_event; handles telemetry enrichment and turn completion."""
         with self._lock:
             self._process_event_locked(event)
-
-    def complete_turn_with_error(self, error: Exception) -> None:
-        """Called from send() error path; completes turn with error."""
-        with self._lock:
-            self._complete_chat_turn(error)
-            self._complete_agent_turn(error)
 
     def complete_on_dispose(self) -> None:
         """Closes any active spans with an error status.
@@ -885,6 +849,22 @@ class AgentTurnTracker:
 
     def _process_event_locked(self, event: SessionEvent) -> None:
         """Process a single event under the lock."""
+        # A user.message event starts a new invoke_agent span (if not already
+        # active) and records the user prompt.
+        if event.type == SessionEventType.USER_MESSAGE:
+            prompt = getattr(event.data, "content", None) if event.data else None
+            self._ensure_agent_span()
+
+            if prompt:
+                msg = OtelMsg(role="user", parts=[OtelPart(type="text", content=prompt)])
+                if self._agent_input_messages is not None:
+                    self._agent_input_messages.append(msg)
+                if self._input_messages is None:
+                    self._input_messages = []
+                self._input_messages.append(msg)
+
+            return
+
         # Route subagent events by parentToolCallId.
         parent_tool_call_id = _get_parent_tool_call_id(event)
         if parent_tool_call_id:
@@ -1157,10 +1137,35 @@ class AgentTurnTracker:
     # Chat turn lifecycle
     # ========================================================================
 
+    def _ensure_agent_span(self) -> None:
+        """Ensures the invoke_agent span exists, creating it on demand if needed.
+
+        Called from both the user.message handler and _begin_chat_turn so that
+        RPC-initiated turns (no user.message) still get an agent span.
+        """
+        if self._agent_span is None:
+            self._agent_span, self._agent_span_context = (
+                self._telemetry.start_invoke_agent_span(
+                    self._session_id,
+                    self._request_model,
+                    self._provider_name,
+                    self._server_address,
+                    self._server_port,
+                    self._agent_name,
+                    self._agent_description,
+                )
+            )
+            self._agent_start_time = time.monotonic()
+            self._agent_input_messages = []
+
     def _begin_chat_turn(self) -> None:
         """Starts a new chat child span for an LLM turn."""
         # If there's already an active turn, complete it first.
         self._complete_chat_turn(None)
+
+        # Ensure the parent agent span exists — covers RPC-initiated turns
+        # where no user.message event preceded the assistant.turn_start.
+        self._ensure_agent_span()
 
         self._response_model = None
         self._response_id = None
@@ -1170,7 +1175,8 @@ class AgentTurnTracker:
         self._cache_creation_tokens = 0
         self._first_output_chunk_recorded = False
         self._last_output_chunk_time = 0.0
-        self._input_messages = []
+        if self._input_messages is None:
+            self._input_messages = []
         self._output_messages = []
         self._turn_cost = None
         self._turn_server_duration = None
@@ -1178,16 +1184,6 @@ class AgentTurnTracker:
         self._turn_aiu = None
         self._turn_id = None
         self._turn_interaction_id = None
-
-        # Add stashed user prompt as input message for the first turn.
-        if self._pending_user_prompt:
-            self._input_messages.append(
-                OtelMsg(
-                    role="user",
-                    parts=[OtelPart(type="text", content=self._pending_user_prompt)],
-                )
-            )
-            self._pending_user_prompt = None
 
         parent_context = self._agent_span_context or otel_context.get_current()
         self._turn_span = self._telemetry.start_chat_span(
@@ -1353,7 +1349,6 @@ class AgentTurnTracker:
         self._agent_span = None
         self._agent_span_context = None
         self._agent_start_time = None
-        self._pending_user_prompt = None
         self._agent_input_messages = None
         self._agent_output_messages = None
 

@@ -72,7 +72,7 @@ export class CopilotSession {
 
     // Telemetry state
     private readonly _telemetry: CopilotTelemetry | undefined;
-    private readonly _turnTracker: AgentTurnTracker | undefined;
+    private readonly _telemetryTracker: AgentTurnTracker | undefined;
 
     /**
      * Creates a new CopilotSession instance.
@@ -102,7 +102,7 @@ export class CopilotSession {
         agentDescription?: string
     ) {
         this._telemetry = telemetry;
-        this._turnTracker = telemetry
+        this._telemetryTracker = telemetry
             ? new AgentTurnTracker(
                   telemetry,
                   sessionId,
@@ -141,20 +141,20 @@ export class CopilotSession {
         return this._telemetry;
     }
     get telemetrySpanContext(): Context | undefined {
-        return this._turnTracker?.getSpanContext();
+        return this._telemetryTracker?.getSpanContext();
     }
     get telemetryProviderName(): string {
-        return this._turnTracker?.providerName ?? "github";
+        return this._telemetryTracker?.providerName ?? "github";
     }
     get telemetryServerAddress(): string | undefined {
-        return this._turnTracker?.serverAddress;
+        return this._telemetryTracker?.serverAddress;
     }
     get telemetryServerPort(): number | undefined {
-        return this._turnTracker?.serverPort;
+        return this._telemetryTracker?.serverPort;
     }
     /** @internal Gets the parent context for a tool call span (may be subagent context). */
     getTelemetryToolCallParentContext(toolCallId: string): Context | undefined {
-        return this._turnTracker?.getToolCallParentContext(toolCallId);
+        return this._telemetryTracker?.getToolCallParentContext(toolCallId);
     }
 
     /**
@@ -176,24 +176,14 @@ export class CopilotSession {
      * ```
      */
     async send(options: MessageOptions): Promise<string> {
-        // Start telemetry span on first send after idle
-        this._turnTracker?.beginSend(options.prompt);
+        const response = await this.connection.sendRequest("session.send", {
+            sessionId: this.sessionId,
+            prompt: options.prompt,
+            attachments: options.attachments,
+            mode: options.mode,
+        });
 
-        try {
-            const response = await this.connection.sendRequest("session.send", {
-                sessionId: this.sessionId,
-                prompt: options.prompt,
-                attachments: options.attachments,
-                mode: options.mode,
-            });
-
-            return (response as { messageId: string }).messageId;
-        } catch (error) {
-            this._turnTracker?.completeTurnWithError(
-                error instanceof Error ? error : new Error(String(error))
-            );
-            throw error;
-        }
+        return (response as { messageId: string }).messageId;
     }
 
     /**
@@ -266,12 +256,6 @@ export class CopilotSession {
             await Promise.race([idlePromise, timeoutPromise]);
 
             return lastAssistantMessage;
-        } catch (ex) {
-            // Complete telemetry spans on timeout/cancellation (idempotent if already completed).
-            if (ex instanceof Error) {
-                this._turnTracker?.completeTurnWithError(ex);
-            }
-            throw ex;
         } finally {
             if (timeoutId !== undefined) {
                 clearTimeout(timeoutId);
@@ -365,7 +349,7 @@ export class CopilotSession {
      */
     _dispatchEvent(event: SessionEvent): void {
         // Delegate telemetry enrichment and turn completion to the tracker
-        this._turnTracker?.processEvent(event);
+        this._telemetryTracker?.processEvent(event);
 
         // Dispatch to typed handlers for this specific event type
         const typedHandlers = this.typedEventHandlers.get(event.type);
@@ -616,7 +600,7 @@ export class CopilotSession {
         this.toolHandlers.clear();
         this.toolDescriptions.clear();
         this.permissionHandler = undefined;
-        this._turnTracker?.completeOnDispose();
+        this._telemetryTracker?.completeOnDispose();
     }
 
     /**

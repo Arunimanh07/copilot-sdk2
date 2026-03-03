@@ -781,9 +781,6 @@ export class AgentTurnTracker {
     private _turnId: string | undefined;
     private _turnInteractionId: string | undefined;
 
-    // Stashed user prompt for the first chat turn
-    private _pendingUserPrompt: string | undefined;
-
     constructor(
         telemetry: CopilotTelemetry,
         sessionId: string,
@@ -849,37 +846,26 @@ export class AgentTurnTracker {
         }
     }
 
-    /** Called at start of send(); starts the invoke_agent span if needed. */
-    beginSend(prompt: string | undefined): void {
-        if (!this._agentSpan) {
-            this._agentSpan = this._telemetry.startInvokeAgentSpan(
-                this._sessionId,
-                this._requestModel,
-                this.providerName,
-                this.serverAddress,
-                this.serverPort,
-                this._agentName,
-                this._agentDescription
-            );
-            this._agentSpanContext = trace.setSpan(context.active(), this._agentSpan);
-            this._agentStartTime = performance.now();
-            this._agentInputMessages = [];
-        }
-
-        // Agent-level input = what the caller sent (all user prompts).
-        if (this._agentInputMessages && prompt) {
-            this._agentInputMessages.push({
-                role: "user",
-                parts: [{ type: "text", content: prompt }],
-            });
-        }
-
-        // Stash user prompt for the first chat turn's input messages.
-        this._pendingUserPrompt = prompt;
-    }
-
     /** Called from _dispatchEvent; handles telemetry enrichment and turn completion. */
     processEvent(event: SessionEvent): void {
+        // A user.message event starts a new invoke_agent span (if not already
+        // active) and records the user prompt.
+        if (event.type === "user.message") {
+            const prompt = (event as Extract<SessionEvent, { type: "user.message" }>).data?.content;
+            this._ensureAgentSpan();
+
+            if (prompt) {
+                const msg = {
+                    role: "user" as const,
+                    parts: [{ type: "text" as const, content: prompt }],
+                };
+                this._agentInputMessages?.push(msg);
+                (this._inputMessages ??= []).push(msg);
+            }
+
+            return;
+        }
+
         // Route subagent events by parentToolCallId.
         const parentToolCallId = getParentToolCallId(event);
         if (parentToolCallId) {
@@ -1167,20 +1153,40 @@ export class AgentTurnTracker {
         }
     }
 
-    /** Called from send() error path; completes turn with error. */
-    completeTurnWithError(error: Error): void {
-        this._completeChatTurn(error);
-        this._completeAgentTurn(error);
-    }
-
     // ========================================================================
     // Chat turn lifecycle
     // ========================================================================
 
     /** Starts a new chat child span for an LLM turn. */
+    /**
+     * Ensures the invoke_agent span exists, creating it on demand if needed.
+     * Called from both the user.message handler and _beginChatTurn so that
+     * RPC-initiated turns (no user.message) still get an agent span.
+     */
+    private _ensureAgentSpan(): void {
+        if (!this._agentSpan) {
+            this._agentSpan = this._telemetry.startInvokeAgentSpan(
+                this._sessionId,
+                this._requestModel,
+                this.providerName,
+                this.serverAddress,
+                this.serverPort,
+                this._agentName,
+                this._agentDescription
+            );
+            this._agentSpanContext = trace.setSpan(context.active(), this._agentSpan);
+            this._agentStartTime = performance.now();
+            this._agentInputMessages = [];
+        }
+    }
+
     private _beginChatTurn(): void {
         // If there's already an active turn, complete it first.
         this._completeChatTurn(undefined);
+
+        // Ensure the parent agent span exists — covers RPC-initiated turns
+        // where no user.message event preceded the assistant.turn_start.
+        this._ensureAgentSpan();
 
         this._responseModel = undefined;
         this._responseId = undefined;
@@ -1190,7 +1196,7 @@ export class AgentTurnTracker {
         this._cacheCreationTokens = 0;
         this._firstOutputChunkRecorded = false;
         this._lastOutputChunkTime = 0;
-        this._inputMessages = [];
+        this._inputMessages ??= [];
         this._outputMessages = [];
         this._turnCost = undefined;
         this._turnServerDuration = undefined;
@@ -1198,15 +1204,6 @@ export class AgentTurnTracker {
         this._turnAiu = undefined;
         this._turnId = undefined;
         this._turnInteractionId = undefined;
-
-        // Add stashed user prompt as input message for the first turn.
-        if (this._pendingUserPrompt) {
-            this._inputMessages.push({
-                role: "user",
-                parts: [{ type: "text", content: this._pendingUserPrompt }],
-            });
-            this._pendingUserPrompt = undefined;
-        }
 
         const parentContext = this._agentSpanContext ?? context.active();
         this._turnSpan = this._telemetry.startChatSpan(
@@ -1390,7 +1387,6 @@ export class AgentTurnTracker {
         this._agentSpan = undefined;
         this._agentSpanContext = undefined;
         this._agentStartTime = undefined;
-        this._pendingUserPrompt = undefined;
         this._agentInputMessages = undefined;
         this._agentOutputMessages = undefined;
 
