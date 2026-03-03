@@ -88,7 +88,8 @@ describe("CopilotClient", () => {
         const session = await client.createSession({ onPermissionRequest: approveAll });
 
         // Mock sendRequest to capture the call without hitting the runtime
-        const spy = vi.spyOn((client as any).connection!, "sendRequest")
+        const spy = vi
+            .spyOn((client as any).connection!, "sendRequest")
             .mockImplementation(async (method: string, _params: any) => {
                 if (method === "session.model.switchTo") return {};
                 // Fall through for other methods (shouldn't be called)
@@ -97,10 +98,10 @@ describe("CopilotClient", () => {
 
         await session.setModel("gpt-4.1");
 
-        expect(spy).toHaveBeenCalledWith(
-            "session.model.switchTo",
-            { sessionId: session.sessionId, modelId: "gpt-4.1" }
-        );
+        expect(spy).toHaveBeenCalledWith("session.model.switchTo", {
+            sessionId: session.sessionId,
+            modelId: "gpt-4.1",
+        });
 
         spy.mockRestore();
     });
