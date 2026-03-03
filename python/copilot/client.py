@@ -20,6 +20,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 from collections.abc import Callable
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
@@ -489,8 +490,6 @@ class CopilotClient:
         payload: dict[str, Any] = {}
         if cfg.get("model"):
             payload["model"] = cfg["model"]
-        if cfg.get("session_id"):
-            payload["sessionId"] = cfg["session_id"]
         if cfg.get("client_name"):
             payload["clientName"] = cfg["client_name"]
         if cfg.get("reasoning_effort"):
@@ -586,14 +585,16 @@ class CopilotClient:
 
         if not self._client:
             raise RuntimeError("Client not connected")
-        response = await self._client.request("session.create", payload)
 
-        session_id = response["sessionId"]
-        workspace_path = response.get("workspacePath")
+        session_id = cfg.get("session_id") or str(uuid.uuid4())
+        payload["sessionId"] = session_id
+
+        # Create and register the session before issuing the RPC so that
+        # events emitted by the CLI (e.g. session.start) are not dropped.
         session = CopilotSession(
             session_id,
             self._client,
-            workspace_path,
+            None,
             self._telemetry,
             model=cfg.get("model"),
             provider=cfg.get("provider"),
@@ -611,6 +612,14 @@ class CopilotClient:
             session._register_hooks(hooks)
         with self._sessions_lock:
             self._sessions[session_id] = session
+
+        try:
+            response = await self._client.request("session.create", payload)
+            session._workspace_path = response.get("workspacePath")
+        except BaseException:
+            with self._sessions_lock:
+                self._sessions.pop(session_id, None)
+            raise
 
         return session
 
@@ -782,14 +791,13 @@ class CopilotClient:
 
         if not self._client:
             raise RuntimeError("Client not connected")
-        response = await self._client.request("session.resume", payload)
 
-        resumed_session_id = response["sessionId"]
-        workspace_path = response.get("workspacePath")
+        # Create and register the session before issuing the RPC so that
+        # events emitted by the CLI (e.g. session.start) are not dropped.
         session = CopilotSession(
-            resumed_session_id,
+            session_id,
             self._client,
-            workspace_path,
+            None,
             self._telemetry,
             model=cfg.get("model"),
             provider=cfg.get("provider"),
@@ -806,7 +814,15 @@ class CopilotClient:
         if hooks:
             session._register_hooks(hooks)
         with self._sessions_lock:
-            self._sessions[resumed_session_id] = session
+            self._sessions[session_id] = session
+
+        try:
+            response = await self._client.request("session.resume", payload)
+            session._workspace_path = response.get("workspacePath")
+        except BaseException:
+            with self._sessions_lock:
+                self._sessions.pop(session_id, None)
+            raise
 
         return session
 

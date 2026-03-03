@@ -44,6 +44,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/github/copilot-sdk/go/internal/embeddedcli"
@@ -490,7 +491,6 @@ func (c *Client) CreateSession(ctx context.Context, config *SessionConfig) (*Ses
 
 	req := createSessionRequest{}
 	req.Model = config.Model
-	req.SessionID = config.SessionID
 	req.ClientName = config.ClientName
 	req.ReasoningEffort = config.ReasoningEffort
 	req.ConfigDir = config.ConfigDir
@@ -523,17 +523,15 @@ func (c *Client) CreateSession(ctx context.Context, config *SessionConfig) (*Ses
 	}
 	req.RequestPermission = Bool(true)
 
-	result, err := c.client.Request("session.create", req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create session: %w", err)
+	sessionID := config.SessionID
+	if sessionID == "" {
+		sessionID = uuid.New().String()
 	}
+	req.SessionID = sessionID
 
-	var response createSessionResponse
-	if err := json.Unmarshal(result, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
-	}
-
-	session := newSession(response.SessionID, c.client, response.WorkspacePath)
+	// Create and register the session before issuing the RPC so that
+	// events emitted by the CLI (e.g. session.start) are not dropped.
+	session := newSession(sessionID, c.client, "")
 	session.telemetry = c.telemetry
 	session.configureTelemetryContext(config.Model, config.Provider, config.SystemMessage, config.Tools, config.Streaming, config.AgentName, config.AgentDescription)
 
@@ -547,8 +545,26 @@ func (c *Client) CreateSession(ctx context.Context, config *SessionConfig) (*Ses
 	}
 
 	c.sessionsMux.Lock()
-	c.sessions[response.SessionID] = session
+	c.sessions[sessionID] = session
 	c.sessionsMux.Unlock()
+
+	result, err := c.client.Request("session.create", req)
+	if err != nil {
+		c.sessionsMux.Lock()
+		delete(c.sessions, sessionID)
+		c.sessionsMux.Unlock()
+		return nil, fmt.Errorf("failed to create session: %w", err)
+	}
+
+	var response createSessionResponse
+	if err := json.Unmarshal(result, &response); err != nil {
+		c.sessionsMux.Lock()
+		delete(c.sessions, sessionID)
+		c.sessionsMux.Unlock()
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	session.workspacePath = response.WorkspacePath
 
 	return session, nil
 }
@@ -624,17 +640,9 @@ func (c *Client) ResumeSessionWithOptions(ctx context.Context, sessionID string,
 	req.InfiniteSessions = config.InfiniteSessions
 	req.RequestPermission = Bool(true)
 
-	result, err := c.client.Request("session.resume", req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resume session: %w", err)
-	}
-
-	var response resumeSessionResponse
-	if err := json.Unmarshal(result, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
-	}
-
-	session := newSession(response.SessionID, c.client, response.WorkspacePath)
+	// Create and register the session before issuing the RPC so that
+	// events emitted by the CLI (e.g. session.start) are not dropped.
+	session := newSession(sessionID, c.client, "")
 	session.telemetry = c.telemetry
 	session.configureTelemetryContext(config.Model, config.Provider, config.SystemMessage, config.Tools, config.Streaming, config.AgentName, config.AgentDescription)
 
@@ -648,8 +656,26 @@ func (c *Client) ResumeSessionWithOptions(ctx context.Context, sessionID string,
 	}
 
 	c.sessionsMux.Lock()
-	c.sessions[response.SessionID] = session
+	c.sessions[sessionID] = session
 	c.sessionsMux.Unlock()
+
+	result, err := c.client.Request("session.resume", req)
+	if err != nil {
+		c.sessionsMux.Lock()
+		delete(c.sessions, sessionID)
+		c.sessionsMux.Unlock()
+		return nil, fmt.Errorf("failed to resume session: %w", err)
+	}
+
+	var response resumeSessionResponse
+	if err := json.Unmarshal(result, &response); err != nil {
+		c.sessionsMux.Lock()
+		delete(c.sessions, sessionID)
+		c.sessionsMux.Unlock()
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	session.workspacePath = response.WorkspacePath
 
 	return session, nil
 }
