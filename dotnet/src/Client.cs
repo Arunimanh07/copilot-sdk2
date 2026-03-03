@@ -386,8 +386,7 @@ public partial class CopilotClient : IDisposable, IAsyncDisposable
             config.SessionId,
             config.ClientName,
             config.ReasoningEffort,
-            config.Tools?.Select(f => ToolDefinition.FromAIFunction(f,
-                config.BuiltInToolOverrides?.Contains(f.Name) == true)).ToList(),
+            config.Tools?.Select(ToolDefinition.FromAIFunction).ToList(),
             config.SystemMessage,
             config.AvailableTools,
             config.ExcludedTools,
@@ -478,8 +477,7 @@ public partial class CopilotClient : IDisposable, IAsyncDisposable
             config.ClientName,
             config.Model,
             config.ReasoningEffort,
-            config.Tools?.Select(f => ToolDefinition.FromAIFunction(f,
-                config.BuiltInToolOverrides?.Contains(f.Name) == true)).ToList(),
+            config.Tools?.Select(ToolDefinition.FromAIFunction).ToList(),
             config.SystemMessage,
             config.AvailableTools,
             config.ExcludedTools,
@@ -1421,9 +1419,12 @@ public partial class CopilotClient : IDisposable, IAsyncDisposable
         JsonElement Parameters, /* JSON schema */
         bool? OverridesBuiltInTool = null)
     {
-        public static ToolDefinition FromAIFunction(AIFunction function, bool overridesBuiltInTool = false)
-            => new ToolDefinition(function.Name, function.Description, function.JsonSchema,
-                overridesBuiltInTool ? true : null);
+        public static ToolDefinition FromAIFunction(AIFunction function)
+        {
+            var overrides = function.AdditionalProperties.TryGetValue("is_override", out var val) && val is true;
+            return new ToolDefinition(function.Name, function.Description, function.JsonSchema,
+                overrides ? true : null);
+        }
     }
 
     internal record CreateSessionResponse(

@@ -4,6 +4,7 @@
 
 using GitHub.Copilot.SDK.Test.Harness;
 using Microsoft.Extensions.AI;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Text.Json;
@@ -157,8 +158,12 @@ public partial class ToolsTests(E2ETestFixture fixture, ITestOutputHelper output
     {
         var session = await CreateSessionAsync(new SessionConfig
         {
-            Tools = [AIFunctionFactory.Create(CustomGrep, "grep")],
-            BuiltInToolOverrides = ["grep"],
+            Tools = [AIFunctionFactory.Create((Delegate)CustomGrep, new AIFunctionFactoryOptions
+            {
+                Name = "grep",
+                AdditionalProperties = new ReadOnlyDictionary<string, object?>(
+                    new Dictionary<string, object?> { ["is_override"] = true })
+            })],
             OnPermissionRequest = PermissionHandler.ApproveAll,
         });
 

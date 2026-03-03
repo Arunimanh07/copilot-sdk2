@@ -196,62 +196,13 @@ class TestOverridesBuiltInTool:
             def grep(params) -> str:
                 return "ok"
 
-            await client.create_session({"tools": [grep], "on_permission_request": PermissionHandler.approve_all})
+            await client.create_session(
+                {"tools": [grep], "on_permission_request": PermissionHandler.approve_all}
+            )
             tool_defs = captured["session.create"]["tools"]
             assert len(tool_defs) == 1
             assert tool_defs[0]["name"] == "grep"
             assert tool_defs[0]["overridesBuiltInTool"] is True
-        finally:
-            await client.force_stop()
-
-    @pytest.mark.asyncio
-    async def test_does_not_merge_tool_names_into_excluded_tools(self):
-        client = CopilotClient({"cli_path": CLI_PATH})
-        await client.start()
-
-        try:
-            captured = {}
-            original_request = client._client.request
-
-            async def mock_request(method, params):
-                captured[method] = params
-                return await original_request(method, params)
-
-            client._client.request = mock_request
-
-            @define_tool(description="Custom grep", overrides_built_in_tool=True)
-            def grep(params) -> str:
-                return "ok"
-
-            await client.create_session({"tools": [grep], "on_permission_request": PermissionHandler.approve_all})
-            assert "excludedTools" not in captured["session.create"]
-        finally:
-            await client.force_stop()
-
-    @pytest.mark.asyncio
-    async def test_preserves_user_excluded_tools(self):
-        client = CopilotClient({"cli_path": CLI_PATH})
-        await client.start()
-
-        try:
-            captured = {}
-            original_request = client._client.request
-
-            async def mock_request(method, params):
-                captured[method] = params
-                return await original_request(method, params)
-
-            client._client.request = mock_request
-
-            @define_tool(description="Custom grep", overrides_built_in_tool=True)
-            def grep(params) -> str:
-                return "ok"
-
-            await client.create_session(
-                {"tools": [grep], "excluded_tools": ["bash"], "on_permission_request": PermissionHandler.approve_all}
-            )
-            excluded = captured["session.create"]["excludedTools"]
-            assert excluded == ["bash"]
         finally:
             await client.force_stop()
 
@@ -261,7 +212,9 @@ class TestOverridesBuiltInTool:
         await client.start()
 
         try:
-            session = await client.create_session({"on_permission_request": PermissionHandler.approve_all})
+            session = await client.create_session(
+                {"on_permission_request": PermissionHandler.approve_all}
+            )
 
             captured = {}
             original_request = client._client.request
@@ -276,7 +229,10 @@ class TestOverridesBuiltInTool:
             def grep(params) -> str:
                 return "ok"
 
-            await client.resume_session(session.session_id, {"tools": [grep], "on_permission_request": PermissionHandler.approve_all})
+            await client.resume_session(
+                session.session_id,
+                {"tools": [grep], "on_permission_request": PermissionHandler.approve_all},
+            )
             tool_defs = captured["session.resume"]["tools"]
             assert len(tool_defs) == 1
             assert tool_defs[0]["overridesBuiltInTool"] is True

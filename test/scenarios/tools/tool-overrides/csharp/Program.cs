@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using GitHub.Copilot.SDK;
 using Microsoft.Extensions.AI;
@@ -16,8 +17,12 @@ try
     {
         Model = "claude-haiku-4.5",
         OnPermissionRequest = PermissionHandler.ApproveAll,
-        Tools = [AIFunctionFactory.Create(CustomGrep, "grep")],
-        BuiltInToolOverrides = new HashSet<string> { "grep" },
+        Tools = [AIFunctionFactory.Create((Delegate)CustomGrep, new AIFunctionFactoryOptions
+        {
+            Name = "grep",
+            AdditionalProperties = new ReadOnlyDictionary<string, object?>(
+                new Dictionary<string, object?> { ["is_override"] = true })
+        })],
     });
 
     var response = await session.SendAndWaitAsync(new MessageOptions

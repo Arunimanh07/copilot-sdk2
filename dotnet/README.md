@@ -417,22 +417,25 @@ When Copilot invokes `lookup_issue`, the client automatically runs your handler 
 
 #### Overriding Built-in Tools
 
-If you register a tool with the same name as a built-in CLI tool (e.g. `edit_file`, `read_file`), the SDK will throw an error unless you explicitly opt in by setting `BuiltInToolOverrides` on the session config. This flag signals that you intend to replace the built-in tool with your custom implementation.
+If you register a tool with the same name as a built-in CLI tool (e.g. `edit_file`, `read_file`), the runtime will return an error unless you explicitly opt in by setting `is_override` in the tool's `AdditionalProperties`. This flag signals that you intend to replace the built-in tool with your custom implementation.
 
 ```csharp
-// Register the custom tool
-AIFunctionFactory.Create(
+var editFile = AIFunctionFactory.Create(
     async ([Description("File path")] string path, [Description("New content")] string content) => {
         // your logic
     },
     "edit_file",
-    "Custom file editor with project-specific validation")
+    "Custom file editor with project-specific validation",
+    new AIFunctionFactoryOptions
+    {
+        AdditionalProperties = new ReadOnlyDictionary<string, object?>(
+            new Dictionary<string, object?> { ["is_override"] = true })
+    });
 
-// Opt in to overriding the built-in tool in session config
 var session = await client.CreateSessionAsync(new SessionConfig
 {
     Model = "gpt-5",
-    BuiltInToolOverrides = new HashSet<string> { "edit_file" }
+    Tools = [editFile],
 });
 ```
 

@@ -775,7 +775,6 @@ public class SessionConfig
         Streaming = other.Streaming;
         SystemMessage = other.SystemMessage;
         Tools = other.Tools is not null ? [.. other.Tools] : null;
-        BuiltInToolOverrides = other.BuiltInToolOverrides is not null ? [.. other.BuiltInToolOverrides] : null;
         WorkingDirectory = other.WorkingDirectory;
     }
 
@@ -803,13 +802,6 @@ public class SessionConfig
     public string? ConfigDir { get; set; }
 
     public ICollection<AIFunction>? Tools { get; set; }
-
-    /// <summary>
-    /// Set of tool names that are intended to override built-in tools of the same name.
-    /// If a tool name clashes with a built-in tool and is not in this set, the runtime
-    /// will return an error.
-    /// </summary>
-    public HashSet<string>? BuiltInToolOverrides { get; set; }
 
     public SystemMessageConfig? SystemMessage { get; set; }
     public List<string>? AvailableTools { get; set; }
@@ -921,7 +913,6 @@ public class ResumeSessionConfig
         Streaming = other.Streaming;
         SystemMessage = other.SystemMessage;
         Tools = other.Tools is not null ? [.. other.Tools] : null;
-        BuiltInToolOverrides = other.BuiltInToolOverrides is not null ? [.. other.BuiltInToolOverrides] : null;
         WorkingDirectory = other.WorkingDirectory;
     }
 
@@ -937,13 +928,6 @@ public class ResumeSessionConfig
     public string? Model { get; set; }
 
     public ICollection<AIFunction>? Tools { get; set; }
-
-    /// <summary>
-    /// Set of tool names that are intended to override built-in tools of the same name.
-    /// If a tool name clashes with a built-in tool and is not in this set, the runtime
-    /// will return an error.
-    /// </summary>
-    public HashSet<string>? BuiltInToolOverrides { get; set; }
 
     /// <summary>
     /// System message configuration.

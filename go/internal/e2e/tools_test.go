@@ -272,9 +272,9 @@ func TestTools(t *testing.T) {
 		}
 
 		grepTool := copilot.DefineTool("grep", "A custom grep implementation that overrides the built-in",
-				func(params GrepParams, inv copilot.ToolInvocation) (string, error) {
-					return "CUSTOM_GREP_RESULT: " + params.Query, nil
-				})
+			func(params GrepParams, inv copilot.ToolInvocation) (string, error) {
+				return "CUSTOM_GREP_RESULT: " + params.Query, nil
+			})
 		grepTool.OverridesBuiltInTool = true
 
 		session, err := client.CreateSession(t.Context(), &copilot.SessionConfig{

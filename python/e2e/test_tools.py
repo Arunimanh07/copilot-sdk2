@@ -137,7 +137,11 @@ class TestTools:
         class GrepParams(BaseModel):
             query: str = Field(description="Search query")
 
-        @define_tool("grep", description="A custom grep implementation that overrides the built-in", overrides_built_in_tool=True)
+        @define_tool(
+            "grep",
+            description="A custom grep implementation that overrides the built-in",
+            overrides_built_in_tool=True,
+        )
         def custom_grep(params: GrepParams, invocation: ToolInvocation) -> str:
             return f"CUSTOM_GREP_RESULT: {params.query}"
 
