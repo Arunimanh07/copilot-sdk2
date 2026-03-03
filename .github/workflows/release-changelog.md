@@ -39,6 +39,8 @@ You are an AI agent that generates a well-formatted changelog when a new stable 
 - Release tag: ${{ github.event.release.tag_name || inputs.tag }}
 - Release name: ${{ github.event.release.name || inputs.tag }}
 
+For `workflow_dispatch` runs, the `github.event.release.*` fields will be empty. In that case, use the GitHub API to fetch the release corresponding to `inputs.tag` to get its name, publish date, and other metadata.
+
 ## Your Task
 
 ### Step 1: Identify the version range
@@ -77,7 +79,7 @@ Only include changes that are **user-visible in the published SDK packages**. Sk
 
 **Format for other changes** — a single `### Other changes` section with a flat bulleted list. Each bullet has a lowercase prefix (`feature:`, `bugfix:`, `improvement:`) and a one-line description linking to the PR.
 
-3. Use today's date for the release date.
+3. Use the release's publish date (from the GitHub Release metadata), not today's date. For `workflow_dispatch` runs, fetch the release by tag to get the date.
 4. Make sure the existing content below is preserved exactly as-is.
 
 ### Step 5: Create a Pull Request
@@ -140,7 +142,7 @@ While `session.rpc.models.setModel()` already worked, there is now a convenience
 
 1. **Be concise**: Each bullet should be one short sentence. Don't over-explain.
 2. **Be accurate**: Only include changes that actually landed in this release range. Don't hallucinate PRs.
-3. **Attribute correctly**: Always link to the PR number and credit the author.
+3. **Attribute correctly**: Always link to the PR number. Do not add explicit author attribution.
 4. **Skip noise**: Don't include trivial changes (typo fixes in comments, whitespace changes) unless they're the only changes.
 5. **Preserve history**: Never modify existing entries in CHANGELOG.md — only prepend new ones.
 6. **Handle edge cases**: If there are no meaningful changes (e.g., only internal dependency bumps), still create an entry noting "Internal dependency updates only" or similar.
