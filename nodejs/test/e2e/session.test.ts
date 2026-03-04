@@ -175,6 +175,12 @@ describe("Sessions", async () => {
         const messages = await session2.getMessages();
         const assistantMessages = messages.filter((m) => m.type === "assistant.message");
         expect(assistantMessages[assistantMessages.length - 1].data.content).toContain("2");
+
+        // Can continue the conversation statefully
+        const secondAssistantMessage = await session2.sendAndWait({
+            prompt: "Now if you double that, what do you get?",
+        });
+        expect(secondAssistantMessage?.data.content).toContain("4");
     });
 
     it("should resume a session using a new client", async () => {
@@ -202,6 +208,12 @@ describe("Sessions", async () => {
         const messages = await session2.getMessages();
         expect(messages).toContainEqual(expect.objectContaining({ type: "user.message" }));
         expect(messages).toContainEqual(expect.objectContaining({ type: "session.resume" }));
+
+        // Can continue the conversation statefully
+        const secondAssistantMessage = await session2.sendAndWait({
+            prompt: "Now if you double that, what do you get?",
+        });
+        expect(secondAssistantMessage?.data.content).toContain("4");
     });
 
     it("should throw error when resuming non-existent session", async () => {
