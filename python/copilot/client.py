@@ -537,6 +537,18 @@ class CopilotClient:
             payload["mcpServers"] = mcp_servers
         payload["envValueMode"] = "direct"
 
+        # Enable GitHub MCP tools if requested via session config or CLI args.
+        # This forwards the flag in the session.create payload so the CLI's
+        # headless mode can set up the GitHub MCP server for this session.
+        # See: https://github.com/github/copilot-sdk/issues/128
+        enable_github_mcp = cfg.get("enable_github_mcp_tools", False)
+        if not enable_github_mcp:
+            cli_args = self.options.get("cli_args") or []
+            if "--enable-all-github-mcp-tools" in cli_args:
+                enable_github_mcp = True
+        if enable_github_mcp:
+            payload["enableGithubMcpTools"] = True
+
         # Add custom agents configuration if provided
         custom_agents = cfg.get("custom_agents")
         if custom_agents:
@@ -725,6 +737,16 @@ class CopilotClient:
         if mcp_servers:
             payload["mcpServers"] = mcp_servers
         payload["envValueMode"] = "direct"
+
+        # Enable GitHub MCP tools if requested via session config or CLI args.
+        # See: https://github.com/github/copilot-sdk/issues/128
+        enable_github_mcp = cfg.get("enable_github_mcp_tools", False)
+        if not enable_github_mcp:
+            cli_args = self.options.get("cli_args") or []
+            if "--enable-all-github-mcp-tools" in cli_args:
+                enable_github_mcp = True
+        if enable_github_mcp:
+            payload["enableGithubMcpTools"] = True
 
         # Add custom agents configuration if provided
         custom_agents = cfg.get("custom_agents")

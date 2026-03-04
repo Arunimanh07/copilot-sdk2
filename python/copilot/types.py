@@ -507,6 +507,11 @@ class SessionConfig(TypedDict, total=False):
     # When enabled (default), sessions automatically manage context limits and persist state.
     # Set to {"enabled": False} to disable.
     infinite_sessions: InfiniteSessionConfig
+    # Enable GitHub MCP tools for this session.
+    # When True, the session is configured with the GitHub MCP server so that
+    # GitHub-related tools (issue management, PR operations, etc.) are available.
+    # This is the session-level equivalent of the CLI's --enable-all-github-mcp-tools flag.
+    enable_github_mcp_tools: bool
 
 
 # Azure-specific provider options
@@ -573,6 +578,11 @@ class ResumeSessionConfig(TypedDict, total=False):
     # When True, skips emitting the session.resume event.
     # Useful for reconnecting to a session without triggering resume-related side effects.
     disable_resume: bool
+    # Enable GitHub MCP tools for this session.
+    # When True, the session is configured with the GitHub MCP server so that
+    # GitHub-related tools (issue management, PR operations, etc.) are available.
+    # This is the session-level equivalent of the CLI's --enable-all-github-mcp-tools flag.
+    enable_github_mcp_tools: bool
 
 
 # Options for sending a message to a session

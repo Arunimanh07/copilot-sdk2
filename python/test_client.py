@@ -316,3 +316,139 @@ class TestSessionConfigForwarding:
             assert captured["session.model.switchTo"]["modelId"] == "gpt-4.1"
         finally:
             await client.force_stop()
+
+
+class TestEnableGithubMcpTools:
+    @pytest.mark.asyncio
+    async def test_create_session_forwards_enable_github_mcp_tools(self):
+        """enable_github_mcp_tools in session config is forwarded as enableGithubMcpTools."""
+        client = CopilotClient({"cli_path": CLI_PATH})
+        await client.start()
+
+        try:
+            captured = {}
+            original_request = client._client.request
+
+            async def mock_request(method, params):
+                captured[method] = params
+                return await original_request(method, params)
+
+            client._client.request = mock_request
+            await client.create_session(
+                {
+                    "enable_github_mcp_tools": True,
+                    "on_permission_request": PermissionHandler.approve_all,
+                }
+            )
+            assert captured["session.create"]["enableGithubMcpTools"] is True
+        finally:
+            await client.force_stop()
+
+    @pytest.mark.asyncio
+    async def test_create_session_omits_field_when_not_set(self):
+        """enableGithubMcpTools is omitted from payload when not requested."""
+        client = CopilotClient({"cli_path": CLI_PATH})
+        await client.start()
+
+        try:
+            captured = {}
+            original_request = client._client.request
+
+            async def mock_request(method, params):
+                captured[method] = params
+                return await original_request(method, params)
+
+            client._client.request = mock_request
+            await client.create_session(
+                {"on_permission_request": PermissionHandler.approve_all}
+            )
+            assert "enableGithubMcpTools" not in captured["session.create"]
+        finally:
+            await client.force_stop()
+
+    @pytest.mark.asyncio
+    async def test_create_session_detects_cli_args_flag(self):
+        """--enable-all-github-mcp-tools in cli_args is auto-forwarded to session payload."""
+        client = CopilotClient(
+            {"cli_path": CLI_PATH, "cli_args": ["--enable-all-github-mcp-tools"]}
+        )
+        await client.start()
+
+        try:
+            captured = {}
+            original_request = client._client.request
+
+            async def mock_request(method, params):
+                captured[method] = params
+                return await original_request(method, params)
+
+            client._client.request = mock_request
+            await client.create_session(
+                {"on_permission_request": PermissionHandler.approve_all}
+            )
+            assert captured["session.create"]["enableGithubMcpTools"] is True
+        finally:
+            await client.force_stop()
+
+    @pytest.mark.asyncio
+    async def test_resume_session_forwards_enable_github_mcp_tools(self):
+        """enable_github_mcp_tools is forwarded in resume_session payload."""
+        client = CopilotClient({"cli_path": CLI_PATH})
+        await client.start()
+
+        try:
+            session = await client.create_session(
+                {"on_permission_request": PermissionHandler.approve_all}
+            )
+
+            captured = {}
+            original_request = client._client.request
+
+            async def mock_request(method, params):
+                captured[method] = params
+                if method == "session.resume":
+                    return {"sessionId": session.session_id}
+                return await original_request(method, params)
+
+            client._client.request = mock_request
+            await client.resume_session(
+                session.session_id,
+                {
+                    "enable_github_mcp_tools": True,
+                    "on_permission_request": PermissionHandler.approve_all,
+                },
+            )
+            assert captured["session.resume"]["enableGithubMcpTools"] is True
+        finally:
+            await client.force_stop()
+
+    @pytest.mark.asyncio
+    async def test_resume_session_detects_cli_args_flag(self):
+        """--enable-all-github-mcp-tools in cli_args is auto-forwarded for resume too."""
+        client = CopilotClient(
+            {"cli_path": CLI_PATH, "cli_args": ["--enable-all-github-mcp-tools"]}
+        )
+        await client.start()
+
+        try:
+            session = await client.create_session(
+                {"on_permission_request": PermissionHandler.approve_all}
+            )
+
+            captured = {}
+            original_request = client._client.request
+
+            async def mock_request(method, params):
+                captured[method] = params
+                if method == "session.resume":
+                    return {"sessionId": session.session_id}
+                return await original_request(method, params)
+
+            client._client.request = mock_request
+            await client.resume_session(
+                session.session_id,
+                {"on_permission_request": PermissionHandler.approve_all},
+            )
+            assert captured["session.resume"]["enableGithubMcpTools"] is True
+        finally:
+            await client.force_stop()
