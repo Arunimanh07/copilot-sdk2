@@ -311,7 +311,7 @@ func (c *Client) Start(ctx context.Context) error {
 func (c *Client) Stop() error {
 	var errs []error
 
-	// Destroy all active sessions
+	// Disconnect all active sessions
 	c.sessionsMux.Lock()
 	sessions := make([]*Session, 0, len(c.sessions))
 	for _, session := range c.sessions {
@@ -320,8 +320,8 @@ func (c *Client) Stop() error {
 	c.sessionsMux.Unlock()
 
 	for _, session := range sessions {
-		if err := session.Destroy(); err != nil {
-			errs = append(errs, fmt.Errorf("failed to destroy session %s: %w", session.SessionID, err))
+		if err := session.Disconnect(); err != nil {
+			errs = append(errs, fmt.Errorf("failed to disconnect session %s: %w", session.SessionID, err))
 		}
 	}
 
@@ -692,7 +692,7 @@ func (c *Client) ListSessions(ctx context.Context, filter *SessionListFilter) ([
 // DeleteSession permanently deletes a session and all its data from disk,
 // including conversation history, planning state, and artifacts.
 //
-// Unlike [Session.Destroy], which only releases in-memory resources and
+// Unlike [Session.Disconnect], which only releases in-memory resources and
 // preserves session data for later resumption, DeleteSession is irreversible.
 // The session cannot be resumed after deletion. If the session is in the local
 // sessions map, it will be removed.

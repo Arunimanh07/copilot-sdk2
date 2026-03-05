@@ -51,7 +51,7 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
-    defer session.Destroy()
+    defer session.Disconnect()
 
     // Set up event handler
     done := make(chan bool)
@@ -297,7 +297,7 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
-    defer session.Destroy()
+    defer session.Disconnect()
 
     done := make(chan bool)
 

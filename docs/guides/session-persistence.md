@@ -325,9 +325,9 @@ async function cleanupExpiredSessions(maxAgeMs: number) {
 await cleanupExpiredSessions(24 * 60 * 60 * 1000);
 ```
 
-### Closing a Session (`destroy`)
+### Disconnecting from a Session (`disconnect`)
 
-When a task completes, close the session explicitly rather than waiting for timeouts. This releases in-memory resources but **preserves session data on disk**, so the session can still be resumed later:
+When a task completes, disconnect from the session explicitly rather than waiting for timeouts. This releases in-memory resources but **preserves session data on disk**, so the session can still be resumed later:
 
 ```typescript
 try {
@@ -335,13 +335,15 @@ try {
   await session.sendAndWait({ prompt: "Complete the task" });
   
   // Task complete — release in-memory resources (session can be resumed later)
-  await session.destroy();
+  await session.disconnect();
 } catch (error) {
   // Clean up even on error
-  await session.destroy();
+  await session.disconnect();
   throw error;
 }
 ```
+
+> **Note:** `destroy()` is deprecated in favor of `disconnect()`. Existing code using `destroy()` will continue to work but should be migrated.
 
 ### Permanently Deleting a Session (`deleteSession`)
 
@@ -352,7 +354,7 @@ To permanently remove a session and all its data from disk (conversation history
 await client.deleteSession("user-123-task-456");
 ```
 
-> **`destroy()` vs `deleteSession()`:** `destroy()` releases in-memory resources but keeps session data on disk for later resumption. `deleteSession()` permanently removes everything, including files on disk.
+> **`disconnect()` vs `deleteSession()`:** `disconnect()` releases in-memory resources but keeps session data on disk for later resumption. `deleteSession()` permanently removes everything, including files on disk.
 
 ## Automatic Cleanup: Idle Timeout
 
@@ -537,7 +539,7 @@ await withSessionLock("user-123-task-456", async () => {
 | **Resume session** | `client.resumeSession(sessionId)` |
 | **BYOK resume** | Re-provide `provider` config |
 | **List sessions** | `client.listSessions(filter?)` |
-| **Close active session** | `session.destroy()` — releases in-memory resources; session data on disk is preserved for resumption |
+| **Disconnect from active session** | `session.disconnect()` — releases in-memory resources; session data on disk is preserved for resumption |
 | **Delete session permanently** | `client.deleteSession(sessionId)` — permanently removes all session data from disk; cannot be resumed |
 | **Containerized deployment** | Mount `~/.copilot/session-state/` to persistent storage |
 

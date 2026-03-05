@@ -51,7 +51,7 @@ async def main():
     await done.wait()
 
     # Clean up
-    await session.destroy()
+    await session.disconnect()
     await client.stop()
 
 asyncio.run(main())
@@ -90,7 +90,7 @@ await session.send({"prompt": "Hello!"})
 
 # ... wait for events ...
 
-await session.destroy()
+await session.disconnect()
 await client.stop()
 ```
 
@@ -277,7 +277,7 @@ async def main():
     await session.send({"prompt": "Tell me a short story"})
     await done.wait()  # Wait for streaming to complete
 
-    await session.destroy()
+    await session.disconnect()
     await client.stop()
 
 asyncio.run(main())

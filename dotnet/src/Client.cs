@@ -242,11 +242,11 @@ public partial class CopilotClient : IDisposable, IAsyncDisposable
         {
             try
             {
-                await session.DisposeAsync();
+                await session.DisconnectAsync();
             }
             catch (Exception ex)
             {
-                errors.Add(new Exception($"Failed to destroy session {session.SessionId}: {ex.Message}", ex));
+                errors.Add(new Exception($"Failed to disconnect session {session.SessionId}: {ex.Message}", ex));
             }
         }
 
@@ -668,7 +668,7 @@ public partial class CopilotClient : IDisposable, IAsyncDisposable
     /// <returns>A task that represents the asynchronous delete operation.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the session does not exist or deletion fails.</exception>
     /// <remarks>
-    /// Unlike <see cref="CopilotSession.DisposeAsync"/>, which only releases in-memory
+    /// Unlike <see cref="CopilotSession.DisconnectAsync"/>, which only releases in-memory
     /// resources and preserves session data for later resumption, this method is
     /// irreversible. The session cannot be resumed after deletion.
     /// </remarks>

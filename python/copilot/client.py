@@ -100,7 +100,7 @@ class CopilotClient:
         >>> await session.send({"prompt": "Hello!"})
         >>>
         >>> # Clean up
-        >>> await session.destroy()
+        >>> await session.disconnect()
         >>> await client.stop()
 
         >>> # Or connect to an existing server
@@ -348,10 +348,10 @@ class CopilotClient:
 
         for session in sessions_to_destroy:
             try:
-                await session.destroy()
+                await session.disconnect()
             except Exception as e:
                 errors.append(
-                    StopError(message=f"Failed to destroy session {session.session_id}: {e}")
+                    StopError(message=f"Failed to disconnect session {session.session_id}: {e}")
                 )
 
         # Close client
@@ -935,7 +935,7 @@ class CopilotClient:
         Permanently delete a session and all its data from disk, including
         conversation history, planning state, and artifacts.
 
-        Unlike :meth:`CopilotSession.destroy`, which only releases in-memory
+        Unlike :meth:`CopilotSession.disconnect`, which only releases in-memory
         resources and preserves session data for later resumption, this method
         is irreversible. The session cannot be resumed after deletion.
 

@@ -52,7 +52,7 @@ await session.send({ prompt: "What is 2+2?" });
 await done;
 
 // Clean up
-await session.destroy();
+await session.disconnect();
 await client.stop();
 ```
 

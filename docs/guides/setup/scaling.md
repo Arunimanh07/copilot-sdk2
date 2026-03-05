@@ -413,7 +413,7 @@ class SessionManager {
         const [oldestId] = this.activeSessions.keys();
         const session = this.activeSessions.get(oldestId)!;
         // Session state is persisted automatically — safe to destroy
-        await session.destroy();
+        await session.disconnect();
         this.activeSessions.delete(oldestId);
     }
 }
@@ -457,7 +457,7 @@ app.post("/api/analyze", async (req, res) => {
         });
         res.json({ result: response?.data.content });
     } finally {
-        await session.destroy();  // Clean up immediately
+        await session.disconnect();  // Clean up immediately
     }
 });
 ```

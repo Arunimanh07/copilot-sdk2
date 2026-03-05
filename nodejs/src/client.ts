@@ -102,7 +102,7 @@ function toJsonSchema(parameters: Tool["parameters"]): Record<string, unknown> |
  * await session.send({ prompt: "Hello!" });
  *
  * // Clean up
- * await session.destroy();
+ * await session.disconnect();
  * await client.stop();
  * ```
  */
@@ -329,7 +329,7 @@ export class CopilotClient {
     async stop(): Promise<Error[]> {
         const errors: Error[] = [];
 
-        // Destroy all active sessions with retry logic
+        // Disconnect all active sessions with retry logic
         for (const session of this.sessions.values()) {
             const sessionId = session.sessionId;
             let lastError: Error | null = null;
@@ -337,7 +337,7 @@ export class CopilotClient {
             // Try up to 3 times with exponential backoff
             for (let attempt = 1; attempt <= 3; attempt++) {
                 try {
-                    await session.destroy();
+                    await session.disconnect();
                     lastError = null;
                     break; // Success
                 } catch (error) {
@@ -354,7 +354,7 @@ export class CopilotClient {
             if (lastError) {
                 errors.push(
                     new Error(
-                        `Failed to destroy session ${sessionId} after 3 attempts: ${lastError.message}`
+                        `Failed to disconnect session ${sessionId} after 3 attempts: ${lastError.message}`
                     )
                 );
             }
@@ -830,7 +830,7 @@ export class CopilotClient {
      * Permanently deletes a session and all its data from disk, including
      * conversation history, planning state, and artifacts.
      *
-     * Unlike {@link CopilotSession.destroy}, which only releases in-memory
+     * Unlike {@link CopilotSession.disconnect}, which only releases in-memory
      * resources and preserves session data for later resumption, this method
      * is irreversible. The session cannot be resumed after deletion.
      *

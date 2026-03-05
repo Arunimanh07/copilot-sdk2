@@ -52,7 +52,7 @@ export type AssistantMessageEvent = Extract<SessionEvent, { type: "assistant.mes
  * await session.sendAndWait({ prompt: "Hello, world!" });
  *
  * // Clean up
- * await session.destroy();
+ * await session.disconnect();
  * ```
  */
 export class CopilotSession {
@@ -106,7 +106,7 @@ export class CopilotSession {
      *
      * @param options - The message options including the prompt and optional attachments
      * @returns A promise that resolves with the message ID of the response
-     * @throws Error if the session has been destroyed or the connection fails
+     * @throws Error if the session has been disconnected or the connection fails
      *
      * @example
      * ```typescript
@@ -141,7 +141,7 @@ export class CopilotSession {
      * @returns A promise that resolves with the final assistant message when the session becomes idle,
      *          or undefined if no assistant message was received
      * @throws Error if the timeout is reached before the session becomes idle
-     * @throws Error if the session has been destroyed or the connection fails
+     * @throws Error if the session has been disconnected or the connection fails
      *
      * @example
      * ```typescript
@@ -478,7 +478,7 @@ export class CopilotSession {
      * assistant responses, tool executions, and other session events.
      *
      * @returns A promise that resolves with an array of all session events
-     * @throws Error if the session has been destroyed or the connection fails
+     * @throws Error if the session has been disconnected or the connection fails
      *
      * @example
      * ```typescript
@@ -499,7 +499,7 @@ export class CopilotSession {
     }
 
     /**
-     * Closes this session and releases all in-memory resources (event handlers,
+     * Disconnects this session and releases all in-memory resources (event handlers,
      * tool handlers, permission handlers).
      *
      * Session state on disk (conversation history, planning state, artifacts) is
@@ -510,16 +510,16 @@ export class CopilotSession {
      *
      * After calling this method, the session object can no longer be used.
      *
-     * @returns A promise that resolves when the session is closed
+     * @returns A promise that resolves when the session is disconnected
      * @throws Error if the connection fails
      *
      * @example
      * ```typescript
      * // Clean up when done — session can still be resumed later
-     * await session.destroy();
+     * await session.disconnect();
      * ```
      */
-    async destroy(): Promise<void> {
+    async disconnect(): Promise<void> {
         await this.connection.sendRequest("session.destroy", {
             sessionId: this.sessionId,
         });
@@ -530,13 +530,31 @@ export class CopilotSession {
     }
 
     /**
+     * @deprecated Use {@link disconnect} instead. This method will be removed in a future release.
+     *
+     * Disconnects this session and releases all in-memory resources.
+     * Session data on disk is preserved for later resumption.
+     *
+     * @returns A promise that resolves when the session is disconnected
+     * @throws Error if the connection fails
+     */
+    async destroy(): Promise<void> {
+        return this.disconnect();
+    }
+
+    /** Enables `await using session = ...` syntax for automatic cleanup. */
+    async [Symbol.asyncDispose](): Promise<void> {
+        return this.disconnect();
+    }
+
+    /**
      * Aborts the currently processing message in this session.
      *
      * Use this to cancel a long-running request. The session remains valid
      * and can continue to be used for new messages.
      *
      * @returns A promise that resolves when the abort request is acknowledged
-     * @throws Error if the session has been destroyed or the connection fails
+     * @throws Error if the session has been disconnected or the connection fails
      *
      * @example
      * ```typescript
