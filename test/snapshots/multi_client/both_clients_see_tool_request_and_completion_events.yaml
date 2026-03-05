@@ -47,4 +47,4 @@ conversations:
         tool_call_id: toolcall_1
         content: MAGIC_hello_42
       - role: assistant
-        content: "The magic_number tool with seed 'hello' returned: **MAGIC_hello_42**"
+        content: "The magic number tool returned: **MAGIC_hello_42**"

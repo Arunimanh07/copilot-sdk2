@@ -127,15 +127,70 @@ describe("Multi-client broadcast", async () => {
         expect(client1PermRequested.length).toBeGreaterThan(0);
         expect(client2PermRequested.length).toBeGreaterThan(0);
 
-        // Both clients should have seen permission.completed events
+        // Both clients should have seen permission.completed events with approved result
         const client1PermCompleted = client1Events.filter(
-            (e) => e.type === "permission.completed"
+            (e): e is SessionEvent & { type: "permission.completed" } => e.type === "permission.completed"
         );
         const client2PermCompleted = client2Events.filter(
-            (e) => e.type === "permission.completed"
+            (e): e is SessionEvent & { type: "permission.completed" } => e.type === "permission.completed"
         );
         expect(client1PermCompleted.length).toBeGreaterThan(0);
         expect(client2PermCompleted.length).toBeGreaterThan(0);
+        for (const event of [...client1PermCompleted, ...client2PermCompleted]) {
+            expect(event.data.result.kind).toBe("approved");
+        }
+
+        await session2.destroy();
+    });
+
+    it("one client rejects permission and both see the result", async () => {
+        // Client 1 creates a session and denies all permission requests
+        const session1 = await client1.createSession({
+            onPermissionRequest: () => ({ kind: "denied-interactively-by-user" as const }),
+        });
+
+        // Client 2 resumes — its handler never resolves so only client 1's denial takes effect
+        const session2 = await client2.resumeSession(session1.sessionId, {
+            onPermissionRequest: () => new Promise(() => {}),
+        });
+
+        const client1Events: SessionEvent[] = [];
+        const client2Events: SessionEvent[] = [];
+
+        session1.on((event) => client1Events.push(event));
+        session2.on((event) => client2Events.push(event));
+
+        // Ask the agent to write a file (requires permission)
+        const { writeFile } = await import("fs/promises");
+        const { join } = await import("path");
+        const testFile = join(ctx.workDir, "protected.txt");
+        await writeFile(testFile, "protected content");
+
+        await session1.sendAndWait({
+            prompt: "Edit protected.txt and replace 'protected' with 'hacked'.",
+        });
+
+        // Verify the file was NOT modified (permission was denied)
+        const { readFile } = await import("fs/promises");
+        const content = await readFile(testFile, "utf-8");
+        expect(content).toBe("protected content");
+
+        // Both clients should have seen permission.requested and permission.completed
+        expect(client1Events.filter((e) => e.type === "permission.requested").length).toBeGreaterThan(0);
+        expect(client2Events.filter((e) => e.type === "permission.requested").length).toBeGreaterThan(0);
+
+        // Both clients should see the denial in the completed event
+        const client1PermCompleted = client1Events.filter(
+            (e): e is SessionEvent & { type: "permission.completed" } => e.type === "permission.completed"
+        );
+        const client2PermCompleted = client2Events.filter(
+            (e): e is SessionEvent & { type: "permission.completed" } => e.type === "permission.completed"
+        );
+        expect(client1PermCompleted.length).toBeGreaterThan(0);
+        expect(client2PermCompleted.length).toBeGreaterThan(0);
+        for (const event of [...client1PermCompleted, ...client2PermCompleted]) {
+            expect(event.data.result.kind).toBe("denied-interactively-by-user");
+        }
 
         await session2.destroy();
     });

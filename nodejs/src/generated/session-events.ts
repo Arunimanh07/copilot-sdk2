@@ -2394,6 +2394,20 @@ export type SessionEvent =
          * Request ID of the resolved permission request; clients should dismiss any UI for this request
          */
         requestId: string;
+        /**
+         * The result of the permission request
+         */
+        result: {
+          /**
+           * The outcome of the permission request
+           */
+          kind:
+            | "approved"
+            | "denied-by-rules"
+            | "denied-no-approval-rule-and-could-not-request-from-user"
+            | "denied-interactively-by-user"
+            | "denied-by-content-exclusion-policy";
+        };
       };
     }
   | {
