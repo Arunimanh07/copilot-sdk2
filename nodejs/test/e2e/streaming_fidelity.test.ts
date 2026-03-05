@@ -43,7 +43,7 @@ describe("Streaming Fidelity", async () => {
         const lastAssistantIdx = types.lastIndexOf("assistant.message");
         expect(firstDeltaIdx).toBeLessThan(lastAssistantIdx);
 
-        await session.destroy();
+        await session.disconnect();
     });
 
     it("should not produce deltas when streaming is disabled", async () => {
@@ -69,6 +69,6 @@ describe("Streaming Fidelity", async () => {
         const assistantEvents = events.filter((e) => e.type === "assistant.message");
         expect(assistantEvents.length).toBeGreaterThanOrEqual(1);
 
-        await session.destroy();
+        await session.disconnect();
     });
 });

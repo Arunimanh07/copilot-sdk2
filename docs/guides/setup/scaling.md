@@ -412,7 +412,7 @@ class SessionManager {
     private async evictOldestSession(): Promise<void> {
         const [oldestId] = this.activeSessions.keys();
         const session = this.activeSessions.get(oldestId)!;
-        // Session state is persisted automatically — safe to destroy
+        // Session state is persisted automatically — safe to disconnect
         await session.disconnect();
         this.activeSessions.delete(oldestId);
     }

@@ -61,7 +61,7 @@ class TestClient:
 
             errors = await client.stop()
             assert len(errors) > 0
-            assert "Failed to destroy session" in errors[0].message
+            assert "Failed to disconnect session" in errors[0].message
         finally:
             await client.force_stop()
 

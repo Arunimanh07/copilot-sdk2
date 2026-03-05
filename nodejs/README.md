@@ -265,9 +265,13 @@ Abort the currently processing message in this session.
 
 Get all events/messages from this session.
 
-##### `destroy(): Promise<void>`
+##### `disconnect(): Promise<void>`
 
-Destroy the session and free resources.
+Disconnect the session and free resources. Session data on disk is preserved for later resumption.
+
+##### `destroy(): Promise<void>` *(deprecated)*
+
+Deprecated — use `disconnect()` instead.
 
 ---
 
