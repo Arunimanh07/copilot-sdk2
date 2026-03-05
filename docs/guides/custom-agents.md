@@ -87,7 +87,7 @@ session = await client.create_session({
             "prompt": "You are a code editor. Make minimal, surgical changes to files as requested.",
         },
     ],
-    "on_permission_request": lambda req: {"kind": "approved"},
+    "on_permission_request": lambda req, inv: {"kind": "approved"},
 })
 ```
 
