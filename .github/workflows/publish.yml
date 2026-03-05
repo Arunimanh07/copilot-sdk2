@@ -108,7 +108,7 @@ jobs:
           name: nodejs-package
           path: nodejs/*.tgz
       - name: Publish to npm
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || github.event.inputs.dist-tag == 'unstable'
         run: npm publish --tag ${{ github.event.inputs.dist-tag }} --access public --registry https://registry.npmjs.org
 
   publish-dotnet:
