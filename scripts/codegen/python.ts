@@ -229,7 +229,7 @@ if TYPE_CHECKING:
 `);
     lines.push(typesCode);
     lines.push(`
-def _timeout_kwargs(timeout: Optional[float]) -> dict:
+def _timeout_kwargs(timeout: float | None) -> dict:
     """Build keyword arguments for optional timeout forwarding."""
     if timeout is not None:
         return {"timeout": timeout}
@@ -316,8 +316,8 @@ function emitMethod(lines: string[], name: string, method: RpcMethod, isSession:
 
     // Build signature with typed params + optional timeout
     const sig = hasParams
-        ? `    async def ${methodName}(self, params: ${paramsType}, *, timeout: Optional[float] = None) -> ${resultType}:`
-        : `    async def ${methodName}(self, *, timeout: Optional[float] = None) -> ${resultType}:`;
+        ? `    async def ${methodName}(self, params: ${paramsType}, *, timeout: float | None = None) -> ${resultType}:`
+        : `    async def ${methodName}(self, *, timeout: float | None = None) -> ${resultType}:`;
 
     lines.push(sig);
 
