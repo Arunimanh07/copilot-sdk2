@@ -217,22 +217,18 @@ Abort the currently processing message in this session.
 
 Get all events/messages from this session.
 
-##### `DisconnectAsync(CancellationToken cancellationToken = default): Task`
-
-Disconnect the session and release in-memory resources. Session data on disk is preserved — the conversation can be resumed later via `ResumeSessionAsync()`. To permanently delete session data, use `client.DeleteSessionAsync()`.
-
 ##### `DisposeAsync(): ValueTask`
 
-Calls `DisconnectAsync()`. Enables the `await using` pattern for automatic cleanup:
+Close the session and release in-memory resources. Session data on disk is preserved — the conversation can be resumed later via `ResumeSessionAsync()`. To permanently delete session data, use `client.DeleteSessionAsync()`.
 
 ```csharp
 // Preferred: automatic cleanup via await using
 await using var session = await client.CreateSessionAsync(config);
-// session is automatically disconnected when leaving scope
+// session is automatically disposed when leaving scope
 
-// Alternative: explicit disconnect
+// Alternative: explicit dispose
 var session2 = await client.CreateSessionAsync(config);
-await session2.DisconnectAsync();
+await session2.DisposeAsync();
 ```
 
 ---

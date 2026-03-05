@@ -26,7 +26,7 @@ namespace GitHub.Copilot.SDK;
 /// </para>
 /// <para>
 /// <see cref="CopilotSession"/> implements <see cref="IAsyncDisposable"/>. Use the
-/// <c>await using</c> pattern for automatic cleanup, or call <see cref="DisconnectAsync"/>
+/// <c>await using</c> pattern for automatic cleanup, or call <see cref="DisposeAsync"/>
 /// explicitly. Disposing a session releases in-memory resources but preserves session data
 /// on disk — the conversation can be resumed later via
 /// <see cref="CopilotClient.ResumeSessionAsync"/>. To permanently delete session data,
@@ -530,11 +530,10 @@ public sealed partial class CopilotSession : IAsyncDisposable
     }
 
     /// <summary>
-    /// Disconnects this session and releases all in-memory resources (event handlers,
+    /// Closes this session and releases all in-memory resources (event handlers,
     /// tool handlers, permission handlers).
     /// </summary>
-    /// <param name="cancellationToken">A <see cref="CancellationToken"/> that can be used to cancel the operation.</param>
-    /// <returns>A task representing the disconnect operation.</returns>
+    /// <returns>A task representing the dispose operation.</returns>
     /// <remarks>
     /// <para>
     /// Session state on disk (conversation history, planning state, artifacts) is
@@ -545,53 +544,6 @@ public sealed partial class CopilotSession : IAsyncDisposable
     /// </para>
     /// <para>
     /// After calling this method, the session object can no longer be used.
-    /// </para>
-    /// </remarks>
-    /// <example>
-    /// <code>
-    /// // Disconnect when done — session can still be resumed later
-    /// await session.DisconnectAsync();
-    ///
-    /// // Or use 'await using' for automatic disconnection
-    /// await using var session = await client.CreateSessionAsync(new() { OnPermissionRequest = PermissionHandler.ApproveAll });
-    /// </code>
-    /// </example>
-    public async Task DisconnectAsync(CancellationToken cancellationToken = default)
-    {
-        if (Interlocked.Exchange(ref _isDisposed, 1) == 1)
-        {
-            return;
-        }
-
-        try
-        {
-            await InvokeRpcAsync<object>(
-                "session.destroy", [new SessionDestroyRequest() { SessionId = SessionId }], cancellationToken);
-        }
-        catch (ObjectDisposedException)
-        {
-            // Connection was already disposed (e.g., client.StopAsync() was called first)
-        }
-        catch (IOException)
-        {
-            // Connection is broken or closed
-        }
-
-        EventHandlers = null;
-        _toolHandlers.Clear();
-
-        _permissionHandler = null;
-    }
-
-    /// <summary>
-    /// Disposes the <see cref="CopilotSession"/> by disconnecting and releasing all resources.
-    /// </summary>
-    /// <returns>A task representing the dispose operation.</returns>
-    /// <remarks>
-    /// <para>
-    /// This method calls <see cref="DisconnectAsync"/> to perform cleanup. It is the
-    /// implementation of <see cref="IAsyncDisposable"/> and enables the
-    /// <c>await using</c> pattern for automatic resource management.
     /// </para>
     /// </remarks>
     /// <example>
@@ -607,7 +559,29 @@ public sealed partial class CopilotSession : IAsyncDisposable
     /// </example>
     public async ValueTask DisposeAsync()
     {
-        await DisconnectAsync();
+        if (Interlocked.Exchange(ref _isDisposed, 1) == 1)
+        {
+            return;
+        }
+
+        try
+        {
+            await InvokeRpcAsync<object>(
+                "session.destroy", [new SessionDestroyRequest() { SessionId = SessionId }], CancellationToken.None);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Connection was already disposed (e.g., client.StopAsync() was called first)
+        }
+        catch (IOException)
+        {
+            // Connection is broken or closed
+        }
+
+        EventHandlers = null;
+        _toolHandlers.Clear();
+
+        _permissionHandler = null;
     }
 
     internal record SendMessageRequest
