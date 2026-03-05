@@ -23,7 +23,7 @@
 #
 # Analyzes copilot-sdk issues to determine if a fix is needed in copilot-agent-runtime, then opens a linked issue and suggested-fix PR there
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"cec8b4f80660524e52a9ead49f5dc99aa3e1915c8843e289a65c4f1122cbd6f8","compiler_version":"v0.50.5"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"8d34093df81ff1555080c5dac58f37872f3ec1313b4ac6ff7a5b40b0accc12d1","compiler_version":"v0.50.5"}
 
 name: "Cross-Repo Issue Analysis Agent"
 "on":
@@ -292,9 +292,9 @@ jobs:
           github.event.pull_request
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          GH_TOKEN: ${{ secrets.CROSS_REPO_PAT }}
+          GH_TOKEN: ${{ secrets.RUNTIME_TRIAGE_TOKEN }}
         with:
-          github-token: ${{ secrets.CROSS_REPO_PAT }}
+          github-token: ${{ secrets.RUNTIME_TRIAGE_TOKEN }}
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -906,12 +906,12 @@ jobs:
             const { main } = require('/opt/gh-aw/actions/redact_secrets.cjs');
             await main();
         env:
-          GH_AW_SECRET_NAMES: 'COPILOT_GITHUB_TOKEN,CROSS_REPO_PAT,GH_AW_GITHUB_MCP_SERVER_TOKEN,GH_AW_GITHUB_TOKEN,GITHUB_TOKEN'
+          GH_AW_SECRET_NAMES: 'COPILOT_GITHUB_TOKEN,GH_AW_GITHUB_MCP_SERVER_TOKEN,GH_AW_GITHUB_TOKEN,GITHUB_TOKEN,RUNTIME_TRIAGE_TOKEN'
           SECRET_COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          SECRET_CROSS_REPO_PAT: ${{ secrets.CROSS_REPO_PAT }}
           SECRET_GH_AW_GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN }}
           SECRET_GH_AW_GITHUB_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
           SECRET_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SECRET_RUNTIME_TRIAGE_TOKEN: ${{ secrets.RUNTIME_TRIAGE_TOKEN }}
       - name: Upload Safe Outputs
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -1157,7 +1157,7 @@ jobs:
           GH_AW_NOOP_MAX: "1"
           GH_AW_WORKFLOW_NAME: "Cross-Repo Issue Analysis Agent"
         with:
-          github-token: ${{ secrets.CROSS_REPO_PAT }}
+          github-token: ${{ secrets.RUNTIME_TRIAGE_TOKEN }}
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -1170,7 +1170,7 @@ jobs:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
           GH_AW_WORKFLOW_NAME: "Cross-Repo Issue Analysis Agent"
         with:
-          github-token: ${{ secrets.CROSS_REPO_PAT }}
+          github-token: ${{ secrets.RUNTIME_TRIAGE_TOKEN }}
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -1191,7 +1191,7 @@ jobs:
           GH_AW_CODE_PUSH_FAILURE_COUNT: ${{ needs.safe_outputs.outputs.code_push_failure_count }}
           GH_AW_GROUP_REPORTS: "false"
         with:
-          github-token: ${{ secrets.CROSS_REPO_PAT }}
+          github-token: ${{ secrets.RUNTIME_TRIAGE_TOKEN }}
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -1208,7 +1208,7 @@ jobs:
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
           GH_AW_NOOP_REPORT_AS_ISSUE: "true"
         with:
-          github-token: ${{ secrets.CROSS_REPO_PAT }}
+          github-token: ${{ secrets.RUNTIME_TRIAGE_TOKEN }}
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -1222,7 +1222,7 @@ jobs:
           GH_AW_WORKFLOW_NAME: "Cross-Repo Issue Analysis Agent"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
-          github-token: ${{ secrets.CROSS_REPO_PAT }}
+          github-token: ${{ secrets.RUNTIME_TRIAGE_TOKEN }}
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -1303,7 +1303,7 @@ jobs:
         with:
           repository: github/copilot-agent-runtime
           ref: ${{ github.base_ref || github.ref_name }}
-          token: ${{ secrets.CROSS_REPO_PAT }}
+          token: ${{ secrets.RUNTIME_TRIAGE_TOKEN }}
           persist-credentials: false
           fetch-depth: 1
       - name: Configure Git credentials
@@ -1311,7 +1311,7 @@ jobs:
         env:
           REPO_NAME: "github/copilot-agent-runtime"
           SERVER_URL: ${{ github.server_url }}
-          GIT_TOKEN: ${{ secrets.CROSS_REPO_PAT }}
+          GIT_TOKEN: ${{ secrets.RUNTIME_TRIAGE_TOKEN }}
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
@@ -1328,7 +1328,7 @@ jobs:
           GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":1,\"target\":\"triggering\"},\"add_labels\":{\"allowed\":[\"runtime-fix-needed\",\"sdk-fix-only\",\"needs-investigation\"],\"max\":3,\"target\":\"triggering\"},\"create_issue\":{\"labels\":[\"upstream-from-sdk\",\"ai-triaged\"],\"max\":1,\"target-repo\":\"github/copilot-agent-runtime\",\"title_prefix\":\"[copilot-sdk] \"},\"create_pull_request\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"draft\":true,\"labels\":[\"upstream-from-sdk\",\"ai-suggested-fix\"],\"max\":1,\"max_patch_size\":1024,\"target-repo\":\"github/copilot-agent-runtime\",\"title_prefix\":\"[copilot-sdk] \"},\"missing_data\":{},\"missing_tool\":{}}"
           GH_AW_CI_TRIGGER_TOKEN: ${{ secrets.GH_AW_CI_TRIGGER_TOKEN }}
         with:
-          github-token: ${{ secrets.CROSS_REPO_PAT }}
+          github-token: ${{ secrets.RUNTIME_TRIAGE_TOKEN }}
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);

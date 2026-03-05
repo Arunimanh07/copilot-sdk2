@@ -18,7 +18,7 @@ tools:
     toolsets: [default]
   edit:
 safe-outputs:
-  github-token: ${{ secrets.CROSS_REPO_PAT }}
+  github-token: ${{ secrets.RUNTIME_TRIAGE_TOKEN }}
   allowed-github-references: ["repo", "github/copilot-agent-runtime"]
   add-comment:
     max: 1
