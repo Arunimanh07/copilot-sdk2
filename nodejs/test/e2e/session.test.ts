@@ -130,11 +130,7 @@ describe("Sessions", async () => {
         expect(functionNames).not.toContain("view");
     });
 
-    // TODO: This test shows there's a race condition inside client.ts. If createSession is called
-    // concurrently and autoStart is on, it may start multiple child processes. This needs to be fixed.
-    // Right now it manifests as being unable to delete the temp directories during afterAll even though
-    // we stopped all the clients (one or more child processes were left orphaned).
-    it.skip("should handle multiple concurrent sessions", async () => {
+    it("should handle multiple concurrent sessions", async () => {
         const [s1, s2, s3] = await Promise.all([
             client.createSession({ onPermissionRequest: approveAll }),
             client.createSession({ onPermissionRequest: approveAll }),

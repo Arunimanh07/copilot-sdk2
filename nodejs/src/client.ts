@@ -232,6 +232,8 @@ export class CopilotClient {
      * Parse CLI URL into host and port
      * Supports formats: "host:port", "http://host:port", "https://host:port", or just "port"
      */
+    private startPromise: Promise<void> | null = null;
+
     private parseCliUrl(url: string): { host: string; port: number } {
         // Remove protocol if present
         let cleanUrl = url.replace(/^https?:\/\//, "");
@@ -282,25 +284,34 @@ export class CopilotClient {
             return;
         }
 
-        this.state = "connecting";
-
-        try {
-            // Only start CLI server process if not connecting to external server
-            if (!this.isExternalServer) {
-                await this.startCLIServer();
-            }
-
-            // Connect to the server
-            await this.connectToServer();
-
-            // Verify protocol version compatibility
-            await this.verifyProtocolVersion();
-
-            this.state = "connected";
-        } catch (error) {
-            this.state = "error";
-            throw error;
+        if (this.startPromise) {
+            return this.startPromise;
         }
+
+        this.startPromise = (async () => {
+            this.state = "connecting";
+
+            try {
+                // Only start CLI server process if not connecting to external server
+                if (!this.isExternalServer) {
+                    await this.startCLIServer();
+                }
+
+                // Connect to the server
+                await this.connectToServer();
+
+                // Verify protocol version compatibility
+                await this.verifyProtocolVersion();
+
+                this.state = "connected";
+            } catch (error) {
+                this.state = "error";
+                this.startPromise = null;
+                throw error;
+            }
+        })();
+
+        return this.startPromise;
     }
 
     /**
@@ -403,6 +414,7 @@ export class CopilotClient {
         }
 
         this.state = "disconnected";
+        this.startPromise = null;
         this.actualPort = null;
         this.stderrBuffer = "";
         this.processExitPromise = null;
@@ -475,6 +487,7 @@ export class CopilotClient {
         }
 
         this.state = "disconnected";
+        this.startPromise = null;
         this.actualPort = null;
         this.stderrBuffer = "";
         this.processExitPromise = null;

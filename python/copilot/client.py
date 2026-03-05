@@ -201,6 +201,7 @@ class CopilotClient:
         self._process: subprocess.Popen | None = None
         self._client: JsonRpcClient | None = None
         self._state: ConnectionState = "disconnected"
+        self._start_lock = asyncio.Lock()
         self._sessions: dict[str, CopilotSession] = {}
         self._sessions_lock = threading.Lock()
         self._models_cache: list[ModelInfo] | None = None
@@ -281,39 +282,40 @@ class CopilotClient:
             >>> await client.start()
             >>> # Now ready to create sessions
         """
-        if self._state == "connected":
-            return
+        async with self._start_lock:
+            if self._state == "connected":
+                return
 
-        self._state = "connecting"
+            self._state = "connecting"
 
-        try:
-            # Only start CLI server process if not connecting to external server
-            if not self._is_external_server:
-                await self._start_cli_server()
+            try:
+                # Only start CLI server process if not connecting to external server
+                if not self._is_external_server:
+                    await self._start_cli_server()
 
-            # Connect to the server
-            await self._connect_to_server()
+                # Connect to the server
+                await self._connect_to_server()
 
-            # Verify protocol version compatibility
-            await self._verify_protocol_version()
+                # Verify protocol version compatibility
+                await self._verify_protocol_version()
 
-            self._state = "connected"
-        except ProcessExitedError as e:
-            # Process exited with error - reraise as RuntimeError with stderr
-            self._state = "error"
-            raise RuntimeError(str(e)) from None
-        except Exception as e:
-            self._state = "error"
-            # Check if process exited and capture any remaining stderr
-            if self._process and hasattr(self._process, "poll"):
-                return_code = self._process.poll()
-                if return_code is not None and self._client:
-                    stderr_output = self._client.get_stderr_output()
-                    if stderr_output:
-                        raise RuntimeError(
-                            f"CLI process exited with code {return_code}\nstderr: {stderr_output}"
-                        ) from e
-            raise
+                self._state = "connected"
+            except ProcessExitedError as e:
+                # Process exited with error - reraise as RuntimeError with stderr
+                self._state = "error"
+                raise RuntimeError(str(e)) from None
+            except Exception as e:
+                self._state = "error"
+                # Check if process exited and capture any remaining stderr
+                if self._process and hasattr(self._process, "poll"):
+                    return_code = self._process.poll()
+                    if return_code is not None and self._client:
+                        stderr_output = self._client.get_stderr_output()
+                        if stderr_output:
+                            raise RuntimeError(
+                                f"CLI process exited with code {return_code}\nstderr: {stderr_output}"
+                            ) from e
+                raise
 
     async def stop(self) -> None:
         """
