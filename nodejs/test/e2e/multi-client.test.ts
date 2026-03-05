@@ -18,7 +18,7 @@ describe("Multi-client broadcast", async () => {
     await initSession.destroy();
 
     const actualPort = (client1 as unknown as { actualPort: number }).actualPort;
-    const client2 = new CopilotClient({ cliUrl: `localhost:${actualPort}` });
+    let client2 = new CopilotClient({ cliUrl: `localhost:${actualPort}` });
 
     afterAll(async () => {
         await client2.stop();
@@ -39,10 +39,9 @@ describe("Multi-client broadcast", async () => {
             tools: [tool],
         });
 
-        // Client 2 resumes the same session (separate TCP connection, own handlers)
+        // Client 2 resumes with NO tools — should not overwrite client 1's tools
         const session2 = await client2.resumeSession(session1.sessionId, {
             onPermissionRequest: approveAll,
-            tools: [tool],
         });
 
         // Track events seen by each client
@@ -193,5 +192,98 @@ describe("Multi-client broadcast", async () => {
         }
 
         await session2.destroy();
+    });
+
+    it("two clients register different tools and agent uses both", { timeout: 90_000 }, async () => {
+        const toolA = defineTool("city_lookup", {
+            description: "Returns a city name for a given country code",
+            parameters: z.object({
+                countryCode: z.string().describe("A two-letter country code"),
+            }),
+            handler: ({ countryCode }) => `CITY_FOR_${countryCode}`,
+        });
+
+        const toolB = defineTool("currency_lookup", {
+            description: "Returns a currency for a given country code",
+            parameters: z.object({
+                countryCode: z.string().describe("A two-letter country code"),
+            }),
+            handler: ({ countryCode }) => `CURRENCY_FOR_${countryCode}`,
+        });
+
+        // Client 1 creates a session with tool A
+        const session1 = await client1.createSession({
+            onPermissionRequest: approveAll,
+            tools: [toolA],
+        });
+
+        // Client 2 resumes with tool B (different tool, union should have both)
+        const session2 = await client2.resumeSession(session1.sessionId, {
+            onPermissionRequest: approveAll,
+            tools: [toolB],
+        });
+
+        // Send a prompt that requires both tools
+        const response = await session1.sendAndWait({
+            prompt:
+                "Use the city_lookup tool with countryCode 'US' and the currency_lookup tool with countryCode 'US'. Tell me both results.",
+        });
+
+        expect(response?.data.content).toContain("CITY_FOR_US");
+        expect(response?.data.content).toContain("CURRENCY_FOR_US");
+
+        await session2.destroy();
+    });
+
+    it("disconnecting client removes its tools", { timeout: 90_000 }, async () => {
+        const toolA = defineTool("stable_tool", {
+            description: "A tool that persists across disconnects",
+            parameters: z.object({ input: z.string() }),
+            handler: ({ input }) => `STABLE_${input}`,
+        });
+
+        const toolB = defineTool("ephemeral_tool", {
+            description: "A tool that will disappear when its client disconnects",
+            parameters: z.object({ input: z.string() }),
+            handler: ({ input }) => `EPHEMERAL_${input}`,
+        });
+
+        // Client 1 creates a session with stable_tool
+        const session1 = await client1.createSession({
+            onPermissionRequest: approveAll,
+            tools: [toolA],
+        });
+
+        // Client 2 resumes with ephemeral_tool
+        const session2 = await client2.resumeSession(session1.sessionId, {
+            onPermissionRequest: approveAll,
+            tools: [toolB],
+        });
+
+        // Verify both tools work before disconnect
+        const bothResponse = await session1.sendAndWait({
+            prompt:
+                "Use the stable_tool with input 'test1' and the ephemeral_tool with input 'test2'. Tell me both results.",
+        });
+        expect(bothResponse?.data.content).toContain("STABLE_test1");
+        expect(bothResponse?.data.content).toContain("EPHEMERAL_test2");
+
+        // Disconnect client 2 without destroying the shared session
+        await client2.forceStop();
+
+        // Give the server time to process the connection close and remove tools
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // Recreate client2 for cleanup in afterAll (but don't rejoin the session)
+        client2 = new CopilotClient({ cliUrl: `localhost:${actualPort}` });
+
+        // Now only stable_tool should be available
+        const afterResponse = await session1.sendAndWait({
+            prompt:
+                "Use the stable_tool with input 'still_here'. Also try using ephemeral_tool if it is available.",
+        });
+        expect(afterResponse?.data.content).toContain("STABLE_still_here");
+        // ephemeral_tool should NOT have produced a result
+        expect(afterResponse?.data.content).not.toContain("EPHEMERAL_");
     });
 });
