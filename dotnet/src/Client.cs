@@ -1354,7 +1354,8 @@ public sealed partial class CopilotClient : IDisposable, IAsyncDisposable
                 var result = await session.HandlePermissionRequestAsync(permissionRequest);
                 return new PermissionRequestResponseV2(result);
             }
-            catch (Exception)            {
+            catch (Exception)
+            {
                 return new PermissionRequestResponseV2(new PermissionRequestResult
                 {
                     Kind = PermissionRequestResultKind.DeniedCouldNotRequestFromUser
