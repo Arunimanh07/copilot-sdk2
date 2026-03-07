@@ -391,7 +391,7 @@ class CopilotClient:
 
         Use this when :meth:`stop` fails or takes too long. This method:
         - Clears all sessions immediately without destroying them
-        - Force closes the connection
+        - Force closes the connection (closes the underlying transport)
         - Kills the CLI process (if spawned by this client)
 
         Example:
@@ -405,7 +405,20 @@ class CopilotClient:
         with self._sessions_lock:
             self._sessions.clear()
 
-        # Force close connection
+        # Close the transport first to signal the server immediately.
+        # For external servers (TCP), this closes the socket.
+        # For spawned processes (stdio), this kills the process.
+        if self._process:
+            try:
+                if self._is_external_server:
+                    self._process.terminate()  # closes the TCP socket
+                else:
+                    self._process.kill()
+                    self._process = None
+            except Exception:
+                pass
+
+        # Then clean up the JSON-RPC client
         if self._client:
             try:
                 await self._client.stop()
@@ -417,11 +430,6 @@ class CopilotClient:
         # Clear models cache
         async with self._models_cache_lock:
             self._models_cache = None
-
-        # Kill CLI process immediately
-        if self._process and not self._is_external_server:
-            self._process.kill()
-            self._process = None
 
         self._state = "disconnected"
         if not self._is_external_server:

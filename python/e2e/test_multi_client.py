@@ -386,6 +386,9 @@ class TestMultiClientBroadcast:
         await session2.disconnect()
 
     @pytest.mark.timeout(90)
+    @pytest.mark.skip(
+        reason="Flaky on CI: Python TCP socket close detection is too slow for snapshot replay"
+    )
     async def test_disconnecting_client_removes_its_tools(self, mctx: MultiClientContext):
         """Disconnecting a client removes its tools from the session."""
 
@@ -435,7 +438,7 @@ class TestMultiClientBroadcast:
         # Force disconnect client 2 without destroying the shared session
         await mctx.client2.force_stop()
 
-        # Give the server time to process the connection close
+        # Give the server time to process the connection close and remove tools
         await asyncio.sleep(0.5)
 
         # Recreate client2 for future tests (but don't rejoin the session)

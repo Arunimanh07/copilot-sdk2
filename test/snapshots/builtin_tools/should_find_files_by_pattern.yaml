@@ -45,11 +45,8 @@ conversations:
         content: Intent logged
       - role: tool
         tool_call_id: toolcall_1
-        content: |-
-          ./src/index.ts
-          ./src/app.ts
+        content: ./src/index.ts
       - role: assistant
         content: |-
-          Found 2 TypeScript files:
-          - `src/app.ts`
+          Found **1 TypeScript file**:
           - `src/index.ts`
