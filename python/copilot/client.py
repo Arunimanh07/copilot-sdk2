@@ -27,7 +27,7 @@ from typing import Any, cast
 from .generated.rpc import ServerRpc
 from .generated.session_events import session_event_from_dict
 from .jsonrpc import JsonRpcClient, ProcessExitedError
-from .sdk_protocol_version import get_sdk_protocol_version
+from .sdk_protocol_version import get_min_sdk_protocol_version, get_sdk_protocol_version
 from .session import CopilotSession
 from .types import (
     ConnectionState,
@@ -211,6 +211,7 @@ class CopilotClient:
         ] = {}
         self._lifecycle_handlers_lock = threading.Lock()
         self._rpc: ServerRpc | None = None
+        self._negotiated_protocol_version: int = 0
 
     @property
     def rpc(self) -> ServerRpc:
@@ -1126,24 +1127,27 @@ class CopilotClient:
                 pass  # Ignore handler errors
 
     async def _verify_protocol_version(self) -> None:
-        """Verify that the server's protocol version matches the SDK's expected version."""
-        expected_version = get_sdk_protocol_version()
+        """Verify that the server's protocol version is within the supported range."""
+        max_version = get_sdk_protocol_version()
+        min_version = get_min_sdk_protocol_version()
         ping_result = await self.ping()
         server_version = ping_result.protocolVersion
 
         if server_version is None:
             raise RuntimeError(
-                f"SDK protocol version mismatch: SDK expects version {expected_version}, "
+                f"SDK protocol version mismatch: SDK supports versions {min_version}-{max_version}, "
                 f"but server does not report a protocol version. "
                 f"Please update your server to ensure compatibility."
             )
 
-        if server_version != expected_version:
+        if server_version < min_version or server_version > max_version:
             raise RuntimeError(
-                f"SDK protocol version mismatch: SDK expects version {expected_version}, "
+                f"SDK protocol version mismatch: SDK supports versions {min_version}-{max_version}, "
                 f"but server reports version {server_version}. "
                 f"Please update your SDK or server to ensure compatibility."
             )
+
+        self._negotiated_protocol_version = server_version
 
     def _convert_provider_to_wire_format(
         self, provider: ProviderConfig | dict[str, Any]
@@ -1348,6 +1352,18 @@ class CopilotClient:
                     session = self._sessions.get(session_id)
                 if session:
                     session._dispatch_event(event)
+
+                # v3 protocol: intercept tool/permission broadcast events
+                if self._negotiated_protocol_version >= 3:
+                    event_type = event_dict.get("type")
+                    if event_type == "external_tool.requested":
+                        asyncio.ensure_future(
+                            self._handle_external_tool_requested(session_id, event_dict)
+                        )
+                    elif event_type == "permission.requested":
+                        asyncio.ensure_future(
+                            self._handle_permission_requested_event(session_id, event_dict)
+                        )
             elif method == "session.lifecycle":
                 # Handle session lifecycle events
                 lifecycle_event = SessionLifecycleEvent.from_dict(params)
@@ -1429,6 +1445,18 @@ class CopilotClient:
                 session = self._sessions.get(session_id)
                 if session:
                     session._dispatch_event(event)
+
+                # v3 protocol: intercept tool/permission broadcast events
+                if self._negotiated_protocol_version >= 3:
+                    event_type = event_dict.get("type")
+                    if event_type == "external_tool.requested":
+                        asyncio.ensure_future(
+                            self._handle_external_tool_requested(session_id, event_dict)
+                        )
+                    elif event_type == "permission.requested":
+                        asyncio.ensure_future(
+                            self._handle_permission_requested_event(session_id, event_dict)
+                        )
             elif method == "session.lifecycle":
                 # Handle session lifecycle events
                 lifecycle_event = SessionLifecycleEvent.from_dict(params)
@@ -1478,6 +1506,107 @@ class CopilotClient:
                     "kind": "denied-no-approval-rule-and-could-not-request-from-user",
                 }
             }
+
+    async def _handle_external_tool_requested(self, session_id: str, event_dict: dict) -> None:
+        """Handle a v3 external_tool.requested broadcast event.
+
+        Extracts tool call info from the event, executes the tool, and sends
+        the result back via session.tools.handlePendingToolCall RPC.
+        """
+        try:
+            data = event_dict.get("data", {})
+            request_id = data.get("requestId")
+            tool_call_id = data.get("toolCallId")
+            tool_name = data.get("toolName")
+
+            if not request_id or not tool_call_id or not tool_name:
+                return
+
+            with self._sessions_lock:
+                session = self._sessions.get(session_id)
+            if not session:
+                return
+
+            handler = session._get_tool_handler(tool_name)
+            if not handler:
+                result = self._build_unsupported_tool_result(tool_name)
+            else:
+                arguments = data.get("arguments")
+                result = await self._execute_tool_call(
+                    session_id, tool_call_id, tool_name, arguments, handler
+                )
+
+            await self._client.request(
+                "session.tools.handlePendingToolCall",
+                {
+                    "sessionId": session_id,
+                    "requestId": request_id,
+                    "result": result,
+                },
+            )
+        except Exception:  # pylint: disable=broad-except
+            # Best-effort: try to send an error response back
+            try:
+                data = event_dict.get("data", {})
+                request_id = data.get("requestId")
+                if request_id and self._client:
+                    await self._client.request(
+                        "session.tools.handlePendingToolCall",
+                        {
+                            "sessionId": session_id,
+                            "requestId": request_id,
+                            "error": "tool execution failed",
+                        },
+                    )
+            except Exception:  # pylint: disable=broad-except
+                pass
+
+    async def _handle_permission_requested_event(self, session_id: str, event_dict: dict) -> None:
+        """Handle a v3 permission.requested broadcast event.
+
+        Extracts permission info from the event, runs the permission handler,
+        and sends the result back via session.permissions.handlePendingPermissionRequest RPC.
+        """
+        try:
+            data = event_dict.get("data", {})
+            request_id = data.get("requestId")
+            permission_request = data.get("permissionRequest")
+
+            if not request_id or not permission_request:
+                return
+
+            with self._sessions_lock:
+                session = self._sessions.get(session_id)
+            if not session:
+                return
+
+            result = await session._handle_permission_request(permission_request)
+            await self._client.request(
+                "session.permissions.handlePendingPermissionRequest",
+                {
+                    "sessionId": session_id,
+                    "requestId": request_id,
+                    "result": result,
+                },
+            )
+        except Exception:  # pylint: disable=broad-except
+            # On error, send a denial response
+            try:
+                data = event_dict.get("data", {})
+                request_id = data.get("requestId")
+                if request_id and self._client:
+                    await self._client.request(
+                        "session.permissions.handlePendingPermissionRequest",
+                        {
+                            "sessionId": session_id,
+                            "requestId": request_id,
+                            "result": {
+                                "kind": "denied-no-approval-rule-and-could-not-request-from-user",
+                            },
+                        },
+                    )
+            except Exception:  # pylint: disable=broad-except
+                pass
 
     async def _handle_user_input_request(self, params: dict) -> dict:
         """

@@ -77,7 +77,8 @@ type Client struct {
 	state                  ConnectionState
 	sessions               map[string]*Session
 	sessionsMux            sync.Mutex
-	isExternalServer       bool
+	isExternalServer           bool
+	negotiatedProtocolVersion int
 	conn                   net.Conn // stores net.Conn for external TCP connections
 	useStdio               bool     // resolved value from options
 	autoStart              bool     // resolved value from options
@@ -1062,22 +1063,25 @@ func (c *Client) ListModels(ctx context.Context) ([]ModelInfo, error) {
 	return models, nil
 }
 
-// verifyProtocolVersion verifies that the server's protocol version matches the SDK's expected version
+// verifyProtocolVersion verifies that the server's protocol version is within the SDK's supported range
 func (c *Client) verifyProtocolVersion(ctx context.Context) error {
-	expectedVersion := GetSdkProtocolVersion()
+	maxVersion := GetSdkProtocolVersion()
+	minVersion := GetMinSdkProtocolVersion()
 	pingResult, err := c.Ping(ctx, "")
 	if err != nil {
 		return err
 	}
 
 	if pingResult.ProtocolVersion == nil {
-		return fmt.Errorf("SDK protocol version mismatch: SDK expects version %d, but server does not report a protocol version. Please update your server to ensure compatibility", expectedVersion)
+		return fmt.Errorf("SDK protocol version mismatch: SDK supports versions %d-%d, but server does not report a protocol version. Please update your server to ensure compatibility", minVersion, maxVersion)
 	}
 
-	if *pingResult.ProtocolVersion != expectedVersion {
-		return fmt.Errorf("SDK protocol version mismatch: SDK expects version %d, but server reports version %d. Please update your SDK or server to ensure compatibility", expectedVersion, *pingResult.ProtocolVersion)
+	serverVersion := *pingResult.ProtocolVersion
+	if serverVersion < minVersion || serverVersion > maxVersion {
+		return fmt.Errorf("SDK protocol version mismatch: SDK supports versions %d-%d, but server reports version %d. Please update your SDK or server to ensure compatibility", minVersion, maxVersion, serverVersion)
 	}
 
+	c.negotiatedProtocolVersion = serverVersion
 	return nil
 }
 
@@ -1311,6 +1315,11 @@ func (c *Client) handleSessionEvent(req sessionEventRequest) {
 	if ok {
 		session.dispatchEvent(req.Event)
 	}
+
+	// Protocol v3: handle broadcast tool/permission events
+	if c.negotiatedProtocolVersion >= 3 {
+		c.handleBroadcastEvent(req.SessionID, req.Event)
+	}
 }
 
 // handleToolCallRequest handles a tool call request from the CLI server.
@@ -1458,5 +1467,120 @@ func buildUnsupportedToolResult(toolName string) ToolResult {
 		ResultType:       "failure",
 		Error:            fmt.Sprintf("tool '%s' not supported", toolName),
 		ToolTelemetry:    map[string]any{},
+	}
+}
+
+// handleBroadcastEvent dispatches v3 broadcast events (external_tool.requested, permission.requested).
+func (c *Client) handleBroadcastEvent(sessionID string, event SessionEvent) {
+	switch event.Type {
+	case "external_tool.requested":
+		go c.handleExternalToolRequestedEvent(sessionID, event)
+	case "permission.requested":
+		go c.handlePermissionRequestedEvent(sessionID, event)
+	}
+}
+
+// handleExternalToolRequestedEvent handles v3 external_tool.requested broadcast events.
+func (c *Client) handleExternalToolRequestedEvent(sessionID string, event SessionEvent) {
+	data := event.Data
+	if data.RequestID == nil || data.ToolName == nil {
+		return
+	}
+	requestID := *data.RequestID
+	toolName := *data.ToolName
+	toolCallID := ""
+	if data.ToolCallID != nil {
+		toolCallID = *data.ToolCallID
+	}
+
+	c.sessionsMux.Lock()
+	session, ok := c.sessions[sessionID]
+	c.sessionsMux.Unlock()
+	if !ok {
+		return
+	}
+
+	handler, found := session.getToolHandler(toolName)
+
+	var result ToolResult
+	if !found {
+		result = buildUnsupportedToolResult(toolName)
+	} else {
+		result = c.executeToolCall(sessionID, toolCallID, toolName, data.Arguments, handler)
+	}
+
+	type handlePendingToolCallParams struct {
+		SessionID string     `json:"sessionId"`
+		RequestID string     `json:"requestId"`
+		Result    ToolResult `json:"result"`
+	}
+	_, err := c.client.Request("session.tools.handlePendingToolCall", handlePendingToolCallParams{
+		SessionID: sessionID,
+		RequestID: requestID,
+		Result:    result,
+	})
+	if err != nil {
+		// Send error response as a fallback
+		type handlePendingToolCallErrorParams struct {
+			SessionID string `json:"sessionId"`
+			RequestID string `json:"requestId"`
+			Error     string `json:"error"`
+		}
+		_, _ = c.client.Request("session.tools.handlePendingToolCall", handlePendingToolCallErrorParams{
+			SessionID: sessionID,
+			RequestID: requestID,
+			Error:     err.Error(),
+		})
+	}
+}
+
+// handlePermissionRequestedEvent handles v3 permission.requested broadcast events.
+func (c *Client) handlePermissionRequestedEvent(sessionID string, event SessionEvent) {
+	data := event.Data
+	if data.RequestID == nil || data.PermissionRequest == nil {
+		return
+	}
+	requestID := *data.RequestID
+
+	c.sessionsMux.Lock()
+	session, ok := c.sessions[sessionID]
+	c.sessionsMux.Unlock()
+	if !ok {
+		return
+	}
+
+	type handlePendingPermissionParams struct {
+		SessionID string                  `json:"sessionId"`
+		RequestID string                  `json:"requestId"`
+		Result    PermissionRequestResult `json:"result"`
+	}
+
+	result, err := session.handlePermissionRequest(*data.PermissionRequest)
+	if err != nil {
+		// Send denial on error
+		_, _ = c.client.Request("session.permissions.handlePendingPermissionRequest", handlePendingPermissionParams{
+			SessionID: sessionID,
+			RequestID: requestID,
+			Result: PermissionRequestResult{
+				Kind: PermissionRequestResultKindDeniedCouldNotRequestFromUser,
+			},
+		})
+		return
+	}
+
+	_, rpcErr := c.client.Request("session.permissions.handlePendingPermissionRequest", handlePendingPermissionParams{
+		SessionID: sessionID,
+		RequestID: requestID,
+		Result:    result,
+	})
+	if rpcErr != nil {
+		// Send denial as fallback
+		_, _ = c.client.Request("session.permissions.handlePendingPermissionRequest", handlePendingPermissionParams{
+			SessionID: sessionID,
+			RequestID: requestID,
+			Result: PermissionRequestResult{
+				Kind: PermissionRequestResultKindDeniedCouldNotRequestFromUser,
+			},
+		})
 	}
 }

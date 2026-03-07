@@ -6,14 +6,28 @@ SDK Protocol Version for the Copilot SDK.
 This must match the version expected by the copilot-agent-runtime server.
 """
 
-SDK_PROTOCOL_VERSION = 2
+SDK_PROTOCOL_VERSION = 3
+"""The maximum SDK protocol version supported."""
+
+MIN_SDK_PROTOCOL_VERSION = 2
+"""The minimum SDK protocol version supported."""
 
 
 def get_sdk_protocol_version() -> int:
     """
-    Gets the SDK protocol version.
+    Gets the SDK protocol version (maximum supported).
 
     Returns:
         The protocol version number
     """
     return SDK_PROTOCOL_VERSION
+
+
+def get_min_sdk_protocol_version() -> int:
+    """
+    Gets the minimum SDK protocol version supported.
+
+    Returns:
+        The minimum protocol version number
+    """
+    return MIN_SDK_PROTOCOL_VERSION

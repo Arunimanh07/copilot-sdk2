@@ -67,6 +67,8 @@ public sealed partial class CopilotClient : IDisposable, IAsyncDisposable
     private readonly Dictionary<string, List<Action<SessionLifecycleEvent>>> _typedLifecycleHandlers = [];
     private readonly object _lifecycleHandlersLock = new();
     private ServerRpc? _rpc;
+    private JsonRpc? _jsonRpc;
+    private int _negotiatedProtocolVersion;
 
     /// <summary>
     /// Gets the typed RPC client for server-scoped methods (no session required).
@@ -318,6 +320,8 @@ public sealed partial class CopilotClient : IDisposable, IAsyncDisposable
 
         // Clear RPC and models cache
         _rpc = null;
+        _jsonRpc = null;
+        _negotiatedProtocolVersion = 0;
         _modelsCache = null;
 
         if (ctx.NetworkStream is not null)
@@ -915,27 +919,31 @@ public sealed partial class CopilotClient : IDisposable, IAsyncDisposable
         return (Task<Connection>)StartAsync(cancellationToken);
     }
 
-    private static async Task VerifyProtocolVersionAsync(Connection connection, CancellationToken cancellationToken)
+    private async Task VerifyProtocolVersionAsync(Connection connection, CancellationToken cancellationToken)
     {
-        var expectedVersion = SdkProtocolVersion.GetVersion();
+        var maxVersion = SdkProtocolVersion.GetVersion();
+        var minVersion = SdkProtocolVersion.GetMinVersion();
         var pingResponse = await InvokeRpcAsync<PingResponse>(
             connection.Rpc, "ping", [new PingRequest()], connection.StderrBuffer, cancellationToken);
 
         if (!pingResponse.ProtocolVersion.HasValue)
         {
             throw new InvalidOperationException(
-                $"SDK protocol version mismatch: SDK expects version {expectedVersion}, " +
+                $"SDK protocol version mismatch: SDK supports versions {minVersion}-{maxVersion}, " +
                 $"but server does not report a protocol version. " +
                 $"Please update your server to ensure compatibility.");
         }
 
-        if (pingResponse.ProtocolVersion.Value != expectedVersion)
+        var serverVersion = pingResponse.ProtocolVersion.Value;
+        if (serverVersion < minVersion || serverVersion > maxVersion)
         {
             throw new InvalidOperationException(
-                $"SDK protocol version mismatch: SDK expects version {expectedVersion}, " +
-                $"but server reports version {pingResponse.ProtocolVersion.Value}. " +
+                $"SDK protocol version mismatch: SDK supports versions {minVersion}-{maxVersion}, " +
+                $"but server reports version {serverVersion}. " +
                 $"Please update your SDK or server to ensure compatibility.");
         }
+
+        _negotiatedProtocolVersion = serverVersion;
     }
 
     private static async Task<(Process Process, int? DetectedLocalhostTcpPort, StringBuilder StderrBuffer)> StartCliServerAsync(CopilotClientOptions options, ILogger logger, CancellationToken cancellationToken)
@@ -1135,6 +1143,7 @@ public sealed partial class CopilotClient : IDisposable, IAsyncDisposable
         rpc.AddLocalRpcMethod("hooks.invoke", handler.OnHooksInvoke);
         rpc.StartListening();
 
+        _jsonRpc = rpc;
         _rpc = new ServerRpc(rpc);
 
         return new Connection(rpc, cliProcess, tcpClient, networkStream, stderrBuffer);
@@ -1173,6 +1182,145 @@ public sealed partial class CopilotClient : IDisposable, IAsyncDisposable
         return _sessions.TryGetValue(sessionId, out var session) ? session : null;
     }
 
+    private async Task HandleExternalToolRequestedAsync(string sessionId, JsonElement eventJson)
+    {
+        string? requestId = null;
+        try
+        {
+            if (!eventJson.TryGetProperty("data", out var data)) return;
+
+            requestId = data.TryGetProperty("requestId", out var rid) ? rid.GetString() : null;
+            var toolCallId = data.TryGetProperty("toolCallId", out var tcid) ? tcid.GetString() : null;
+            var toolName = data.TryGetProperty("toolName", out var tn) ? tn.GetString() : null;
+
+            if (requestId == null || toolName == null) return;
+
+            var session = GetSession(sessionId);
+            if (session == null) return;
+
+            ToolResultObject resultObj;
+            if (session.GetTool(toolName) is not { } tool)
+            {
+                resultObj = new ToolResultObject
+                {
+                    TextResultForLlm = $"Tool '{toolName}' is not supported.",
+                    ResultType = "failure",
+                    Error = $"tool '{toolName}' not supported"
+                };
+            }
+            else
+            {
+                try
+                {
+                    var arguments = data.TryGetProperty("arguments", out var args) ? (object?)args : null;
+
+                    var invocation = new ToolInvocation
+                    {
+                        SessionId = sessionId,
+                        ToolCallId = toolCallId ?? "",
+                        ToolName = toolName,
+                        Arguments = arguments
+                    };
+
+                    var aiFunctionArgs = new AIFunctionArguments
+                    {
+                        Context = new Dictionary<object, object?>
+                        {
+                            [typeof(ToolInvocation)] = invocation
+                        }
+                    };
+
+                    if (arguments is JsonElement { ValueKind: JsonValueKind.Object } incomingJsonArgs)
+                    {
+                        foreach (var prop in incomingJsonArgs.EnumerateObject())
+                        {
+                            aiFunctionArgs[prop.Name] = prop.Value;
+                        }
+                    }
+
+                    var result = await tool.InvokeAsync(aiFunctionArgs);
+
+                    resultObj = result is ToolResultAIContent trac ? trac.Result : new ToolResultObject
+                    {
+                        ResultType = "success",
+                        TextResultForLlm = result is JsonElement { ValueKind: JsonValueKind.String } je
+                            ? je.GetString()!
+                            : JsonSerializer.Serialize(result, tool.JsonSerializerOptions.GetTypeInfo(typeof(object))),
+                    };
+                }
+                catch (Exception ex)
+                {
+                    resultObj = new ToolResultObject
+                    {
+                        TextResultForLlm = "Invoking this tool produced an error. Detailed information is not available.",
+                        ResultType = "failure",
+                        Error = ex.Message
+                    };
+                }
+            }
+
+            if (_jsonRpc is { } rpc)
+            {
+                await InvokeRpcAsync<JsonElement>(rpc, "session.tools.handlePendingToolCall",
+                    [new HandlePendingToolCallRequest(sessionId, requestId, Result: resultObj)], CancellationToken.None);
+            }
+        }
+        catch (Exception)
+        {
+            try
+            {
+                if (_jsonRpc is { } rpc && requestId != null)
+                {
+                    await InvokeRpcAsync<JsonElement>(rpc, "session.tools.handlePendingToolCall",
+                        [new HandlePendingToolCallRequest(sessionId, requestId, Error: "Internal error handling tool call")],
+                        CancellationToken.None);
+                }
+            }
+            catch { /* Connection may be closed */ }
+        }
+    }
+
+    private async Task HandlePermissionRequestedEventAsync(string sessionId, JsonElement eventJson)
+    {
+        string? requestId = null;
+        try
+        {
+            if (!eventJson.TryGetProperty("data", out var data)) return;
+
+            requestId = data.TryGetProperty("requestId", out var rid) ? rid.GetString() : null;
+            if (requestId == null) return;
+
+            var session = GetSession(sessionId);
+            if (session == null) return;
+
+            if (!data.TryGetProperty("permissionRequest", out var permissionRequest)) return;
+
+            var result = await session.HandlePermissionRequestAsync(permissionRequest);
+
+            if (_jsonRpc is { } rpc)
+            {
+                await InvokeRpcAsync<JsonElement>(rpc, "session.permissions.handlePendingPermissionRequest",
+                    [new HandlePendingPermissionRequestRequest(sessionId, requestId, result)], CancellationToken.None);
+            }
+        }
+        catch (Exception)
+        {
+            try
+            {
+                if (_jsonRpc is { } rpc && requestId != null)
+                {
+                    var deniedResult = new PermissionRequestResult
+                    {
+                        Kind = PermissionRequestResultKind.DeniedCouldNotRequestFromUser
+                    };
+                    await InvokeRpcAsync<JsonElement>(rpc, "session.permissions.handlePendingPermissionRequest",
+                        [new HandlePendingPermissionRequestRequest(sessionId, requestId, deniedResult)], CancellationToken.None);
+                }
+            }
+            catch { /* Connection may be closed */ }
+        }
+    }
+
     /// <summary>
     /// Disposes the <see cref="CopilotClient"/> synchronously.
     /// </summary>
@@ -1202,14 +1350,40 @@ public sealed partial class CopilotClient : IDisposable, IAsyncDisposable
     {
         public void OnSessionEvent(string sessionId, JsonElement? @event)
         {
+            if (@event == null) return;
+
+            // Extract event type for v3 broadcast handling
+            string? eventType = null;
+            if (@event.Value.TryGetProperty("type", out var typeProp))
+            {
+                eventType = typeProp.GetString();
+            }
+
+            // external_tool.requested is not in the typed schema; intercept on v3, always skip deserialization
+            if (eventType == "external_tool.requested")
+            {
+                if (client._negotiatedProtocolVersion >= 3)
+                {
+                    _ = Task.Run(() => client.HandleExternalToolRequestedAsync(sessionId, @event.Value));
+                }
+                return;
+            }
+
+            // Normal typed event dispatch
             var session = client.GetSession(sessionId);
-            if (session != null && @event != null)
+            if (session != null)
             {
                 var evt = SessionEvent.FromJson(@event.Value.GetRawText());
                 if (evt != null)
                 {
                     session.DispatchEvent(evt);
                 }
+            }
+
+            // v3: permission.requested - handle via RPC callback in addition to event dispatch
+            if (client._negotiatedProtocolVersion >= 3 && eventType == "permission.requested")
+            {
+                _ = Task.Run(() => client.HandlePermissionRequestedEventAsync(sessionId, @event.Value));
             }
         }
 
@@ -1486,6 +1660,17 @@ public sealed partial class CopilotClient : IDisposable, IAsyncDisposable
     internal record HooksInvokeResponse(
         object? Output);
 
+    internal record HandlePendingToolCallRequest(
+        string SessionId,
+        string RequestId,
+        ToolResultObject? Result = null,
+        string? Error = null);
+
+    internal record HandlePendingPermissionRequestRequest(
+        string SessionId,
+        string RequestId,
+        PermissionRequestResult Result);
+
     /// <summary>Trace source that forwards all logs to the ILogger.</summary>
     internal sealed class LoggerTraceSource : TraceSource
     {
@@ -1575,6 +1760,8 @@ public sealed partial class CopilotClient : IDisposable, IAsyncDisposable
     [JsonSerializable(typeof(DeleteSessionRequest))]
     [JsonSerializable(typeof(DeleteSessionResponse))]
     [JsonSerializable(typeof(GetLastSessionIdResponse))]
+    [JsonSerializable(typeof(HandlePendingPermissionRequestRequest))]
+    [JsonSerializable(typeof(HandlePendingToolCallRequest))]
     [JsonSerializable(typeof(HooksInvokeResponse))]
     [JsonSerializable(typeof(ListSessionsRequest))]
     [JsonSerializable(typeof(ListSessionsResponse))]

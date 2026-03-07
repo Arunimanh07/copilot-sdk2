@@ -23,7 +23,7 @@ import {
     StreamMessageWriter,
 } from "vscode-jsonrpc/node.js";
 import { createServerRpc } from "./generated/rpc.js";
-import { getSdkProtocolVersion } from "./sdkProtocolVersion.js";
+import { getSdkProtocolVersion, getMinSdkProtocolVersion } from "./sdkProtocolVersion.js";
 import { CopilotSession } from "./session.js";
 import type {
     ConnectionState,
@@ -145,6 +145,7 @@ export class CopilotClient {
     };
     private isExternalServer: boolean = false;
     private forceStopping: boolean = false;
+    private negotiatedProtocolVersion: number = 0;
     private modelsCache: ModelInfo[] | null = null;
     private modelsCacheLock: Promise<void> = Promise.resolve();
     private sessionLifecycleHandlers: Set<SessionLifecycleHandler> = new Set();
@@ -775,7 +776,8 @@ export class CopilotClient {
      * Verify that the server's protocol version matches the SDK's expected version
      */
     private async verifyProtocolVersion(): Promise<void> {
-        const expectedVersion = getSdkProtocolVersion();
+        const maxVersion = getSdkProtocolVersion();
+        const minVersion = getMinSdkProtocolVersion();
 
         // Race ping against process exit to detect early CLI failures
         let pingResult: Awaited<ReturnType<typeof this.ping>>;
@@ -789,17 +791,19 @@ export class CopilotClient {
 
         if (serverVersion === undefined) {
             throw new Error(
-                `SDK protocol version mismatch: SDK expects version ${expectedVersion}, but server does not report a protocol version. ` +
+                `SDK protocol version mismatch: SDK supports versions ${minVersion}-${maxVersion}, but server does not report a protocol version. ` +
                     `Please update your server to ensure compatibility.`
             );
         }
 
-        if (serverVersion !== expectedVersion) {
+        if (serverVersion < minVersion || serverVersion > maxVersion) {
             throw new Error(
-                `SDK protocol version mismatch: SDK expects version ${expectedVersion}, but server reports version ${serverVersion}. ` +
+                `SDK protocol version mismatch: SDK supports versions ${minVersion}-${maxVersion}, but server reports version ${serverVersion}. ` +
                     `Please update your SDK or server to ensure compatibility.`
             );
         }
+
+        this.negotiatedProtocolVersion = serverVersion;
     }
 
     /**
@@ -1340,9 +1344,131 @@ export class CopilotClient {
             return;
         }
 
-        const session = this.sessions.get((notification as { sessionId: string }).sessionId);
+        const sessionId = (notification as { sessionId: string }).sessionId;
+        const event = (notification as { event: SessionEvent }).event;
+        const session = this.sessions.get(sessionId);
+
         if (session) {
-            session._dispatchEvent((notification as { event: SessionEvent }).event);
+            session._dispatchEvent(event);
+        }
+
+        // Protocol v3: handle broadcast tool/permission events
+        if (this.negotiatedProtocolVersion >= 3) {
+            this.handleBroadcastEvent(sessionId, event);
+        }
+    }
+
+    private handleBroadcastEvent(sessionId: string, event: SessionEvent): void {
+        const eventType = (event as unknown as { type: string }).type;
+        if (eventType === "external_tool.requested") {
+            void this.handleExternalToolRequested(sessionId, event);
+        } else if (eventType === "permission.requested") {
+            void this.handlePermissionRequested(sessionId, event);
+        }
+    }
+
+    private async handleExternalToolRequested(
+        sessionId: string,
+        event: SessionEvent
+    ): Promise<void> {
+        const data = (
+            event as unknown as {
+                data: {
+                    requestId: string;
+                    sessionId: string;
+                    toolCallId: string;
+                    toolName: string;
+                    arguments: unknown;
+                };
+            }
+        ).data;
+        if (!data || !data.requestId || !data.toolName) {
+            return;
+        }
+
+        const session = this.sessions.get(sessionId);
+        if (!session) {
+            return;
+        }
+
+        const handler = session.getToolHandler(data.toolName);
+        try {
+            let result: ToolResult;
+            if (!handler) {
+                result = this.buildUnsupportedToolResult(data.toolName);
+            } else {
+                const response = await this.executeToolCall(handler, {
+                    sessionId,
+                    toolCallId: data.toolCallId,
+                    toolName: data.toolName,
+                    arguments: data.arguments,
+                });
+                result = response.result;
+            }
+
+            if (!this.connection) return;
+            await this.connection.sendRequest("session.tools.handlePendingToolCall", {
+                sessionId,
+                requestId: data.requestId,
+                result,
+            });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            try {
+                if (!this.connection) return;
+                await this.connection.sendRequest("session.tools.handlePendingToolCall", {
+                    sessionId,
+                    requestId: data.requestId,
+                    error: message,
+                });
+            } catch {
+                // Connection may be closed
+            }
+        }
+    }
+
+    private async handlePermissionRequested(
+        sessionId: string,
+        event: SessionEvent
+    ): Promise<void> {
+        const data = (event as unknown as { data: { requestId: string; permissionRequest: unknown } })
+            .data;
+        if (!data || !data.requestId || !data.permissionRequest) {
+            return;
+        }
+
+        const session = this.sessions.get(sessionId);
+        if (!session) {
+            return;
+        }
+
+        try {
+            const result = await session._handlePermissionRequest(data.permissionRequest);
+            if (!this.connection) return;
+            await this.connection.sendRequest(
+                "session.permissions.handlePendingPermissionRequest",
+                {
+                    sessionId,
+                    requestId: data.requestId,
+                    result,
+                }
+            );
+        } catch {
+            try {
+                if (!this.connection) return;
+                await this.connection.sendRequest(
+                    "session.permissions.handlePendingPermissionRequest",
+                    {
+                        sessionId,
+                        requestId: data.requestId,
+                        result: {
+                            kind: "denied-no-approval-rule-and-could-not-request-from-user",
+                        },
+                    }
+                );
+            } catch {
+                // Connection may be closed
+            }
         }
     }
 

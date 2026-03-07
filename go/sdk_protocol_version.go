@@ -2,11 +2,20 @@
 
 package copilot
 
-// SdkProtocolVersion is the SDK protocol version.
+// SdkProtocolVersion is the maximum SDK protocol version supported.
 // This must match the version expected by the copilot-agent-runtime server.
-const SdkProtocolVersion = 2
+const SdkProtocolVersion = 3
 
-// GetSdkProtocolVersion returns the SDK protocol version.
+// MinSdkProtocolVersion is the minimum SDK protocol version supported.
+// Servers reporting a version in [Min, Max] are considered compatible.
+const MinSdkProtocolVersion = 2
+
+// GetSdkProtocolVersion returns the SDK protocol version (maximum supported).
 func GetSdkProtocolVersion() int {
 	return SdkProtocolVersion
+}
+
+// GetMinSdkProtocolVersion returns the minimum SDK protocol version supported.
+func GetMinSdkProtocolVersion() int {
+	return MinSdkProtocolVersion
 }

@@ -9,15 +9,23 @@ namespace GitHub.Copilot.SDK;
 internal static class SdkProtocolVersion
 {
     /// <summary>
-    /// The SDK protocol version.
+    /// The maximum SDK protocol version supported.
     /// </summary>
-    private const int Version = 2;
+    private const int Version = 3;
 
     /// <summary>
-    /// Gets the SDK protocol version.
+    /// The minimum SDK protocol version supported.
+    /// Servers reporting a version in [Min, Max] are considered compatible.
     /// </summary>
-    public static int GetVersion()
-    {
-        return Version;
-    }
+    private const int MinVersion = 2;
+
+    /// <summary>
+    /// Gets the SDK protocol version (maximum supported).
+    /// </summary>
+    public static int GetVersion() => Version;
+
+    /// <summary>
+    /// Gets the minimum SDK protocol version supported.
+    /// </summary>
+    public static int GetMinVersion() => MinVersion;
 }
