@@ -25,6 +25,7 @@ try
 
     var config = new SessionConfig
     {
+        OnPermissionRequest = PermissionHandler.ApproveAll,
         Model = "claude-haiku-4.5",
         AvailableTools = new List<string>(),
         SystemMessage = new SystemMessageConfig

@@ -1,6 +1,6 @@
 import asyncio
 import os
-from copilot import CopilotClient
+from copilot import CopilotClient, PermissionHandler
 
 PIRATE_PROMPT = """You are a pirate. Always respond in pirate speak. Say 'Arrr!' in every response. Use nautical terms and pirate slang throughout."""
 
@@ -14,6 +14,7 @@ async def main():
     try:
         session = await client.create_session(
             {
+                "on_permission_request": PermissionHandler.approve_all,
                 "model": "claude-haiku-4.5",
                 "system_message": {"mode": "replace", "content": PIRATE_PROMPT},
                 "available_tools": [],

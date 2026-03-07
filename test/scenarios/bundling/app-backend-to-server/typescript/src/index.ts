@@ -1,5 +1,5 @@
 import express from "express";
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const PORT = parseInt(process.env.PORT || "8080", 10);
 const CLI_URL = process.env.CLI_URL || process.env.COPILOT_CLI_URL || "localhost:3000";
@@ -17,7 +17,7 @@ app.post("/chat", async (req, res) => {
   const client = new CopilotClient({ cliUrl: CLI_URL });
 
   try {
-    const session = await client.createSession({ model: "claude-haiku-4.5" });
+    const session = await client.createSession({ onPermissionRequest: approveAll, model: "claude-haiku-4.5" });
 
     const response = await session.sendAndWait({ prompt });
 

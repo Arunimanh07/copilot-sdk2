@@ -1,6 +1,6 @@
 import asyncio
 import os
-from copilot import CopilotClient
+from copilot import CopilotClient, PermissionHandler
 
 
 async def main():
@@ -23,6 +23,7 @@ async def main():
             }
 
         session_config = {
+            "on_permission_request": PermissionHandler.approve_all,
             "model": "claude-haiku-4.5",
             "available_tools": [],
             "system_message": {

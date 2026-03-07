@@ -39,6 +39,7 @@ func main() {
 
 	sessionConfig := &copilot.SessionConfig{
 		Model: "claude-haiku-4.5",
+		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 		SystemMessage: &copilot.SystemMessageConfig{
 			Mode:    "replace",
 			Content: "You are a helpful assistant. Answer questions concisely.",

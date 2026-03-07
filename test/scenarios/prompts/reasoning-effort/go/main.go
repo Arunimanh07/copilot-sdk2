@@ -22,6 +22,7 @@ func main() {
 
 	session, err := client.CreateSession(ctx, &copilot.SessionConfig{
 		Model:           "claude-opus-4.6",
+		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 		ReasoningEffort: "low",
 		AvailableTools:  []string{},
 		SystemMessage: &copilot.SystemMessageConfig{

@@ -1,7 +1,7 @@
 import asyncio
 import os
 import sys
-from copilot import CopilotClient
+from copilot import CopilotClient, PermissionHandler
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
@@ -20,6 +20,7 @@ async def main():
 
     try:
         session = await client.create_session({
+            "on_permission_request": PermissionHandler.approve_all,
             "model": ANTHROPIC_MODEL,
             "provider": {
                 "type": "anthropic",

@@ -25,6 +25,7 @@ func main() {
 	fmt.Println("--- Session 1 ---")
 	session1, err := client.CreateSession(ctx, &copilot.SessionConfig{
 		Model: "claude-haiku-4.5",
+		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -51,6 +52,7 @@ func main() {
 	fmt.Println("--- Session 2 ---")
 	session2, err := client.CreateSession(ctx, &copilot.SessionConfig{
 		Model: "claude-haiku-4.5",
+		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 	})
 	if err != nil {
 		log.Fatal(err)

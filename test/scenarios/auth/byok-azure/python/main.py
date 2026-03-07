@@ -1,7 +1,7 @@
 import asyncio
 import os
 import sys
-from copilot import CopilotClient
+from copilot import CopilotClient, PermissionHandler
 
 AZURE_OPENAI_ENDPOINT = os.environ.get("AZURE_OPENAI_ENDPOINT")
 AZURE_OPENAI_API_KEY = os.environ.get("AZURE_OPENAI_API_KEY")
@@ -21,6 +21,7 @@ async def main():
 
     try:
         session = await client.create_session({
+            "on_permission_request": PermissionHandler.approve_all,
             "model": AZURE_OPENAI_MODEL,
             "provider": {
                 "type": "azure",

@@ -1,4 +1,4 @@
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1";
 const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "claude-haiku-4.5";
@@ -15,7 +15,7 @@ async function main() {
   });
 
   try {
-    const session = await client.createSession({
+    const session = await client.createSession({ onPermissionRequest: approveAll,
       model: OPENAI_MODEL,
       provider: {
         type: "openai",

@@ -26,6 +26,7 @@ func main() {
 
 	session1, err := client.CreateSession(ctx, &copilot.SessionConfig{
 		Model: "claude-haiku-4.5",
+		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 		SystemMessage: &copilot.SystemMessageConfig{
 			Mode:    "replace",
 			Content: piratePrompt,
@@ -39,6 +40,7 @@ func main() {
 
 	session2, err := client.CreateSession(ctx, &copilot.SessionConfig{
 		Model: "claude-haiku-4.5",
+		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 		SystemMessage: &copilot.SystemMessageConfig{
 			Mode:    "replace",
 			Content: robotPrompt,

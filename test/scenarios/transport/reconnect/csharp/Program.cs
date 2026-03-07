@@ -11,6 +11,7 @@ try
     Console.WriteLine("--- Session 1 ---");
     await using var session1 = await client.CreateSessionAsync(new SessionConfig
     {
+        OnPermissionRequest = PermissionHandler.ApproveAll,
         Model = "claude-haiku-4.5",
     });
 
@@ -34,6 +35,7 @@ try
     Console.WriteLine("--- Session 2 ---");
     await using var session2 = await client.CreateSessionAsync(new SessionConfig
     {
+        OnPermissionRequest = PermissionHandler.ApproveAll,
         Model = "claude-haiku-4.5",
     });
 

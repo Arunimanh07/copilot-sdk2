@@ -21,6 +21,7 @@ try
 {
     await using var session = await client.CreateSessionAsync(new SessionConfig
     {
+        OnPermissionRequest = PermissionHandler.ApproveAll,
         Model = model,
         Provider = new ProviderConfig
         {

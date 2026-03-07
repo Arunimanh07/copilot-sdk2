@@ -1,4 +1,4 @@
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 async function main() {
   const client = new CopilotClient({
@@ -7,7 +7,7 @@ async function main() {
   });
 
   try {
-    const session = await client.createSession({ model: "claude-haiku-4.5" });
+    const session = await client.createSession({ onPermissionRequest: approveAll, model: "claude-haiku-4.5" });
 
     const response = await session.sendAndWait({
       prompt: "What is the capital of France?",

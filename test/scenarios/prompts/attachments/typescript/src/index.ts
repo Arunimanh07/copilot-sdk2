@@ -1,4 +1,4 @@
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -11,7 +11,7 @@ async function main() {
   });
 
   try {
-    const session = await client.createSession({
+    const session = await client.createSession({ onPermissionRequest: approveAll,
       model: "claude-haiku-4.5",
       availableTools: [],
       systemMessage: {

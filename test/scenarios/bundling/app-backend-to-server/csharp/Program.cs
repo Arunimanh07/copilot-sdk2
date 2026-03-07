@@ -28,6 +28,7 @@ app.MapPost("/chat", async (HttpContext ctx) =>
     {
         await using var session = await client.CreateSessionAsync(new SessionConfig
         {
+        OnPermissionRequest = PermissionHandler.ApproveAll,
             Model = "claude-haiku-4.5",
         });
 

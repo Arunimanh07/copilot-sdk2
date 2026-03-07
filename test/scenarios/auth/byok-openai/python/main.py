@@ -1,7 +1,7 @@
 import asyncio
 import os
 import sys
-from copilot import CopilotClient
+from copilot import CopilotClient, PermissionHandler
 
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "claude-haiku-4.5")
@@ -20,6 +20,7 @@ async def main():
 
     try:
         session = await client.create_session({
+            "on_permission_request": PermissionHandler.approve_all,
             "model": OPENAI_MODEL,
             "provider": {
                 "type": "openai",

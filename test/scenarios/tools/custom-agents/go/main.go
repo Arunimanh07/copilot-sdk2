@@ -22,6 +22,7 @@ func main() {
 
 	session, err := client.CreateSession(ctx, &copilot.SessionConfig{
 		Model: "claude-haiku-4.5",
+		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 		CustomAgents: []copilot.CustomAgentConfig{
 			{
 				Name:        "researcher",

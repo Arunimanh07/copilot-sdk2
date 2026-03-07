@@ -36,6 +36,7 @@ func main() {
 
 	session, err := client.CreateSession(ctx, &copilot.SessionConfig{
 		Model: model,
+		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 		Provider: &copilot.ProviderConfig{
 			Type:    "azure",
 			BaseURL: endpoint,

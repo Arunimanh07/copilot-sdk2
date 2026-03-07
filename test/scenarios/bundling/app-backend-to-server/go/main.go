@@ -65,6 +65,7 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 
 	session, err := client.CreateSession(ctx, &copilot.SessionConfig{
 		Model: "claude-haiku-4.5",
+		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 	})
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, chatResponse{Error: err.Error()})

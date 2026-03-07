@@ -1,4 +1,4 @@
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const SYSTEM_PROMPT = `You are a minimal assistant with no tools available.
 You cannot execute code, read files, edit files, search, or perform any actions.
@@ -12,7 +12,7 @@ async function main() {
   });
 
   try {
-    const session = await client.createSession({
+    const session = await client.createSession({ onPermissionRequest: approveAll,
       model: "claude-haiku-4.5",
       systemMessage: { mode: "replace", content: SYSTEM_PROMPT },
       availableTools: [],

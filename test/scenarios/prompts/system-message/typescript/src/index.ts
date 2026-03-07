@@ -1,4 +1,4 @@
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const PIRATE_PROMPT = `You are a pirate. Always respond in pirate speak. Say 'Arrr!' in every response. Use nautical terms and pirate slang throughout.`;
 
@@ -9,7 +9,7 @@ async function main() {
   });
 
   try {
-    const session = await client.createSession({
+    const session = await client.createSession({ onPermissionRequest: approveAll,
       model: "claude-haiku-4.5",
       systemMessage: { mode: "replace", content: PIRATE_PROMPT },
       availableTools: [],

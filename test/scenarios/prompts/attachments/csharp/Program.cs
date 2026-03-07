@@ -12,6 +12,7 @@ try
 {
     await using var session = await client.CreateSessionAsync(new SessionConfig
     {
+        OnPermissionRequest = PermissionHandler.ApproveAll,
         Model = "claude-haiku-4.5",
         SystemMessage = new SystemMessageConfig { Mode = SystemMessageMode.Replace, Content = "You are a helpful assistant. Answer questions about attached files concisely." },
         AvailableTools = [],

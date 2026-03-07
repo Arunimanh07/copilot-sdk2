@@ -12,6 +12,7 @@ try
 {
     await using var session = await client.CreateSessionAsync(new SessionConfig
     {
+        OnPermissionRequest = PermissionHandler.ApproveAll,
         Model = "claude-opus-4.6",
         ReasoningEffort = "low",
         AvailableTools = new List<string>(),

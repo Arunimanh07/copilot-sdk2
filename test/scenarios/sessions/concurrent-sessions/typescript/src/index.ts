@@ -1,4 +1,4 @@
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const PIRATE_PROMPT = `You are a pirate. Always say Arrr!`;
 const ROBOT_PROMPT = `You are a robot. Always say BEEP BOOP!`;
@@ -11,12 +11,12 @@ async function main() {
 
   try {
     const [session1, session2] = await Promise.all([
-      client.createSession({
+      client.createSession({ onPermissionRequest: approveAll,
         model: "claude-haiku-4.5",
         systemMessage: { mode: "replace", content: PIRATE_PROMPT },
         availableTools: [],
       }),
-      client.createSession({
+      client.createSession({ onPermissionRequest: approveAll,
         model: "claude-haiku-4.5",
         systemMessage: { mode: "replace", content: ROBOT_PROMPT },
         availableTools: [],

@@ -1,4 +1,4 @@
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 async function main() {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -14,7 +14,7 @@ async function main() {
   });
 
   try {
-    const session = await client.createSession({
+    const session = await client.createSession({ onPermissionRequest: approveAll,
       model,
       provider: {
         type: "anthropic",

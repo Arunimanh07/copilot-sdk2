@@ -1,7 +1,7 @@
 import asyncio
 import os
 import sys
-from copilot import CopilotClient
+from copilot import CopilotClient, PermissionHandler
 
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:3b")
@@ -19,6 +19,7 @@ async def main():
 
     try:
         session = await client.create_session({
+            "on_permission_request": PermissionHandler.approve_all,
             "model": OLLAMA_MODEL,
             "provider": {
                 "type": "openai",

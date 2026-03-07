@@ -15,6 +15,7 @@ try
 {
     var session1Task = client.CreateSessionAsync(new SessionConfig
     {
+        OnPermissionRequest = PermissionHandler.ApproveAll,
         Model = "claude-haiku-4.5",
         SystemMessage = new SystemMessageConfig { Mode = SystemMessageMode.Replace, Content = PiratePrompt },
         AvailableTools = [],
@@ -22,6 +23,7 @@ try
 
     var session2Task = client.CreateSessionAsync(new SessionConfig
     {
+        OnPermissionRequest = PermissionHandler.ApproveAll,
         Model = "claude-haiku-4.5",
         SystemMessage = new SystemMessageConfig { Mode = SystemMessageMode.Replace, Content = RobotPrompt },
         AvailableTools = [],

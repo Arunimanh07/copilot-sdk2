@@ -25,6 +25,7 @@ func main() {
 
 	session, err := client.CreateSession(ctx, &copilot.SessionConfig{
 		Model:          "claude-haiku-4.5",
+		OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 		AvailableTools: []string{},
 		SystemMessage: &copilot.SystemMessageConfig{
 			Mode:    "replace",
