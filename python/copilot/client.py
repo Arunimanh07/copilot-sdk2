@@ -1538,6 +1538,8 @@ class CopilotClient:
                     session_id, tool_call_id, tool_name, arguments, handler
                 )
 
+            if not self._client:
+                return
             await self._client.request(
                 "session.tools.handlePendingToolCall",
                 {
@@ -1583,6 +1585,8 @@ class CopilotClient:
                 return
 
             result = await session._handle_permission_request(permission_request)
+            if not self._client:
+                return
             await self._client.request(
                 "session.permissions.handlePendingPermissionRequest",
                 {
