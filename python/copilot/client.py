@@ -1135,16 +1135,18 @@ class CopilotClient:
 
         if server_version is None:
             raise RuntimeError(
-                f"SDK protocol version mismatch: SDK supports versions {min_version}-{max_version}, "
-                f"but server does not report a protocol version. "
-                f"Please update your server to ensure compatibility."
+                "SDK protocol version mismatch: "
+                f"SDK supports versions {min_version}-{max_version}, "
+                "but server does not report a protocol version. "
+                "Please update your server to ensure compatibility."
             )
 
         if server_version < min_version or server_version > max_version:
             raise RuntimeError(
-                f"SDK protocol version mismatch: SDK supports versions {min_version}-{max_version}, "
+                "SDK protocol version mismatch: "
+                f"SDK supports versions {min_version}-{max_version}, "
                 f"but server reports version {server_version}. "
-                f"Please update your SDK or server to ensure compatibility."
+                "Please update your SDK or server to ensure compatibility."
             )
 
         self._negotiated_protocol_version = server_version
