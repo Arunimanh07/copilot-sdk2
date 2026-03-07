@@ -183,7 +183,9 @@ async def configure_multi_test(request, mctx):
 
 
 class TestMultiClientBroadcast:
-    async def test_both_clients_see_tool_request_and_completion_events(self, mctx: MultiClientContext):
+    async def test_both_clients_see_tool_request_and_completion_events(
+        self, mctx: MultiClientContext
+    ):
         """Both clients see tool request and completion events."""
 
         class SeedParams(BaseModel):
@@ -230,7 +232,9 @@ class TestMultiClientBroadcast:
 
         await session2.disconnect()
 
-    async def test_one_client_approves_permission_and_both_see_the_result(self, mctx: MultiClientContext):
+    async def test_one_client_approves_permission_and_both_see_the_result(
+        self, mctx: MultiClientContext
+    ):
         """One client approves a permission request and both see the result."""
         permission_requests = []
 
@@ -280,7 +284,9 @@ class TestMultiClientBroadcast:
 
         await session2.disconnect()
 
-    async def test_one_client_rejects_permission_and_both_see_the_result(self, mctx: MultiClientContext):
+    async def test_one_client_rejects_permission_and_both_see_the_result(
+        self, mctx: MultiClientContext
+    ):
         """One client rejects a permission request and both see the result."""
         # Client 1 creates a session and denies all permission requests
         session1 = await mctx.client1.create_session(
@@ -332,7 +338,9 @@ class TestMultiClientBroadcast:
         await session2.disconnect()
 
     @pytest.mark.timeout(90)
-    async def test_two_clients_register_different_tools_and_agent_uses_both(self, mctx: MultiClientContext):
+    async def test_two_clients_register_different_tools_and_agent_uses_both(
+        self, mctx: MultiClientContext
+    ):
         """Two clients register different tools and agent uses both."""
 
         class CountryCodeParams(BaseModel):
@@ -368,8 +376,7 @@ class TestMultiClientBroadcast:
         await session1.send(
             {
                 "prompt": (
-                    "Now use the currency_lookup tool with"
-                    " countryCode 'US' and tell me the result."
+                    "Now use the currency_lookup tool with countryCode 'US' and tell me the result."
                 )
             }
         )
