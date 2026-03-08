@@ -70,6 +70,7 @@ await session.send({
 
 ```python
 from copilot import CopilotClient
+from copilot.types import PermissionRequestResult
 
 async def main():
     client = CopilotClient()
@@ -77,7 +78,7 @@ async def main():
 
     session = await client.create_session({
         "model": "gpt-4.1",
-        "on_permission_request": lambda req: {"kind": "approved"},
+        "on_permission_request": lambda req, inv: PermissionRequestResult(kind="approved"),
     })
 
     # Start a long-running task
@@ -228,6 +229,7 @@ await session.send({
 
 ```python
 from copilot import CopilotClient
+from copilot.types import PermissionRequestResult
 
 async def main():
     client = CopilotClient()
@@ -235,7 +237,7 @@ async def main():
 
     session = await client.create_session({
         "model": "gpt-4.1",
-        "on_permission_request": lambda req: {"kind": "approved"},
+        "on_permission_request": lambda req, inv: PermissionRequestResult(kind="approved"),
     })
 
     # Send an initial task
@@ -358,7 +360,7 @@ await session.send({
 ```python
 session = await client.create_session({
     "model": "gpt-4.1",
-    "on_permission_request": lambda req: {"kind": "approved"},
+    "on_permission_request": lambda req, inv: PermissionRequestResult(kind="approved"),
 })
 
 # Start a task
