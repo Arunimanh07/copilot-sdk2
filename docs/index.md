@@ -48,7 +48,6 @@ Guides for building with the SDK's capabilities.
 - [Streaming Events](./features/streaming-events.md) — real-time event reference
 - [Steering & Queueing](./features/steering-and-queueing.md) — message delivery modes
 - [Session Persistence](./features/session-persistence.md) — resume sessions across restarts
-- [Microsoft Agent Framework](./features/microsoft-agent-framework.md) — MAF integration
 
 ### [Hooks Reference](./hooks/index.md)
 
@@ -69,3 +68,9 @@ Detailed API reference for each session hook.
 ### [Observability](./observability/opentelemetry.md)
 
 - [OpenTelemetry Instrumentation](./observability/opentelemetry.md) — add tracing to your SDK usage
+
+### [Integrations](./integrations/microsoft-agent-framework.md)
+
+Guides for using the SDK with other platforms and frameworks.
+
+- [Microsoft Agent Framework](./integrations/microsoft-agent-framework.md) — MAF multi-agent workflows
