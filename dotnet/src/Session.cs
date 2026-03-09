@@ -671,7 +671,7 @@ public sealed partial class CopilotSession : IAsyncDisposable
     /// </example>
     public async Task SetModelAsync(string model, CancellationToken cancellationToken = default)
     {
-        await Rpc.Model.SwitchToAsync(model, cancellationToken);
+        await Rpc.Model.SwitchToAsync(model, cancellationToken: cancellationToken);
     }
 
     /// <summary>

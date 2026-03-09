@@ -69,6 +69,7 @@ namespace GitHub.Copilot.SDK;
 [JsonDerivedType(typeof(SubagentSelectedEvent), "subagent.selected")]
 [JsonDerivedType(typeof(SubagentStartedEvent), "subagent.started")]
 [JsonDerivedType(typeof(SystemMessageEvent), "system.message")]
+[JsonDerivedType(typeof(SystemNotificationEvent), "system.notification")]
 [JsonDerivedType(typeof(ToolExecutionCompleteEvent), "tool.execution_complete")]
 [JsonDerivedType(typeof(ToolExecutionPartialResultEvent), "tool.execution_partial_result")]
 [JsonDerivedType(typeof(ToolExecutionProgressEvent), "tool.execution_progress")]
@@ -658,6 +659,18 @@ public partial class SystemMessageEvent : SessionEvent
 }
 
 /// <summary>
+/// Event: system.notification
+/// </summary>
+public partial class SystemNotificationEvent : SessionEvent
+{
+    [JsonIgnore]
+    public override string Type => "system.notification";
+
+    [JsonPropertyName("data")]
+    public required SystemNotificationData Data { get; set; }
+}
+
+/// <summary>
 /// Event: permission.requested
 /// </summary>
 public partial class PermissionRequestedEvent : SessionEvent
@@ -825,6 +838,10 @@ public partial class SessionStartData
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("context")]
     public SessionStartDataContext? Context { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("alreadyInUse")]
+    public bool? AlreadyInUse { get; set; }
 }
 
 public partial class SessionResumeData
@@ -838,6 +855,10 @@ public partial class SessionResumeData
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("context")]
     public SessionResumeDataContext? Context { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("alreadyInUse")]
+    public bool? AlreadyInUse { get; set; }
 }
 
 public partial class SessionErrorData
@@ -1520,6 +1541,15 @@ public partial class SystemMessageData
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("metadata")]
     public SystemMessageDataMetadata? Metadata { get; set; }
+}
+
+public partial class SystemNotificationData
+{
+    [JsonPropertyName("content")]
+    public required string Content { get; set; }
+
+    [JsonPropertyName("kind")]
+    public required object Kind { get; set; }
 }
 
 public partial class PermissionRequestedData
@@ -2536,6 +2566,8 @@ public enum PermissionCompletedDataResultKind
 [JsonSerializable(typeof(SystemMessageData))]
 [JsonSerializable(typeof(SystemMessageDataMetadata))]
 [JsonSerializable(typeof(SystemMessageEvent))]
+[JsonSerializable(typeof(SystemNotificationData))]
+[JsonSerializable(typeof(SystemNotificationEvent))]
 [JsonSerializable(typeof(ToolExecutionCompleteData))]
 [JsonSerializable(typeof(ToolExecutionCompleteDataError))]
 [JsonSerializable(typeof(ToolExecutionCompleteDataResult))]
