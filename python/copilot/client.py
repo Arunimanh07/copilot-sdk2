@@ -20,12 +20,11 @@ import subprocess
 import sys
 import threading
 from collections.abc import Callable
-from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any, cast, overload
 
 from .generated.rpc import ServerRpc
-from .generated.session_events import session_event_from_dict
+from .generated.session_events import PermissionRequest, session_event_from_dict
 from .jsonrpc import JsonRpcClient, ProcessExitedError
 from .sdk_protocol_version import get_sdk_protocol_version
 from .session import CopilotSession
@@ -1103,7 +1102,7 @@ class CopilotClient:
         event_type_or_handler: SessionLifecycleEventType | SessionLifecycleHandler,
         /,
         handler: SessionLifecycleHandler | None = None,
-    ) -> Callable[[], None]:
+    ) -> HandlerUnsubcribe:
         """
         Subscribe to session lifecycle events.
 
@@ -1611,56 +1610,58 @@ class CopilotClient:
             result = handler(invocation)
             if inspect.isawaitable(result):
                 result = await result
-        except Exception as exc:  # pylint: disable=broad-except
-            # Don't expose detailed error information to the LLM for security reasons.
-            # The actual error is stored in the 'error' field for debugging.
-            result = ToolResult(
-                textResultForLlm="Invoking this tool produced an error. "
-                "Detailed information is not available.",
-                resultType="failure",
-                error=str(exc),
-                toolTelemetry={},
-            )
 
-        if result is None:
-            result = ToolResult(
-                textResultForLlm="Tool returned no result.",
-                resultType="failure",
-                error="tool returned no result",
-                toolTelemetry={},
-            )
+            tool_result: ToolResult = result  # type: ignore[assignment]
+            return {
+                "result": {
+                    "textResultForLlm": tool_result.text_result_for_llm,
+                    "resultType": tool_result.result_type,
+                    "error": tool_result.error,
+                    "toolTelemetry": tool_result.tool_telemetry or {},
+                }
+            }
+        except Exception as exc:
+            return {
+                "result": {
+                    "textResultForLlm": (
+                        "Invoking this tool produced an error."
+                        " Detailed information is not available."
+                    ),
+                    "resultType": "failure",
+                    "error": str(exc),
+                    "toolTelemetry": {},
+                }
+            }
 
-        return self._normalize_tool_result(result)
+    async def _handle_permission_request_v2(self, params: dict) -> dict:
+        """Handle a v2-style permission.request RPC request from the server."""
+        session_id = params.get("sessionId")
+        permission_request = params.get("permissionRequest")
 
-    def _normalize_tool_result(self, result: ToolResult) -> ToolResult:
-        """
-        Normalize a tool result for transmission.
+        if not session_id or not permission_request:
+            raise ValueError("invalid permission request payload")
 
-        Converts dataclass instances to dictionaries for JSON serialization.
+        with self._sessions_lock:
+            session = self._sessions.get(session_id)
+        if not session:
+            raise ValueError(f"unknown session {session_id}")
 
-        Args:
-            result: The tool result to normalize.
-
-        Returns:
-            The normalized tool result.
-        """
-        if is_dataclass(result) and not isinstance(result, type):
-            return asdict(result)  # type: ignore[arg-type]
-        return result
-
-    def _build_unsupported_tool_result(self, tool_name: str) -> ToolResult:
-        """
-        Build a failure result for an unsupported tool.
-
-        Args:
-            tool_name: The name of the unsupported tool.
-
-        Returns:
-            A ToolResult indicating the tool is not supported.
-        """
-        return ToolResult(
-            textResultForLlm=f"Tool '{tool_name}' is not supported.",
-            resultType="failure",
-            error=f"tool '{tool_name}' not supported",
-            toolTelemetry={},
-        )
+        try:
+            perm_request = PermissionRequest.from_dict(permission_request)
+            result = await session._handle_permission_request(perm_request)
+            result_payload: dict = {"kind": result.kind}
+            if result.rules is not None:
+                result_payload["rules"] = result.rules
+            if result.feedback is not None:
+                result_payload["feedback"] = result.feedback
+            if result.message is not None:
+                result_payload["message"] = result.message
+            if result.path is not None:
+                result_payload["path"] = result.path
+            return {"result": result_payload}
+        except Exception:  # pylint: disable=broad-except
+            return {
+                "result": {
+                    "kind": "denied-no-approval-rule-and-could-not-request-from-user",
+                }
+            }
