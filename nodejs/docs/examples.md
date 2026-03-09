@@ -324,11 +324,11 @@ hooks: {
 ```js
 hooks: {
     onSessionStart: async (input) => {
-        console.log(`Session started (source: ${input.source})`);
+        // input.source is "startup", "resume", or "new"
         return { additionalContext: "Remember to write tests for all changes." };
     },
     onSessionEnd: async (input) => {
-        console.log(`Session ended (reason: ${input.reason})`);
+        // input.reason is "complete", "error", "abort", "timeout", or "user_exit"
     },
 }
 ```
@@ -343,7 +343,7 @@ After calling `resumeSession`, use `session.on()` to react to events in real tim
 
 ```js
 session.on("assistant.message", (event) => {
-    console.log("Agent said:", event.data.content);
+    // event.data.content has the agent's response text
 });
 ```
 
@@ -351,7 +351,7 @@ session.on("assistant.message", (event) => {
 
 ```js
 session.on((event) => {
-    console.log(`[${event.type}]`, event.data);
+    // event.type and event.data are available for all events
 });
 ```
 
@@ -361,7 +361,7 @@ session.on((event) => {
 
 ```js
 const unsubscribe = session.on("tool.execution_complete", (event) => {
-    console.log(`Tool ${event.data.toolName} finished`);
+    // event.data.toolName, event.data.success, event.data.result, event.data.error
 });
 
 // Later, stop listening
@@ -546,7 +546,7 @@ await session.send({ prompt: "Analyze the test results." });
 
 ```js
 const response = await session.sendAndWait({ prompt: "What is 2 + 2?" });
-console.log(response?.data.content); // "4"
+// response?.data.content contains the agent's reply
 ```
 
 ### Send with file attachments
@@ -570,7 +570,7 @@ await session.send({
 const session = await extension.resumeSession(process.env.SESSION_ID, {
     onPermissionRequest: async (request) => {
         if (request.kind === "shell") {
-            console.log(`Shell command: ${request.fullCommandText}`);
+            // request.fullCommandText has the shell command
             return { kind: "approved" };
         }
         if (request.kind === "write") {
@@ -589,11 +589,8 @@ Register `onUserInputRequest` to enable the agent's `ask_user` tool:
 const session = await extension.resumeSession(process.env.SESSION_ID, {
     onPermissionRequest: approveAll,
     onUserInputRequest: async (request) => {
-        console.log(`Agent asks: ${request.question}`);
-        if (request.choices) {
-            console.log(`Options: ${request.choices.join(", ")}`);
-        }
-        // Return the user's answer
+        // request.question has the agent's question
+        // request.choices has the options (if multiple choice)
         return { answer: "yes", wasFreeform: false };
     },
 });
@@ -684,8 +681,7 @@ session.on("assistant.message", (event) => {
 });
 
 session.on("tool.execution_complete", (event) => {
-    const status = event.data.success ? "✓" : "✗";
-    console.log(`[${status}] ${event.data.toolName}`);
+    // event.data.success, event.data.toolName, event.data.result
 });
 ```
 

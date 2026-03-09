@@ -107,7 +107,7 @@ tools: [
 - Tool names must be unique across ALL loaded extensions. Collisions cause the second extension to fail to load.
 - Handler must return a string or `{ textResultForLlm: string, resultType?: string }`.
 - Handler receives `(args, invocation)` — the second argument has `sessionId`, `toolCallId`, `toolName`.
-- Use `console.error()` for debug logging (stdout is reserved for JSON-RPC).
+- Use `session.log()` to surface messages to the user. Don't use `console.log()` (stdout is reserved for JSON-RPC).
 
 ---
 
@@ -212,7 +212,7 @@ await session.send({
 Send and block until the agent finishes (resolves on `session.idle`):
 ```js
 const response = await session.sendAndWait({ prompt: "What is 2+2?" });
-console.error(response?.data.content);
+// response?.data.content contains the agent's reply
 ```
 
 ### session.log(message, options?)
@@ -230,7 +230,7 @@ await session.log("Processing...", { ephemeral: true }); // transient, not persi
 Subscribe to session events. Returns an unsubscribe function.
 ```js
 const unsub = session.on("tool.execution_complete", (event) => {
-    console.error(`Tool ${event.data.toolName}: ${event.data.success}`);
+    // event.data.toolName, event.data.success, event.data.result
 });
 ```
 
@@ -259,7 +259,7 @@ Low-level typed RPC access to all session APIs (model, mode, plan, workspace, et
 
 ## Gotchas
 
-1. **stdout is reserved for JSON-RPC.** Use `console.error()` for debug output. `console.log()` will corrupt the protocol.
+1. **stdout is reserved for JSON-RPC.** Don't use `console.log()` — it will corrupt the protocol. Use `session.log()` to surface messages to the user.
 2. **Tool name collisions are fatal.** If two extensions register the same tool name, the second extension fails to initialize.
 3. **`disableResume: true` is required.** Extensions always attach to existing sessions.
 4. **Don't call `session.send()` synchronously from `onUserPromptSubmitted`.** Use `setTimeout(() => session.send(...), 0)` to avoid infinite loops.
