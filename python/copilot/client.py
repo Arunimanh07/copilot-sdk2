@@ -1101,8 +1101,17 @@ class CopilotClient:
     def on(
         self,
         event_type_or_handler: SessionLifecycleEventType | SessionLifecycleHandler,
-        handler: SessionLifecycleHandler | None = None,
+<<<<<<<<< Temporary merge branch 1
+        /,
+        handler: Optional[SessionLifecycleHandler] = None,
     ) -> HandlerUnsubcribe:
+||||||||| f9144f1
+        handler: Optional[SessionLifecycleHandler] = None,
+    ) -> Callable[[], None]:
+=========
+        handler: SessionLifecycleHandler | None = None,
+    ) -> Callable[[], None]:
+>>>>>>>>> Temporary merge branch 2
         """
         Subscribe to session lifecycle events.
 
