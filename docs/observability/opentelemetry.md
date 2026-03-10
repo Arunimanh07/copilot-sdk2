@@ -1,6 +1,102 @@
 # OpenTelemetry Instrumentation for Copilot SDK
 
-This guide shows how to add OpenTelemetry tracing to your Copilot SDK applications using GenAI semantic conventions.
+This guide shows how to add OpenTelemetry tracing to your Copilot SDK applications.
+
+## Built-in Telemetry Support
+
+The SDK has built-in support for configuring OpenTelemetry on the CLI process and propagating W3C Trace Context between the SDK and CLI. Provide a `TelemetryConfig` when creating the client to opt in:
+
+<details open>
+<summary><strong>Node.js / TypeScript</strong></summary>
+
+<!-- docs-validate: skip -->
+```typescript
+import { CopilotClient } from "@github/copilot-sdk";
+
+const client = new CopilotClient({
+  telemetry: {
+    otlpEndpoint: "http://localhost:4318",
+  },
+});
+```
+
+</details>
+
+<details>
+<summary><strong>Python</strong></summary>
+
+<!-- docs-validate: skip -->
+```python
+from copilot import CopilotClient
+
+client = CopilotClient(
+    telemetry={
+        "otlp_endpoint": "http://localhost:4318",
+    },
+)
+```
+
+</details>
+
+<details>
+<summary><strong>Go</strong></summary>
+
+<!-- docs-validate: skip -->
+```go
+client, err := copilot.NewClient(copilot.ClientOptions{
+    Telemetry: &copilot.TelemetryConfig{
+        OTLPEndpoint: "http://localhost:4318",
+    },
+})
+```
+
+</details>
+
+<details>
+<summary><strong>.NET</strong></summary>
+
+<!-- docs-validate: skip -->
+```csharp
+var client = new CopilotClient(new CopilotClientOptions
+{
+    Telemetry = new TelemetryConfig
+    {
+        OtlpEndpoint = "http://localhost:4318",
+    },
+});
+```
+
+</details>
+
+### TelemetryConfig Options
+
+| Option | Node.js | Python | Go | .NET | Description |
+|---|---|---|---|---|---|
+| OTLP endpoint | `otlpEndpoint` | `otlp_endpoint` | `OTLPEndpoint` | `OtlpEndpoint` | OTLP HTTP endpoint URL |
+| File path | `filePath` | `file_path` | `FilePath` | `FilePath` | File path for JSON-lines trace output |
+| Exporter type | `exporterType` | `exporter_type` | `ExporterType` | `ExporterType` | `"otlp-http"` or `"file"` |
+| Source name | `sourceName` | `source_name` | `SourceName` | `SourceName` | Instrumentation scope name |
+| Capture content | `captureContent` | `capture_content` | `CaptureContent` | `CaptureContent` | Whether to capture message content |
+
+### Trace Context Propagation
+
+Trace context is propagated automatically — no manual instrumentation is needed:
+
+- **SDK → CLI**: `traceparent` and `tracestate` headers from the current span/activity are included in `session.create`, `session.resume`, and `session.send` RPC calls.
+- **CLI → SDK**: When the CLI invokes tool handlers, the trace context from the CLI's span is propagated so your tool code runs under the correct parent span.
+
+### Per-Language Dependencies
+
+| Language | Dependency | Notes |
+|---|---|---|
+| Node.js | `@opentelemetry/api` | Optional peer dependency |
+| Python | `opentelemetry-api` | Install with `pip install copilot-sdk[telemetry]` |
+| Go | `go.opentelemetry.io/otel` | Required dependency |
+| .NET | — | Uses built-in `System.Diagnostics.Activity` |
+
+## Application-Level Instrumentation
+
+The rest of this guide shows how to add your own OpenTelemetry spans around SDK operations using GenAI semantic conventions. This is complementary to the built-in `TelemetryConfig` above — you can use both together.
 
 ## Overview
 

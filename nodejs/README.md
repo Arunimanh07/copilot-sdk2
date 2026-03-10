@@ -84,6 +84,7 @@ new CopilotClient(options?: CopilotClientOptions)
 - `autoStart?: boolean` - Auto-start server (default: true)
 - `githubToken?: string` - GitHub token for authentication. When provided, takes priority over other auth methods.
 - `useLoggedInUser?: boolean` - Whether to use logged-in user for authentication (default: true, but false when `githubToken` is provided). Cannot be used with `cliUrl`.
+- `telemetry?: TelemetryConfig` - OpenTelemetry configuration for the CLI process. Providing this object enables telemetry — no separate flag needed. See [Telemetry](#telemetry) below.
 
 #### Methods
 
@@ -600,6 +601,30 @@ const session = await client.createSession({
 > - When using a custom provider, the `model` parameter is **required**. The SDK will throw an error if no model is specified.
 > - For Azure OpenAI endpoints (`*.openai.azure.com`), you **must** use `type: "azure"`, not `type: "openai"`.
 > - The `baseUrl` should be just the host (e.g., `https://my-resource.openai.azure.com`). Do **not** include `/openai/v1` in the URL - the SDK handles path construction automatically.
+
+## Telemetry
+
+The SDK supports OpenTelemetry for distributed tracing. Provide a `telemetry` config to enable trace export and automatic W3C Trace Context propagation.
+
+```typescript
+const client = new CopilotClient({
+  telemetry: {
+    otlpEndpoint: "http://localhost:4318",
+  },
+});
+```
+
+**TelemetryConfig options:**
+
+- `otlpEndpoint?: string` - OTLP HTTP endpoint URL
+- `filePath?: string` - File path for JSON-lines trace output
+- `exporterType?: string` - `"otlp-http"` or `"file"`
+- `sourceName?: string` - Instrumentation scope name
+- `captureContent?: boolean` - Whether to capture message content
+
+Trace context (`traceparent`/`tracestate`) is automatically propagated between the SDK and CLI on `session.create`, `session.resume`, and `session.send` calls, and inbound when the CLI invokes tool handlers.
+
+Optional peer dependency: `@opentelemetry/api`
 
 ## User Input Requests
 
