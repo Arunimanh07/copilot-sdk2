@@ -136,9 +136,9 @@ async def main():
     await client.start()
 
     session = await client.create_session({
-		"model": "gpt-4.1",
-		"on_permission_request": PermissionHandler.approve_all
-	})
+        "model": "gpt-4.1",
+        "on_permission_request": PermissionHandler.approve_all,
+    })
 
     response = await session.send_and_wait({"prompt": "What is 2 + 2?"})
     print(response.data.content)
