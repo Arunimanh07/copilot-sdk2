@@ -10,6 +10,7 @@
 import type { MessageConnection } from "vscode-jsonrpc/node.js";
 import { ConnectionError, ResponseError } from "vscode-jsonrpc/node.js";
 import { createSessionRpc } from "./generated/rpc.js";
+import { getTraceContext, withTraceContext } from "./telemetry.js";
 import type {
     MessageOptions,
     PermissionHandler,
@@ -122,6 +123,7 @@ export class CopilotSession {
      */
     async send(options: MessageOptions): Promise<string> {
         const response = await this.connection.sendRequest("session.send", {
+            ...(await getTraceContext()),
             sessionId: this.sessionId,
             prompt: options.prompt,
             attachments: options.attachments,
@@ -336,9 +338,19 @@ export class CopilotSession {
             };
             const args = (event.data as { arguments: unknown }).arguments;
             const toolCallId = (event.data as { toolCallId: string }).toolCallId;
+            const traceparent = (event.data as { traceparent?: string }).traceparent;
+            const tracestate = (event.data as { tracestate?: string }).tracestate;
             const handler = this.toolHandlers.get(toolName);
             if (handler) {
-                void this._executeToolAndRespond(requestId, toolName, toolCallId, args, handler);
+                void this._executeToolAndRespond(
+                    requestId,
+                    toolName,
+                    toolCallId,
+                    args,
+                    handler,
+                    traceparent,
+                    tracestate
+                );
             }
         } else if (event.type === "permission.requested") {
             const { requestId, permissionRequest } = event.data as {
@@ -360,15 +372,19 @@ export class CopilotSession {
         toolName: string,
         toolCallId: string,
         args: unknown,
-        handler: ToolHandler
+        handler: ToolHandler,
+        traceparent?: string,
+        tracestate?: string
     ): Promise<void> {
         try {
-            const rawResult = await handler(args, {
-                sessionId: this.sessionId,
-                toolCallId,
-                toolName,
-                arguments: args,
-            });
+            const rawResult = await withTraceContext(traceparent, tracestate, () =>
+                handler(args, {
+                    sessionId: this.sessionId,
+                    toolCallId,
+                    toolName,
+                    arguments: args,
+                })
+            );
             let result: string;
             if (rawResult == null) {
                 result = "";

@@ -13,6 +13,26 @@ export type SessionEvent = GeneratedSessionEvent;
 /**
  * Options for creating a CopilotClient
  */
+/**
+ * Configuration for OpenTelemetry instrumentation.
+ *
+ * When provided via {@link CopilotClientOptions.telemetry}, the SDK sets
+ * the corresponding environment variables on the spawned CLI process so
+ * that the CLI's built-in OTel exporter is configured automatically.
+ */
+export interface TelemetryConfig {
+    /** OTLP HTTP endpoint URL for trace/metric export. Sets OTEL_EXPORTER_OTLP_ENDPOINT. */
+    otlpEndpoint?: string;
+    /** File path for JSON-lines trace output. Sets COPILOT_OTEL_FILE_EXPORTER_PATH. */
+    filePath?: string;
+    /** Exporter backend type: "otlp-http" or "file". Sets COPILOT_OTEL_EXPORTER_TYPE. */
+    exporterType?: string;
+    /** Instrumentation scope name. Sets COPILOT_OTEL_SOURCE_NAME. */
+    sourceName?: string;
+    /** Whether to capture message content (prompts, responses). Sets OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT. */
+    captureContent?: boolean;
+}
+
 export interface CopilotClientOptions {
     /**
      * Path to the CLI executable or JavaScript entry point.
@@ -103,6 +123,13 @@ export interface CopilotClientOptions {
      * available from your custom provider.
      */
     onListModels?: () => Promise<ModelInfo[]> | ModelInfo[];
+
+    /**
+     * OpenTelemetry configuration for the CLI process.
+     * When provided, the corresponding OTel environment variables are set
+     * on the spawned CLI server.
+     */
+    telemetry?: TelemetryConfig;
 }
 
 /**

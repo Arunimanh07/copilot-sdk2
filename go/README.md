@@ -495,6 +495,8 @@ client, err := copilot.NewClient(copilot.ClientOptions{
 
 Trace context (`traceparent`/`tracestate`) is automatically propagated between the SDK and CLI on `CreateSession`, `ResumeSession`, and `Send` calls, and inbound when the CLI invokes tool handlers.
 
+> **Note:** The current `ToolHandler` signature does not accept a `context.Context`, so the inbound trace context cannot be passed to handler code. Spans created inside a tool handler will not be automatically parented to the CLI's `execute_tool` span. A future version may add a context parameter.
+
 Dependency: `go.opentelemetry.io/otel`
 
 ## User Input Requests

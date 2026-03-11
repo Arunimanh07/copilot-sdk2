@@ -49,6 +49,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@opentelemetry/api": "^1.9.0",
     "@types/node": "^25.2.0",
     "@typescript-eslint/eslint-plugin": "^8.54.0",
     "@typescript-eslint/parser": "^8.54.0",
@@ -67,6 +68,14 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api": {
+      "optional": true
+    }
   },
   "files": [
     "dist/**/*",

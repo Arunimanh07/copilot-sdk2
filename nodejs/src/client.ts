@@ -26,6 +26,7 @@ import {
 import { createServerRpc } from "./generated/rpc.js";
 import { getSdkProtocolVersion } from "./sdkProtocolVersion.js";
 import { CopilotSession, NO_RESULT_PERMISSION_V2_ERROR } from "./session.js";
+import { getTraceContext, withTraceContext } from "./telemetry.js";
 import type {
     ConnectionState,
     CopilotClientOptions,
@@ -42,6 +43,7 @@ import type {
     SessionLifecycleHandler,
     SessionListFilter,
     SessionMetadata,
+    TelemetryConfig,
     Tool,
     ToolCallRequestPayload,
     ToolCallResponsePayload,
@@ -143,13 +145,14 @@ export class CopilotClient {
     private options: Required<
         Omit<
             CopilotClientOptions,
-            "cliPath" | "cliUrl" | "githubToken" | "useLoggedInUser" | "onListModels"
+            "cliPath" | "cliUrl" | "githubToken" | "useLoggedInUser" | "onListModels" | "telemetry"
         >
     > & {
         cliPath?: string;
         cliUrl?: string;
         githubToken?: string;
         useLoggedInUser?: boolean;
+        telemetry?: TelemetryConfig;
     };
     private isExternalServer: boolean = false;
     private forceStopping: boolean = false;
@@ -249,6 +252,7 @@ export class CopilotClient {
             githubToken: options.githubToken,
             // Default useLoggedInUser to false when githubToken is provided, otherwise true
             useLoggedInUser: options.useLoggedInUser ?? (options.githubToken ? false : true),
+            telemetry: options.telemetry,
         };
     }
 
@@ -572,6 +576,7 @@ export class CopilotClient {
 
         try {
             const response = await this.connection!.sendRequest("session.create", {
+                ...(await getTraceContext()),
                 model: config.model,
                 sessionId,
                 clientName: config.clientName,
@@ -672,6 +677,7 @@ export class CopilotClient {
 
         try {
             const response = await this.connection!.sendRequest("session.resume", {
+                ...(await getTraceContext()),
                 sessionId,
                 clientName: config.clientName,
                 model: config.model,
@@ -1148,6 +1154,24 @@ export class CopilotClient {
                 );
             }
 
+            // Set OpenTelemetry environment variables if telemetry is configured
+            if (this.options.telemetry) {
+                const t = this.options.telemetry;
+                envWithoutNodeDebug.COPILOT_OTEL_ENABLED = "true";
+                if (t.otlpEndpoint !== undefined)
+                    envWithoutNodeDebug.OTEL_EXPORTER_OTLP_ENDPOINT = t.otlpEndpoint;
+                if (t.filePath !== undefined)
+                    envWithoutNodeDebug.COPILOT_OTEL_FILE_EXPORTER_PATH = t.filePath;
+                if (t.exporterType !== undefined)
+                    envWithoutNodeDebug.COPILOT_OTEL_EXPORTER_TYPE = t.exporterType;
+                if (t.sourceName !== undefined)
+                    envWithoutNodeDebug.COPILOT_OTEL_SOURCE_NAME = t.sourceName;
+                if (t.captureContent !== undefined)
+                    envWithoutNodeDebug.OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT = String(
+                        t.captureContent
+                    );
+            }
+
             // Verify CLI exists before attempting to spawn
             if (!existsSync(this.options.cliPath)) {
                 throw new Error(
@@ -1568,7 +1592,11 @@ export class CopilotClient {
                 toolName: params.toolName,
                 arguments: params.arguments,
             };
-            const result = await handler(params.arguments, invocation);
+            const traceparent = (params as { traceparent?: string }).traceparent;
+            const tracestate = (params as { tracestate?: string }).tracestate;
+            const result = await withTraceContext(traceparent, tracestate, () =>
+                handler(params.arguments, invocation)
+            );
             return { result: this.normalizeToolResultV2(result) };
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);

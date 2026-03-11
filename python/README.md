@@ -448,13 +448,13 @@ session = await client.create_session({
 The SDK supports OpenTelemetry for distributed tracing. Provide a `telemetry` config to enable trace export and automatic W3C Trace Context propagation.
 
 ```python
-from copilot import CopilotClient
+from copilot import CopilotClient, SubprocessConfig
 
-client = CopilotClient(
+client = CopilotClient(SubprocessConfig(
     telemetry={
         "otlp_endpoint": "http://localhost:4318",
     },
-)
+))
 ```
 
 **TelemetryConfig options:**

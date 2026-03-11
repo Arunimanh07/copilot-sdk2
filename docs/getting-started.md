@@ -1426,13 +1426,13 @@ Optional peer dependency: `@opentelemetry/api`
 
 <!-- docs-validate: skip -->
 ```python
-from copilot import CopilotClient
+from copilot import CopilotClient, SubprocessConfig
 
-client = CopilotClient(
+client = CopilotClient(SubprocessConfig(
     telemetry={
         "otlp_endpoint": "http://localhost:4318",
     },
-)
+))
 ```
 
 Install with telemetry extras: `pip install copilot-sdk[telemetry]` (provides `opentelemetry-api`)
