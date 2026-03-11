@@ -97,6 +97,7 @@ class CopilotSession:
         self._hooks: SessionHooks | None = None
         self._hooks_lock = threading.Lock()
         self._rpc: SessionRpc | None = None
+        self._is_shutdown = False
 
     @property
     def rpc(self) -> SessionRpc:
@@ -638,6 +639,34 @@ class CopilotSession:
         events_dicts = response["events"]
         return [session_event_from_dict(event_dict) for event_dict in events_dicts]
 
+    async def shutdown(self) -> None:
+        """
+        Shut down this session on the server without clearing local event handlers.
+
+        Call this before :meth:`disconnect` when you want to observe the
+        ``session.shutdown`` event. The event is dispatched to registered handlers
+        after this method returns. Once you have processed the event, call
+        :meth:`disconnect` to clear handlers and release local resources.
+
+        If the session has already been shut down, this is a no-op.
+
+        Raises:
+            Exception: If the connection fails.
+
+        Example:
+            >>> def on_shutdown(event):
+            ...     if event.type == SessionEventType.SESSION_SHUTDOWN:
+            ...         print("Shutdown:", event.data)
+            >>> session.on(on_shutdown)
+            >>> await session.shutdown()
+            >>> # ... wait for the shutdown event ...
+            >>> await session.disconnect()
+        """
+        if self._is_shutdown:
+            return
+        self._is_shutdown = True
+        await self._client.request("session.destroy", {"sessionId": self.session_id})
+
     async def disconnect(self) -> None:
         """
         Disconnect this session and release all in-memory resources (event handlers,
@@ -651,6 +680,10 @@ class CopilotSession:
 
         After calling this method, the session object can no longer be used.
 
+        If :meth:`shutdown` was not called first, this method calls it automatically.
+        In that case the ``session.shutdown`` event may not be observed because
+        handlers are cleared immediately after the server responds.
+
         Raises:
             Exception: If the connection fails.
 
@@ -658,7 +691,7 @@ class CopilotSession:
             >>> # Clean up when done — session can still be resumed later
             >>> await session.disconnect()
         """
-        await self._client.request("session.destroy", {"sessionId": self.session_id})
+        await self.shutdown()
         with self._event_handlers_lock:
             self._event_handlers.clear()
         with self._tool_handlers_lock:

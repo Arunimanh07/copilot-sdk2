@@ -119,3 +119,132 @@ func TestSession_On(t *testing.T) {
 		}
 	})
 }
+
+func TestSession_Shutdown(t *testing.T) {
+	t.Run("shutdown event dispatches to handlers", func(t *testing.T) {
+		session := &Session{
+			handlers: make([]sessionHandler, 0),
+		}
+
+		var received []SessionEvent
+		session.On(func(event SessionEvent) {
+			received = append(received, event)
+		})
+
+		session.dispatchEvent(SessionEvent{Type: "session.shutdown"})
+
+		if len(received) != 1 {
+			t.Fatalf("Expected 1 event, got %d", len(received))
+		}
+		if received[0].Type != "session.shutdown" {
+			t.Errorf("Expected session.shutdown event, got %s", received[0].Type)
+		}
+	})
+
+	t.Run("handlers still active after shutdown flag set", func(t *testing.T) {
+		session := &Session{
+			handlers: make([]sessionHandler, 0),
+		}
+
+		var received []SessionEvent
+		session.On(func(event SessionEvent) {
+			received = append(received, event)
+		})
+
+		// Simulate what Shutdown() does: set the flag
+		session.isShutdown.Store(true)
+
+		// Handlers should still be active — Shutdown does not clear them
+		session.dispatchEvent(SessionEvent{Type: "session.shutdown"})
+
+		if len(received) != 1 {
+			t.Fatalf("Expected 1 event after shutdown, got %d", len(received))
+		}
+		if received[0].Type != "session.shutdown" {
+			t.Errorf("Expected session.shutdown, got %s", received[0].Type)
+		}
+	})
+
+	t.Run("shutdown idempotency via atomic flag", func(t *testing.T) {
+		session := &Session{
+			handlers: make([]sessionHandler, 0),
+		}
+
+		// First swap should return false (was not shut down)
+		if session.isShutdown.Swap(true) {
+			t.Error("Expected first Swap to return false")
+		}
+
+		// Second swap should return true (already shut down)
+		if !session.isShutdown.Swap(true) {
+			t.Error("Expected second Swap to return true")
+		}
+	})
+
+	t.Run("disconnect clears handlers", func(t *testing.T) {
+		session := &Session{
+			handlers:     make([]sessionHandler, 0),
+			toolHandlers: make(map[string]ToolHandler),
+		}
+
+		var count int
+		session.On(func(event SessionEvent) { count++ })
+
+		// Dispatch before disconnect — handler should fire
+		session.dispatchEvent(SessionEvent{Type: "test"})
+		if count != 1 {
+			t.Fatalf("Expected 1 event before disconnect, got %d", count)
+		}
+
+		// Simulate Disconnect's handler-clearing logic
+		session.handlerMutex.Lock()
+		session.handlers = nil
+		session.handlerMutex.Unlock()
+
+		session.toolHandlersM.Lock()
+		session.toolHandlers = nil
+		session.toolHandlersM.Unlock()
+
+		session.permissionMux.Lock()
+		session.permissionHandler = nil
+		session.permissionMux.Unlock()
+
+		// Dispatch after disconnect — handler should NOT fire
+		session.dispatchEvent(SessionEvent{Type: "test"})
+		if count != 1 {
+			t.Errorf("Expected no additional events after disconnect, got %d total", count)
+		}
+	})
+
+	t.Run("two-phase shutdown then disconnect preserves notification", func(t *testing.T) {
+		session := &Session{
+			handlers: make([]sessionHandler, 0),
+		}
+
+		var events []string
+		session.On(func(event SessionEvent) {
+			events = append(events, string(event.Type))
+		})
+
+		// Phase 1: Shutdown sends the RPC (simulated) — handlers still active
+		session.isShutdown.Store(true)
+
+		// Server sends back shutdown notification — handler receives it
+		session.dispatchEvent(SessionEvent{Type: "session.shutdown"})
+
+		// Phase 2: Clear handlers (simulating Disconnect)
+		session.handlerMutex.Lock()
+		session.handlers = nil
+		session.handlerMutex.Unlock()
+
+		// Any further events should not reach handlers
+		session.dispatchEvent(SessionEvent{Type: "should.not.arrive"})
+
+		if len(events) != 1 {
+			t.Fatalf("Expected exactly 1 event, got %d: %v", len(events), events)
+		}
+		if events[0] != "session.shutdown" {
+			t.Errorf("Expected session.shutdown, got %s", events[0])
+		}
+	})
+}

@@ -311,9 +311,16 @@ describe("Sessions", async () => {
         expect(earlyEvents.some((e) => e.type === "session.start")).toBe(true);
 
         const receivedEvents: Array<{ type: string }> = [];
+        let resolveShutdown: () => void;
+        const shutdownReceived = new Promise<void>((resolve) => {
+            resolveShutdown = resolve;
+        });
 
         session.on((event) => {
             receivedEvents.push(event);
+            if (event.type === "session.shutdown") {
+                resolveShutdown();
+            }
         });
 
         // Send a message and wait for completion
@@ -327,6 +334,17 @@ describe("Sessions", async () => {
 
         // Verify the assistant response contains the expected answer
         expect(assistantMessage?.data.content).toContain("300");
+
+        // Shut down session and verify shutdown event is received
+        await session.shutdown();
+        await Promise.race([
+            shutdownReceived,
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Timed out waiting for session.shutdown")), 5000)
+            ),
+        ]);
+        expect(receivedEvents.some((e) => e.type === "session.shutdown")).toBe(true);
+        await session.destroy();
     });
 
     it("should create session with custom config dir", async () => {

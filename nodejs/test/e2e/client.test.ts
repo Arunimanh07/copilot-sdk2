@@ -43,27 +43,31 @@ describe("Client", () => {
         expect(client.getState()).toBe("disconnected");
     });
 
-    it.skipIf(process.platform === "darwin")("should return errors on failed cleanup", async () => {
-        // Use TCP mode to avoid stdin stream destruction issues
-        // Without this, on macOS there are intermittent test failures
-        // saying "Cannot call write after a stream was destroyed"
-        // because the JSON-RPC logic is still trying to write to stdin after
-        // the process has exited.
-        const client = new CopilotClient({ useStdio: false });
+    it.skipIf(process.platform === "darwin")(
+        "should handle cleanup when server process is dead",
+        async () => {
+            // Use TCP mode to avoid stdin stream destruction issues
+            // Without this, on macOS there are intermittent test failures
+            // saying "Cannot call write after a stream was destroyed"
+            // because the JSON-RPC logic is still trying to write to stdin after
+            // the process has exited.
+            const client = new CopilotClient({ useStdio: false });
 
-        await client.createSession({ onPermissionRequest: approveAll });
+            await client.createSession({ onPermissionRequest: approveAll });
 
-        // Kill the server processto force cleanup to fail
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const cliProcess = (client as any).cliProcess as ChildProcess;
-        expect(cliProcess).toBeDefined();
-        cliProcess.kill("SIGKILL");
-        await new Promise((resolve) => setTimeout(resolve, 100));
+            // Kill the server process to force the first destroy attempt to fail.
+            // The retry succeeds because shutdown() is idempotent (the guard
+            // prevents a second RPC) and local handler cleanup always works.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const cliProcess = (client as any).cliProcess as ChildProcess;
+            expect(cliProcess).toBeDefined();
+            cliProcess.kill("SIGKILL");
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
-        const errors = await client.stop();
-        expect(errors.length).toBeGreaterThan(0);
-        expect(errors[0].message).toContain("Failed to disconnect session");
-    });
+            const errors = await client.stop();
+            expect(errors).toHaveLength(0);
+        }
+    );
 
     it("should forceStop without cleanup", async () => {
         const client = new CopilotClient({});

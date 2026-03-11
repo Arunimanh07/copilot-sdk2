@@ -258,6 +258,7 @@ public class SessionTests(E2ETestFixture fixture, ITestOutputHelper output) : E2
 
         var receivedEvents = new List<SessionEvent>();
         var idleReceived = new TaskCompletionSource<bool>();
+        var shutdownReceived = new TaskCompletionSource<bool>();
 
         session.On(evt =>
         {
@@ -265,6 +266,10 @@ public class SessionTests(E2ETestFixture fixture, ITestOutputHelper output) : E2
             if (evt is SessionIdleEvent)
             {
                 idleReceived.TrySetResult(true);
+            }
+            else if (evt is SessionShutdownEvent)
+            {
+                shutdownReceived.TrySetResult(true);
             }
         });
 
@@ -286,6 +291,10 @@ public class SessionTests(E2ETestFixture fixture, ITestOutputHelper output) : E2
         Assert.NotNull(assistantMessage);
         Assert.Contains("300", assistantMessage!.Data.Content);
 
+        // Shut down session and verify shutdown event is received
+        await session.ShutdownAsync();
+        await shutdownReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Contains(receivedEvents, evt => evt is SessionShutdownEvent);
         await session.DisposeAsync();
     }
 

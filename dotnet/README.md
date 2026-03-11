@@ -219,7 +219,11 @@ Get all events/messages from this session.
 
 ##### `DisposeAsync(): ValueTask`
 
-Close the session and release in-memory resources. Session data on disk is preserved — the conversation can be resumed later via `ResumeSessionAsync()`. To permanently delete session data, use `client.DeleteSessionAsync()`.
+Close the session and release in-memory resources. Calls `ShutdownAsync()` first if not already called. Session data on disk is preserved — the conversation can be resumed later via `ResumeSessionAsync()`. To permanently delete session data, use `client.DeleteSessionAsync()`.
+
+##### `ShutdownAsync(CancellationToken): Task`
+
+Shut down the session on the server without clearing local event handlers. Call this before `DisposeAsync()` when you want to observe the `SessionShutdownEvent`.
 
 ```csharp
 // Preferred: automatic cleanup via await using

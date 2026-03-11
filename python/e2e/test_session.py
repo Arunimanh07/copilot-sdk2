@@ -469,11 +469,14 @@ class TestSessions:
 
         received_events = []
         idle_event = asyncio.Event()
+        shutdown_event = asyncio.Event()
 
         def on_event(event):
             received_events.append(event)
             if event.type.value == "session.idle":
                 idle_event.set()
+            elif event.type.value == "session.shutdown":
+                shutdown_event.set()
 
         session.on(on_event)
 
@@ -496,6 +499,16 @@ class TestSessions:
         # Verify the assistant response contains the expected answer
         assistant_message = await get_final_assistant_message(session)
         assert "300" in assistant_message.data.content
+
+        # Shut down session and verify shutdown event is received
+        await session.shutdown()
+        try:
+            await asyncio.wait_for(shutdown_event.wait(), timeout=5)
+        except TimeoutError:
+            pytest.fail("Timed out waiting for session.shutdown")
+        event_types = [e.type.value for e in received_events]
+        assert "session.shutdown" in event_types
+        await session.destroy()
 
     async def test_should_create_session_with_custom_config_dir(self, ctx: E2ETestContext):
         import os

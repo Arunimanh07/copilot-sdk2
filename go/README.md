@@ -170,6 +170,7 @@ Event types: `SessionLifecycleCreated`, `SessionLifecycleDeleted`, `SessionLifec
 - `Abort(ctx context.Context) error` - Abort the currently processing message
 - `GetMessages(ctx context.Context) ([]SessionEvent, error)` - Get message history
 - `Disconnect() error` - Disconnect the session (releases in-memory resources, preserves disk state)
+- `Shutdown() error` - Shut down the session on the server without clearing local handlers (call before `Disconnect()` to observe the `session.shutdown` event)
 - `Destroy() error` - *(Deprecated)* Use `Disconnect()` instead
 
 ### Helper Functions

@@ -274,7 +274,11 @@ Get all events/messages from this session.
 
 ##### `disconnect(): Promise<void>`
 
-Disconnect the session and free resources. Session data on disk is preserved for later resumption.
+Disconnect the session and free resources. Calls `shutdown()` first if not already called. Session data on disk is preserved for later resumption.
+
+##### `shutdown(): Promise<void>`
+
+Shut down the session on the server without clearing local event handlers. Call this before `disconnect()` when you want to observe the `session.shutdown` event.
 
 ##### `destroy(): Promise<void>` *(deprecated)*
 
