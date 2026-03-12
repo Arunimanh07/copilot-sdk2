@@ -123,7 +123,6 @@ const (
 
 	// PermissionRequestResultKindDeniedInteractivelyByUser indicates the permission was denied interactively by the user.
 	PermissionRequestResultKindDeniedInteractivelyByUser PermissionRequestResultKind = "denied-interactively-by-user"
-
 )
 
 // PermissionRequestResult represents the result of a permission request

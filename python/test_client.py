@@ -28,11 +28,7 @@ class TestPermissionHandlerRequired:
         await client.start()
         try:
             session = await client.create_session(
-                {
-                    "on_permission_request": lambda request, invocation: {
-                        "kind": "no-result"
-                    }
-                }
+                {"on_permission_request": lambda request, invocation: {"kind": "no-result"}}
             )
             with pytest.raises(ValueError, match="protocol v2 server"):
                 await client._handle_permission_request_v2(
