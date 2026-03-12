@@ -1405,6 +1405,7 @@ class CopilotClient:
 
         # Create JSON-RPC client with the process
         self._client = JsonRpcClient(self._process)
+        self._client.on_close = lambda: setattr(self, '_state', 'disconnected')
         self._rpc = ServerRpc(self._client)
 
         # Set up notification handler for session events
@@ -1492,6 +1493,7 @@ class CopilotClient:
 
         self._process = SocketWrapper(sock_file, sock)  # type: ignore
         self._client = JsonRpcClient(self._process)
+        self._client.on_close = lambda: setattr(self, '_state', 'disconnected')
         self._rpc = ServerRpc(self._client)
 
         # Set up notification handler for session events

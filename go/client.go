@@ -1227,6 +1227,11 @@ func (c *Client) startCLIServer(ctx context.Context) error {
 		// Create JSON-RPC client immediately
 		c.client = jsonrpc2.NewClient(stdin, stdout)
 		c.client.SetProcessDone(c.processDone, c.processErrorPtr)
+		c.client.SetOnClose(func() {
+			c.startStopMux.Lock()
+			defer c.startStopMux.Unlock()
+			c.state = StateDisconnected
+		})
 		c.RPC = rpc.NewServerRpc(c.client)
 		c.setupNotificationHandler()
 		c.client.Start()
@@ -1342,6 +1347,11 @@ func (c *Client) connectViaTcp(ctx context.Context) error {
 	if c.processDone != nil {
 		c.client.SetProcessDone(c.processDone, c.processErrorPtr)
 	}
+	c.client.SetOnClose(func() {
+		c.startStopMux.Lock()
+		defer c.startStopMux.Unlock()
+		c.state = StateDisconnected
+	})
 	c.RPC = rpc.NewServerRpc(c.client)
 	c.setupNotificationHandler()
 	c.client.Start()
