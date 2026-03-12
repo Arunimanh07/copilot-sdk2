@@ -770,6 +770,6 @@ class CopilotSession:
         params = SessionLogParams(
             message=message,
             level=Level(level) if level is not None else None,
-            ephemeral=ephemeral,
+            ephemeral=ephemeral or None,
         )
         await self.rpc.log(params)
