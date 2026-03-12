@@ -744,7 +744,7 @@ class CopilotSession:
         message: str,
         *,
         level: str | None = None,
-        ephemeral: bool | None = None,
+        ephemeral: bool = False,
     ) -> None:
         """
         Log a message to the session timeline.
@@ -754,8 +754,10 @@ class CopilotSession:
 
         Args:
             message: The human-readable message to log.
-            level: Log severity level ("info", "warning", "error"). Defaults to "info".
+            level: Log severity level ("info", "warning", "error"). Defaults to None to
+            use the client's default log level.
             ephemeral: When True, the message is transient and not persisted to disk.
+                Defaults to False.
 
         Raises:
             Exception: If the session has been destroyed or the connection fails.
