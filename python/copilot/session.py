@@ -754,8 +754,7 @@ class CopilotSession:
 
         Args:
             message: The human-readable message to log.
-            level: Log severity level ("info", "warning", "error"). Defaults to None to
-            use the client's default log level.
+            level: Log severity level ("info", "warning", "error"). Defaults to "info".
             ephemeral: When True, the message is transient and not persisted to disk.
                 Defaults to False.
 
