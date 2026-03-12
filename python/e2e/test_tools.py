@@ -138,6 +138,26 @@ class TestTools:
         assert "135460" in response_content.replace(",", "")
         assert "204356" in response_content.replace(",", "")
 
+    async def test_skippermission_sent_in_tool_definition(self, ctx: E2ETestContext):
+        class LookupParams(BaseModel):
+            id: str = Field(description="ID to look up")
+
+        @define_tool(
+            "safe_lookup",
+            description="A safe lookup that skips permission",
+            skip_permission=True,
+        )
+        def safe_lookup(params: LookupParams, invocation: ToolInvocation) -> str:
+            return f"RESULT: {params.id}"
+
+        session = await ctx.client.create_session(
+            {"tools": [safe_lookup], "on_permission_request": PermissionHandler.approve_all}
+        )
+
+        await session.send({"prompt": "Use safe_lookup to look up 'test123'"})
+        assistant_message = await get_final_assistant_message(session)
+        assert "RESULT: test123" in assistant_message.data.content
+
     async def test_overrides_built_in_tool_with_custom_tool(self, ctx: E2ETestContext):
         class GrepParams(BaseModel):
             query: str = Field(description="Search query")
