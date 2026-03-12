@@ -195,6 +195,8 @@ public partial class ToolsTests(E2ETestFixture fixture, ITestOutputHelper output
                 new Dictionary<string, object?> { ["skip_permission"] = true })
         });
 
+        // TODO: Once the CLI respects skip_permission, use a tracking permission handler
+        // and assert it was NOT called for this tool.
         var session = await CreateSessionAsync(new SessionConfig
         {
             Tools = [tool],

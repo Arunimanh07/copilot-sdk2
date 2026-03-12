@@ -160,6 +160,8 @@ describe("Custom tools", async () => {
     });
 
     it("skipPermission sent in tool definition", async () => {
+        // TODO: Once the CLI respects skipPermission, use a tracking permission handler
+        // and assert it was NOT called for this tool.
         const session = await client.createSession({
             onPermissionRequest: approveAll,
             tools: [

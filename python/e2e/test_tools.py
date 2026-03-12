@@ -150,6 +150,8 @@ class TestTools:
         def safe_lookup(params: LookupParams, invocation: ToolInvocation) -> str:
             return f"RESULT: {params.id}"
 
+        # TODO: Once the CLI respects skip_permission, use a tracking permission handler
+        # and assert it was NOT called for this tool.
         session = await ctx.client.create_session(
             {"tools": [safe_lookup], "on_permission_request": PermissionHandler.approve_all}
         )

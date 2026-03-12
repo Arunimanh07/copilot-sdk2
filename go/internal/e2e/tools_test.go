@@ -277,6 +277,8 @@ func TestTools(t *testing.T) {
 			})
 		safeLookupTool.SkipPermission = true
 
+		// TODO: Once the CLI respects SkipPermission, use a tracking permission handler
+		// and assert it was NOT called for this tool.
 		session, err := client.CreateSession(t.Context(), &copilot.SessionConfig{
 			OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
 			Tools: []copilot.Tool{
