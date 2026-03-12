@@ -276,7 +276,8 @@ await session.SendAsync(new MessageOptions
     {
         new UserMessageDataAttachmentsItemFile
         {
-            Path = "/path/to/image.jpg"
+            Path = "/path/to/image.jpg",
+            DisplayName = "image.jpg",
         }
     }
 });
