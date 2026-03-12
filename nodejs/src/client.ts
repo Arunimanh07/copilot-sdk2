@@ -1410,11 +1410,11 @@ export class CopilotClient {
         );
 
         this.connection.onClose(() => {
-            // no-op
+            this.state = "disconnected";
         });
 
         this.connection.onError((_error) => {
-            // no-op
+            this.state = "disconnected";
         });
     }
 
