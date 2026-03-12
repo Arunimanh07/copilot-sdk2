@@ -8,6 +8,12 @@ The Copilot SDK communicates with the CLI via JSON-RPC protocol. Features must b
 
 ## Feature Comparison
 
+> [!NOTE]
+> The SDK may expose RPC methods before the bundled Copilot CLI fully implements them end-to-end.
+> At the time of writing, the repository's Node.js, Python, Go, and .NET E2E tests still mark
+> `session.model.switchTo()` and `session.model.getCurrent()` as not yet implemented in the CLI,
+> so treat these model RPCs as provisional rather than broadly available.
+
 ### ✅ Available in SDK
 
 | Feature | SDK Method | Notes |
@@ -39,8 +45,8 @@ The Copilot SDK communicates with the CLI via JSON-RPC protocol. Features must b
 | **Models** | | |
 | List models | `listModels()` | With capabilities, billing, policy |
 | Set model (at creation) | `model` in session config | Per-session |
-| Switch model (mid-session) | `session.setModel()` | Also via `session.rpc.model.switchTo()` |
-| Get current model | `session.rpc.model.getCurrent()` | Query active model |
+| Switch model (mid-session) | `session.setModel()` | SDK surface exists, but current CLI support is still incomplete; see note below |
+| Get current model | `session.rpc.model.getCurrent()` | RPC is defined in schema, but current CLI support is still incomplete |
 | Reasoning effort | `reasoningEffort` config | For supported models |
 | **Agent Mode** | | |
 | Get current mode | `session.rpc.mode.get()` | Returns current mode |
@@ -101,7 +107,7 @@ The Copilot SDK communicates with the CLI via JSON-RPC protocol. Features must b
 | Diff mode dialog | `/diff` | Interactive UI |
 | Feedback dialog | `/feedback` | Interactive UI |
 | Theme picker | `/theme` | Terminal UI |
-| Model picker | `/model` | Interactive UI (use SDK `setModel()` instead) |
+| Model picker | `/model` | Interactive UI |
 | Copy to clipboard | `/copy` | Terminal-specific |
 | Context management | `/context` | Interactive UI |
 | **Research & History** | | |
