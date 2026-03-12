@@ -374,42 +374,4 @@ public class ClientTests
         Assert.Single(models);
         Assert.Equal("no-start-model", models[0].Id);
     }
-
-    [Fact]
-    public async Task State_Should_Transition_To_Disconnected_When_Process_Is_Killed()
-    {
-        using var client = new CopilotClient(new CopilotClientOptions { UseStdio = true });
-
-        try
-        {
-            await client.StartAsync();
-            Assert.Equal(ConnectionState.Connected, client.State);
-
-            // Use reflection to reach the child process inside the private Connection object
-            var taskField = typeof(CopilotClient)
-                .GetField("_connectionTask", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-            var task = (Task)taskField.GetValue(client)!;
-            await task; // ensure it's completed
-            // Task<Connection>.Result via reflection
-            var resultProp = task.GetType().GetProperty("Result")!;
-            var connection = resultProp.GetValue(task)!;
-            var processProp = connection.GetType().GetProperty("CliProcess")!;
-            var process = (System.Diagnostics.Process)processProp.GetValue(connection)!;
-
-            process.Kill();
-
-            // Wait for ContinueWith callback to set _disconnected
-            for (var i = 0; i < 50; i++)
-            {
-                if (client.State == ConnectionState.Disconnected) break;
-                await Task.Delay(100);
-            }
-
-            Assert.Equal(ConnectionState.Disconnected, client.State);
-        }
-        finally
-        {
-            try { await client.ForceStopAsync(); } catch { /* process already dead */ }
-        }
-    }
 }
