@@ -72,12 +72,6 @@ export interface CopilotClientOptions {
     autoStart?: boolean;
 
     /**
-     * Auto-restart the CLI server if it crashes
-     * @default true
-     */
-    autoRestart?: boolean;
-
-    /**
      * Environment variables to pass to the CLI process. If not set, inherits process.env.
      */
     env?: Record<string, string | undefined>;

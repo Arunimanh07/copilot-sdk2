@@ -189,7 +189,6 @@ class CopilotClient:
             "use_stdio": False if opts.get("cli_url") else opts.get("use_stdio", True),
             "log_level": opts.get("log_level", "info"),
             "auto_start": opts.get("auto_start", True),
-            "auto_restart": opts.get("auto_restart", True),
             "use_logged_in_user": use_logged_in_user,
         }
         if opts.get("cli_args"):

@@ -50,7 +50,6 @@ public class CopilotClientOptions
     {
         if (other is null) return;
 
-        AutoRestart = other.AutoRestart;
         AutoStart = other.AutoStart;
         CliArgs = (string[]?)other.CliArgs?.Clone();
         CliPath = other.CliPath;
@@ -98,10 +97,6 @@ public class CopilotClientOptions
     /// Whether to automatically start the CLI server if it is not already running.
     /// </summary>
     public bool AutoStart { get; set; } = true;
-    /// <summary>
-    /// Whether to automatically restart the CLI server if it exits unexpectedly.
-    /// </summary>
-    public bool AutoRestart { get; set; } = true;
     /// <summary>
     /// Environment variables to pass to the CLI process.
     /// </summary>

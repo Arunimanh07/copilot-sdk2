@@ -83,7 +83,7 @@ type Client struct {
 	conn                      net.Conn // stores net.Conn for external TCP connections
 	useStdio                  bool     // resolved value from options
 	autoStart                 bool     // resolved value from options
-	autoRestart               bool     // resolved value from options
+
 	modelsCache               []ModelInfo
 	modelsCacheMux            sync.Mutex
 	lifecycleHandlers         []SessionLifecycleHandler
@@ -132,7 +132,6 @@ func NewClient(options *ClientOptions) *Client {
 		isExternalServer: false,
 		useStdio:         true,
 		autoStart:        true, // default
-		autoRestart:      true, // default
 	}
 
 	if options != nil {
@@ -181,9 +180,6 @@ func NewClient(options *ClientOptions) *Client {
 		}
 		if options.AutoStart != nil {
 			client.autoStart = *options.AutoStart
-		}
-		if options.AutoRestart != nil {
-			client.autoRestart = *options.AutoRestart
 		}
 		if options.GitHubToken != "" {
 			opts.GitHubToken = options.GitHubToken
