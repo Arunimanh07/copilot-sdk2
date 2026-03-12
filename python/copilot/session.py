@@ -25,7 +25,6 @@ from .generated.rpc import (
 from .generated.session_events import SessionEvent, SessionEventType, session_event_from_dict
 from .jsonrpc import JsonRpcError, ProcessExitedError
 from .types import (
-    MessageOptions,
     PermissionRequest,
     PermissionRequestResult,
     SessionHooks,
@@ -63,7 +62,7 @@ class CopilotSession:
         ...     unsubscribe = session.on(lambda event: print(event.type))
         ...
         ...     # Send a message
-        ...     await session.send({"prompt": "Hello, world!"})
+        ...     await session.send("Hello, world!")
         ...
         ...     # Clean up
         ...     unsubscribe()
@@ -115,7 +114,13 @@ class CopilotSession:
         """
         return self._workspace_path
 
-    async def send(self, options: MessageOptions) -> str:
+    async def send(
+        self,
+        prompt: str,
+        *,
+        attachments: list[Any] | None = None,
+        mode: str | None = None,
+    ) -> str:
         """
         Send a message to this session and wait for the response.
 
@@ -123,9 +128,9 @@ class CopilotSession:
         to receive streaming responses and other session events.
 
         Args:
-            options: Message options including the prompt and optional attachments.
-                Must contain a "prompt" key with the message text. Can optionally
-                include "attachments" and "mode" keys.
+            prompt: The message text to send.
+            attachments: Optional file, directory, or selection attachments.
+            mode: Message delivery mode (``"enqueue"`` or ``"immediate"``).
 
         Returns:
             The message ID of the response, which can be used to correlate events.
@@ -134,25 +139,30 @@ class CopilotSession:
             Exception: If the session has been disconnected or the connection fails.
 
         Example:
-            >>> message_id = await session.send({
-            ...     "prompt": "Explain this code",
-            ...     "attachments": [{"type": "file", "path": "./src/main.py"}]
-            ... })
+            >>> message_id = await session.send(
+            ...     "Explain this code",
+            ...     attachments=[{"type": "file", "path": "./src/main.py"}],
+            ... )
         """
         params: dict[str, Any] = {
             "sessionId": self.session_id,
-            "prompt": options["prompt"],
+            "prompt": prompt,
         }
-        if "attachments" in options:
-            params["attachments"] = options["attachments"]
-        if "mode" in options:
-            params["mode"] = options["mode"]
+        if attachments is not None:
+            params["attachments"] = attachments
+        if mode is not None:
+            params["mode"] = mode
 
         response = await self._client.request("session.send", params)
         return response["messageId"]
 
     async def send_and_wait(
-        self, options: MessageOptions, timeout: float | None = None
+        self,
+        prompt: str,
+        *,
+        attachments: list[Any] | None = None,
+        mode: str | None = None,
+        timeout: float = 60.0,
     ) -> SessionEvent | None:
         """
         Send a message to this session and wait until the session becomes idle.
@@ -164,7 +174,9 @@ class CopilotSession:
         Events are still delivered to handlers registered via :meth:`on` while waiting.
 
         Args:
-            options: Message options including the prompt and optional attachments.
+            prompt: The message text to send.
+            attachments: Optional file, directory, or selection attachments.
+            mode: Message delivery mode (``"enqueue"`` or ``"immediate"``).
             timeout: Timeout in seconds (default: 60). Controls how long to wait;
                 does not abort in-flight agent work.
 
@@ -176,12 +188,10 @@ class CopilotSession:
             Exception: If the session has been disconnected or the connection fails.
 
         Example:
-            >>> response = await session.send_and_wait({"prompt": "What is 2+2?"})
+            >>> response = await session.send_and_wait("What is 2+2?")
             >>> if response:
             ...     print(response.data.content)
         """
-        effective_timeout = timeout if timeout is not None else 60.0
-
         idle_event = asyncio.Event()
         error_event: Exception | None = None
         last_assistant_message: SessionEvent | None = None
@@ -200,13 +210,13 @@ class CopilotSession:
 
         unsubscribe = self.on(handler)
         try:
-            await self.send(options)
-            await asyncio.wait_for(idle_event.wait(), timeout=effective_timeout)
+            await self.send(prompt, attachments=attachments, mode=mode)
+            await asyncio.wait_for(idle_event.wait(), timeout=timeout)
             if error_event:
                 raise error_event
             return last_assistant_message
         except TimeoutError:
-            raise TimeoutError(f"Timeout after {effective_timeout}s waiting for session.idle")
+            raise TimeoutError(f"Timeout after {timeout}s waiting for session.idle")
         finally:
             unsubscribe()
 
@@ -712,7 +722,7 @@ class CopilotSession:
             >>>
             >>> # Start a long-running request
             >>> task = asyncio.create_task(
-            ...     session.send({"prompt": "Write a very long story..."})
+            ...     session.send("Write a very long story...")
             ... )
             >>>
             >>> # Abort after 5 seconds
