@@ -75,6 +75,16 @@ def _get_bundled_cli_path() -> str | None:
     return None
 
 
+class _AutoRestartRequestProxy:
+    """Stable request facade that can retry once after reconnecting."""
+
+    def __init__(self, owner: "CopilotClient"):
+        self._owner = owner
+
+    async def request(self, method: str, params: dict | None = None, **kwargs: Any) -> Any:
+        return await self._owner._request_with_auto_restart(method, params, **kwargs)
+
+
 class CopilotClient:
     """
     Main client for interacting with the Copilot CLI.
@@ -216,6 +226,8 @@ class CopilotClient:
         ] = {}
         self._lifecycle_handlers_lock = threading.Lock()
         self._rpc: ServerRpc | None = None
+        self._request_proxy = _AutoRestartRequestProxy(self)
+        self._reconnect_lock = asyncio.Lock()
         self._negotiated_protocol_version: int | None = None
 
     @property
@@ -278,6 +290,44 @@ class CopilotClient:
             raise ValueError(f"Invalid port in cli_url: {url}")
 
         return (host, port)
+
+    async def _request_with_auto_restart(
+        self, method: str, params: dict | None = None, **kwargs: Any
+    ) -> Any:
+        """Send an RPC request, reconnecting and retrying once after process exit."""
+        if not self._client:
+            raise RuntimeError("Client not connected")
+
+        client = self._client
+        try:
+            return await client.request(method, params, **kwargs)
+        except ProcessExitedError:
+            if not self.options.get("auto_restart", True):
+                raise
+            await self._reconnect(client)
+            if not self._client:
+                raise RuntimeError("Client not connected")
+            return await self._client.request(method, params, **kwargs)
+
+    async def _reconnect(self, failed_client: JsonRpcClient | None = None) -> None:
+        """Reconnect the transport while preserving session objects."""
+        async with self._reconnect_lock:
+            if (
+                failed_client is not None
+                and self._client is not failed_client
+                and self._state == "connected"
+            ):
+                return
+
+            with self._sessions_lock:
+                saved_sessions = dict(self._sessions)
+
+            await self.force_stop()
+
+            with self._sessions_lock:
+                self._sessions = saved_sessions
+
+            await self.start()
 
     async def start(self) -> None:
         """
@@ -614,7 +664,7 @@ class CopilotClient:
 
         # Create and register the session before issuing the RPC so that
         # events emitted by the CLI (e.g. session.start) are not dropped.
-        session = CopilotSession(session_id, self._client, None)
+        session = CopilotSession(session_id, self._request_proxy, None)
         session._register_tools(tools)
         session._register_permission_handler(on_permission_request)
         if on_user_input_request:
@@ -628,7 +678,7 @@ class CopilotClient:
             self._sessions[session_id] = session
 
         try:
-            response = await self._client.request("session.create", payload)
+            response = await self._request_proxy.request("session.create", payload)
             session._workspace_path = response.get("workspacePath")
         except BaseException:
             with self._sessions_lock:
@@ -813,7 +863,7 @@ class CopilotClient:
 
         # Create and register the session before issuing the RPC so that
         # events emitted by the CLI (e.g. session.start) are not dropped.
-        session = CopilotSession(session_id, self._client, None)
+        session = CopilotSession(session_id, self._request_proxy, None)
         session._register_tools(cfg.get("tools"))
         session._register_permission_handler(on_permission_request)
         if on_user_input_request:
@@ -827,7 +877,7 @@ class CopilotClient:
             self._sessions[session_id] = session
 
         try:
-            response = await self._client.request("session.resume", payload)
+            response = await self._request_proxy.request("session.resume", payload)
             session._workspace_path = response.get("workspacePath")
         except BaseException:
             with self._sessions_lock:
@@ -870,7 +920,7 @@ class CopilotClient:
         if not self._client:
             raise RuntimeError("Client not connected")
 
-        result = await self._client.request("ping", {"message": message})
+        result = await self._request_proxy.request("ping", {"message": message})
         return PingResponse.from_dict(result)
 
     async def get_status(self) -> "GetStatusResponse":
@@ -890,7 +940,7 @@ class CopilotClient:
         if not self._client:
             raise RuntimeError("Client not connected")
 
-        result = await self._client.request("status.get", {})
+        result = await self._request_proxy.request("status.get", {})
         return GetStatusResponse.from_dict(result)
 
     async def get_auth_status(self) -> "GetAuthStatusResponse":
@@ -911,7 +961,7 @@ class CopilotClient:
         if not self._client:
             raise RuntimeError("Client not connected")
 
-        result = await self._client.request("auth.getStatus", {})
+        result = await self._request_proxy.request("auth.getStatus", {})
         return GetAuthStatusResponse.from_dict(result)
 
     async def list_models(self) -> list["ModelInfo"]:
@@ -955,7 +1005,7 @@ class CopilotClient:
                     raise RuntimeError("Client not connected")
 
                 # Cache miss - fetch from backend while holding lock
-                response = await self._client.request("models.list", {})
+                response = await self._request_proxy.request("models.list", {})
                 models_data = response.get("models", [])
                 models = [ModelInfo.from_dict(model) for model in models_data]
 
@@ -997,7 +1047,7 @@ class CopilotClient:
         if filter is not None:
             payload["filter"] = filter.to_dict()
 
-        response = await self._client.request("session.list", payload)
+        response = await self._request_proxy.request("session.list", payload)
         sessions_data = response.get("sessions", [])
         return [SessionMetadata.from_dict(session) for session in sessions_data]
 
@@ -1022,7 +1072,7 @@ class CopilotClient:
         if not self._client:
             raise RuntimeError("Client not connected")
 
-        response = await self._client.request("session.delete", {"sessionId": session_id})
+        response = await self._request_proxy.request("session.delete", {"sessionId": session_id})
 
         success = response.get("success", False)
         if not success:
@@ -1056,7 +1106,7 @@ class CopilotClient:
         if not self._client:
             raise RuntimeError("Client not connected")
 
-        response = await self._client.request("session.getLastId", {})
+        response = await self._request_proxy.request("session.getLastId", {})
         return response.get("sessionId")
 
     async def get_foreground_session_id(self) -> str | None:
@@ -1080,7 +1130,7 @@ class CopilotClient:
         if not self._client:
             raise RuntimeError("Client not connected")
 
-        response = await self._client.request("session.getForeground", {})
+        response = await self._request_proxy.request("session.getForeground", {})
         return response.get("sessionId")
 
     async def set_foreground_session_id(self, session_id: str) -> None:
@@ -1102,7 +1152,9 @@ class CopilotClient:
         if not self._client:
             raise RuntimeError("Client not connected")
 
-        response = await self._client.request("session.setForeground", {"sessionId": session_id})
+        response = await self._request_proxy.request(
+            "session.setForeground", {"sessionId": session_id}
+        )
 
         success = response.get("success", False)
         if not success:
@@ -1406,7 +1458,7 @@ class CopilotClient:
 
         # Create JSON-RPC client with the process
         self._client = JsonRpcClient(self._process)
-        self._rpc = ServerRpc(self._client)
+        self._rpc = ServerRpc(self._request_proxy)
 
         # Set up notification handler for session events
         # Note: This handler is called from the event loop (thread-safe scheduling)
@@ -1493,7 +1545,7 @@ class CopilotClient:
 
         self._process = SocketWrapper(sock_file, sock)  # type: ignore
         self._client = JsonRpcClient(self._process)
-        self._rpc = ServerRpc(self._client)
+        self._rpc = ServerRpc(self._request_proxy)
 
         # Set up notification handler for session events
         def handle_notification(method: str, params: dict):

@@ -4,9 +4,13 @@ CopilotClient Unit Tests
 This file is for unit tests. Where relevant, prefer to add e2e tests in e2e/*.py instead.
 """
 
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
 import pytest
 
 from copilot import CopilotClient, PermissionHandler, define_tool
+from copilot.jsonrpc import ProcessExitedError
 from copilot.types import ModelCapabilities, ModelInfo, ModelLimits, ModelSupports
 from e2e.testharness import CLI_PATH
 
@@ -149,6 +153,54 @@ class TestAuthOptions:
             CopilotClient(
                 {"cli_url": "localhost:8080", "use_logged_in_user": False, "log_level": "error"}
             )
+
+
+class TestAutoRestart:
+    @pytest.mark.asyncio
+    async def test_request_proxy_retries_once_after_process_exit(self):
+        client = CopilotClient(
+            {"cli_path": CLI_PATH, "auto_restart": True, "log_level": "error"}
+        )
+        client._state = "connected"
+        failed_request = AsyncMock(side_effect=ProcessExitedError("boom"))
+        client._client = SimpleNamespace(request=failed_request)
+
+        replacement_request = AsyncMock(
+            return_value={
+                "message": "pong: health check",
+                "timestamp": 123,
+                "protocolVersion": 2,
+            }
+        )
+        replacement_client = SimpleNamespace(request=replacement_request)
+        reconnect = AsyncMock(
+            side_effect=lambda failed_client=None: setattr(client, "_client", replacement_client)
+        )
+        client._reconnect = reconnect
+
+        response = await client.ping("health check")
+
+        assert response.message == "pong: health check"
+        assert response.timestamp == 123
+        reconnect.assert_awaited_once()
+        failed_request.assert_awaited_once_with("ping", {"message": "health check"})
+        replacement_request.assert_awaited_once_with("ping", {"message": "health check"})
+
+    @pytest.mark.asyncio
+    async def test_request_proxy_propagates_process_exit_when_auto_restart_disabled(self):
+        client = CopilotClient(
+            {"cli_path": CLI_PATH, "auto_restart": False, "log_level": "error"}
+        )
+        client._state = "connected"
+        client._client = SimpleNamespace(
+            request=AsyncMock(side_effect=ProcessExitedError("boom"))
+        )
+        client._reconnect = AsyncMock()
+
+        with pytest.raises(ProcessExitedError, match="boom"):
+            await client.ping()
+
+        client._reconnect.assert_not_awaited()
 
 
 class TestOverridesBuiltInTool:
