@@ -38,8 +38,7 @@ type ClientOptions struct {
 	// AutoStart automatically starts the CLI server on first use (default: true).
 	// Use Bool(false) to disable.
 	AutoStart *bool
-	// AutoRestart automatically restarts the CLI server if it crashes (default: true).
-	// Use Bool(false) to disable.
+	// Deprecated: AutoRestart has no effect and will be removed in a future release.
 	AutoRestart *bool
 	// Env is the environment variables for the CLI process (default: inherits from current process).
 	// Each entry is of the form "key=value".
@@ -62,10 +61,40 @@ type ClientOptions struct {
 	// querying the CLI server. Useful in BYOK mode to return models
 	// available from your custom provider.
 	OnListModels func(ctx context.Context) ([]ModelInfo, error)
+	// Telemetry configures OpenTelemetry integration for the Copilot CLI process.
+	// When non-nil, COPILOT_OTEL_ENABLED=true is set and any populated fields
+	// are mapped to the corresponding environment variables.
+	Telemetry *TelemetryConfig
+}
+
+// TelemetryConfig configures OpenTelemetry integration for the Copilot CLI process.
+type TelemetryConfig struct {
+	// OTLPEndpoint is the OTLP HTTP endpoint URL for trace/metric export.
+	// Sets OTEL_EXPORTER_OTLP_ENDPOINT.
+	OTLPEndpoint string
+
+	// FilePath is the file path for JSON-lines trace output.
+	// Sets COPILOT_OTEL_FILE_EXPORTER_PATH.
+	FilePath string
+
+	// ExporterType is the exporter backend type: "otlp-http" or "file".
+	// Sets COPILOT_OTEL_EXPORTER_TYPE.
+	ExporterType string
+
+	// SourceName is the instrumentation scope name.
+	// Sets COPILOT_OTEL_SOURCE_NAME.
+	SourceName string
+
+	// CaptureContent controls whether to capture message content (prompts, responses).
+	// Sets OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT.
+	CaptureContent *bool
 }
 
 // Bool returns a pointer to the given bool value.
-// Use for setting AutoStart or AutoRestart: AutoStart: Bool(false)
+// Use for option fields such as AutoStart, AutoRestart, or LogOptions.Ephemeral:
+//
+//	AutoStart: Bool(false)
+//	Ephemeral: Bool(true)
 func Bool(v bool) *bool {
 	return &v
 }
@@ -123,6 +152,9 @@ const (
 
 	// PermissionRequestResultKindDeniedInteractivelyByUser indicates the permission was denied interactively by the user.
 	PermissionRequestResultKindDeniedInteractivelyByUser PermissionRequestResultKind = "denied-interactively-by-user"
+
+	// PermissionRequestResultKindNoResult indicates no permission decision was made.
+	PermissionRequestResultKindNoResult PermissionRequestResultKind = "no-result"
 )
 
 // PermissionRequestResult represents the result of a permission request
@@ -402,14 +434,19 @@ type SessionConfig struct {
 	// InfiniteSessions configures infinite sessions for persistent workspaces and automatic compaction.
 	// When enabled (default), sessions automatically manage context limits and persist state.
 	InfiniteSessions *InfiniteSessionConfig
+	// OnEvent is an optional event handler that is registered on the session before
+	// the session.create RPC is issued. This guarantees that early events emitted
+	// by the CLI during session creation (e.g. session.start) are delivered to the
+	// handler. Equivalent to calling session.On(handler) immediately after creation,
+	// but executes earlier in the lifecycle so no events are missed.
+	OnEvent SessionEventHandler
 }
-
-// Tool describes a caller-implemented tool that can be invoked by Copilot
 type Tool struct {
 	Name                 string         `json:"name"`
 	Description          string         `json:"description,omitempty"`
 	Parameters           map[string]any `json:"parameters,omitempty"`
 	OverridesBuiltInTool bool           `json:"overridesBuiltInTool,omitempty"`
+	SkipPermission       bool           `json:"skipPermission,omitempty"`
 	Handler              ToolHandler    `json:"-"`
 }
 
@@ -419,6 +456,12 @@ type ToolInvocation struct {
 	ToolCallID string
 	ToolName   string
 	Arguments  any
+
+	// TraceContext carries the W3C Trace Context propagated from the CLI's
+	// execute_tool span.  Pass this to OpenTelemetry-aware code so that
+	// child spans created inside the handler are parented to the CLI span.
+	// When no trace context is available this will be context.Background().
+	TraceContext context.Context
 }
 
 // ToolHandler executes a tool invocation.
@@ -490,9 +533,10 @@ type ResumeSessionConfig struct {
 	// DisableResume, when true, skips emitting the session.resume event.
 	// Useful for reconnecting to a session without triggering resume-related side effects.
 	DisableResume bool
+	// OnEvent is an optional event handler registered before the session.resume RPC
+	// is issued, ensuring early events are delivered. See SessionConfig.OnEvent.
+	OnEvent SessionEventHandler
 }
-
-// ProviderConfig configures a custom model provider
 type ProviderConfig struct {
 	// Type is the provider type: "openai", "azure", or "anthropic". Defaults to "openai".
 	Type string `json:"type,omitempty"`
@@ -671,6 +715,8 @@ type createSessionRequest struct {
 	SkillDirectories  []string                   `json:"skillDirectories,omitempty"`
 	DisabledSkills    []string                   `json:"disabledSkills,omitempty"`
 	InfiniteSessions  *InfiniteSessionConfig     `json:"infiniteSessions,omitempty"`
+	Traceparent       string                     `json:"traceparent,omitempty"`
+	Tracestate        string                     `json:"tracestate,omitempty"`
 }
 
 // createSessionResponse is the response from session.create
@@ -704,6 +750,8 @@ type resumeSessionRequest struct {
 	SkillDirectories  []string                   `json:"skillDirectories,omitempty"`
 	DisabledSkills    []string                   `json:"disabledSkills,omitempty"`
 	InfiniteSessions  *InfiniteSessionConfig     `json:"infiniteSessions,omitempty"`
+	Traceparent       string                     `json:"traceparent,omitempty"`
+	Tracestate        string                     `json:"tracestate,omitempty"`
 }
 
 // resumeSessionResponse is the response from session.resume
@@ -832,6 +880,8 @@ type sessionSendRequest struct {
 	Prompt      string       `json:"prompt"`
 	Attachments []Attachment `json:"attachments,omitempty"`
 	Mode        string       `json:"mode,omitempty"`
+	Traceparent string       `json:"traceparent,omitempty"`
+	Tracestate  string       `json:"tracestate,omitempty"`
 }
 
 // sessionSendResponse is the response from session.send

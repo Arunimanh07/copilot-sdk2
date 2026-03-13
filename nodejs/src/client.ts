@@ -12,6 +12,7 @@
  */
 
 import { spawn, type ChildProcess } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { Socket } from "node:net";
 import { dirname, join } from "node:path";
@@ -24,7 +25,8 @@ import {
 } from "vscode-jsonrpc/node.js";
 import { createServerRpc } from "./generated/rpc.js";
 import { getSdkProtocolVersion } from "./sdkProtocolVersion.js";
-import { CopilotSession } from "./session.js";
+import { CopilotSession, NO_RESULT_PERMISSION_V2_ERROR } from "./session.js";
+import { getTraceContext } from "./telemetry.js";
 import type {
     ConnectionState,
     CopilotClientOptions,
@@ -41,10 +43,12 @@ import type {
     SessionLifecycleHandler,
     SessionListFilter,
     SessionMetadata,
+    TelemetryConfig,
     Tool,
     ToolCallRequestPayload,
     ToolCallResponsePayload,
     ToolResultObject,
+    TraceContextProvider,
     TypedSessionLifecycleHandler,
 } from "./types.js";
 
@@ -140,15 +144,27 @@ export class CopilotClient {
     private sessions: Map<string, CopilotSession> = new Map();
     private stderrBuffer: string = ""; // Captures CLI stderr for error messages
     private options: Required<
-        Omit<CopilotClientOptions, "cliUrl" | "githubToken" | "useLoggedInUser" | "onListModels">
+        Omit<
+            CopilotClientOptions,
+            | "cliPath"
+            | "cliUrl"
+            | "githubToken"
+            | "useLoggedInUser"
+            | "onListModels"
+            | "telemetry"
+            | "onGetTraceContext"
+        >
     > & {
+        cliPath?: string;
         cliUrl?: string;
         githubToken?: string;
         useLoggedInUser?: boolean;
+        telemetry?: TelemetryConfig;
     };
     private isExternalServer: boolean = false;
     private forceStopping: boolean = false;
     private onListModels?: () => Promise<ModelInfo[]> | ModelInfo[];
+    private onGetTraceContext?: TraceContextProvider;
     private modelsCache: ModelInfo[] | null = null;
     private modelsCacheLock: Promise<void> = Promise.resolve();
     private sessionLifecycleHandlers: Set<SessionLifecycleHandler> = new Set();
@@ -227,9 +243,10 @@ export class CopilotClient {
         }
 
         this.onListModels = options.onListModels;
+        this.onGetTraceContext = options.onGetTraceContext;
 
         this.options = {
-            cliPath: options.cliPath || getBundledCliPath(),
+            cliPath: options.cliUrl ? undefined : options.cliPath || getBundledCliPath(),
             cliArgs: options.cliArgs ?? [],
             cwd: options.cwd ?? process.cwd(),
             port: options.port || 0,
@@ -238,11 +255,13 @@ export class CopilotClient {
             cliUrl: options.cliUrl,
             logLevel: options.logLevel || "debug",
             autoStart: options.autoStart ?? true,
-            autoRestart: options.autoRestart ?? true,
+            autoRestart: false,
+
             env: options.env ?? process.env,
             githubToken: options.githubToken,
             // Default useLoggedInUser to false when githubToken is provided, otherwise true
             useLoggedInUser: options.useLoggedInUser ?? (options.githubToken ? false : true),
+            telemetry: options.telemetry,
         };
     }
 
@@ -546,41 +565,16 @@ export class CopilotClient {
             }
         }
 
-        const response = await this.connection!.sendRequest("session.create", {
-            model: config.model,
-            sessionId: config.sessionId,
-            clientName: config.clientName,
-            reasoningEffort: config.reasoningEffort,
-            tools: config.tools?.map((tool) => ({
-                name: tool.name,
-                description: tool.description,
-                parameters: toJsonSchema(tool.parameters),
-                overridesBuiltInTool: tool.overridesBuiltInTool,
-            })),
-            systemMessage: config.systemMessage,
-            availableTools: config.availableTools,
-            excludedTools: config.excludedTools,
-            provider: config.provider,
-            requestPermission: true,
-            requestUserInput: !!config.onUserInputRequest,
-            hooks: !!(config.hooks && Object.values(config.hooks).some(Boolean)),
-            workingDirectory: config.workingDirectory,
-            streaming: config.streaming,
-            mcpServers: config.mcpServers,
-            envValueMode: "direct",
-            customAgents: config.customAgents,
-            agent: config.agent,
-            configDir: config.configDir,
-            skillDirectories: config.skillDirectories,
-            disabledSkills: config.disabledSkills,
-            infiniteSessions: config.infiniteSessions,
-        });
+        const sessionId = config.sessionId ?? randomUUID();
 
-        const { sessionId, workspacePath } = response as {
-            sessionId: string;
-            workspacePath?: string;
-        };
-        const session = new CopilotSession(sessionId, this.connection!, workspacePath);
+        // Create and register the session before issuing the RPC so that
+        // events emitted by the CLI (e.g. session.start) are not dropped.
+        const session = new CopilotSession(
+            sessionId,
+            this.connection!,
+            undefined,
+            this.onGetTraceContext
+        );
         session.registerTools(config.tools);
         session.registerPermissionHandler(config.onPermissionRequest);
         if (config.onUserInputRequest) {
@@ -589,7 +583,53 @@ export class CopilotClient {
         if (config.hooks) {
             session.registerHooks(config.hooks);
         }
+        if (config.onEvent) {
+            session.on(config.onEvent);
+        }
         this.sessions.set(sessionId, session);
+
+        try {
+            const response = await this.connection!.sendRequest("session.create", {
+                ...(await getTraceContext(this.onGetTraceContext)),
+                model: config.model,
+                sessionId,
+                clientName: config.clientName,
+                reasoningEffort: config.reasoningEffort,
+                tools: config.tools?.map((tool) => ({
+                    name: tool.name,
+                    description: tool.description,
+                    parameters: toJsonSchema(tool.parameters),
+                    overridesBuiltInTool: tool.overridesBuiltInTool,
+                    skipPermission: tool.skipPermission,
+                })),
+                systemMessage: config.systemMessage,
+                availableTools: config.availableTools,
+                excludedTools: config.excludedTools,
+                provider: config.provider,
+                requestPermission: true,
+                requestUserInput: !!config.onUserInputRequest,
+                hooks: !!(config.hooks && Object.values(config.hooks).some(Boolean)),
+                workingDirectory: config.workingDirectory,
+                streaming: config.streaming,
+                mcpServers: config.mcpServers,
+                envValueMode: "direct",
+                customAgents: config.customAgents,
+                agent: config.agent,
+                configDir: config.configDir,
+                skillDirectories: config.skillDirectories,
+                disabledSkills: config.disabledSkills,
+                infiniteSessions: config.infiniteSessions,
+            });
+
+            const { workspacePath } = response as {
+                sessionId: string;
+                workspacePath?: string;
+            };
+            session["_workspacePath"] = workspacePath;
+        } catch (e) {
+            this.sessions.delete(sessionId);
+            throw e;
+        }
 
         return session;
     }
@@ -633,42 +673,14 @@ export class CopilotClient {
             }
         }
 
-        const response = await this.connection!.sendRequest("session.resume", {
+        // Create and register the session before issuing the RPC so that
+        // events emitted by the CLI (e.g. session.start) are not dropped.
+        const session = new CopilotSession(
             sessionId,
-            clientName: config.clientName,
-            model: config.model,
-            reasoningEffort: config.reasoningEffort,
-            systemMessage: config.systemMessage,
-            availableTools: config.availableTools,
-            excludedTools: config.excludedTools,
-            tools: config.tools?.map((tool) => ({
-                name: tool.name,
-                description: tool.description,
-                parameters: toJsonSchema(tool.parameters),
-                overridesBuiltInTool: tool.overridesBuiltInTool,
-            })),
-            provider: config.provider,
-            requestPermission: true,
-            requestUserInput: !!config.onUserInputRequest,
-            hooks: !!(config.hooks && Object.values(config.hooks).some(Boolean)),
-            workingDirectory: config.workingDirectory,
-            configDir: config.configDir,
-            streaming: config.streaming,
-            mcpServers: config.mcpServers,
-            envValueMode: "direct",
-            customAgents: config.customAgents,
-            agent: config.agent,
-            skillDirectories: config.skillDirectories,
-            disabledSkills: config.disabledSkills,
-            infiniteSessions: config.infiniteSessions,
-            disableResume: config.disableResume,
-        });
-
-        const { sessionId: resumedSessionId, workspacePath } = response as {
-            sessionId: string;
-            workspacePath?: string;
-        };
-        const session = new CopilotSession(resumedSessionId, this.connection!, workspacePath);
+            this.connection!,
+            undefined,
+            this.onGetTraceContext
+        );
         session.registerTools(config.tools);
         session.registerPermissionHandler(config.onPermissionRequest);
         if (config.onUserInputRequest) {
@@ -677,7 +689,54 @@ export class CopilotClient {
         if (config.hooks) {
             session.registerHooks(config.hooks);
         }
-        this.sessions.set(resumedSessionId, session);
+        if (config.onEvent) {
+            session.on(config.onEvent);
+        }
+        this.sessions.set(sessionId, session);
+
+        try {
+            const response = await this.connection!.sendRequest("session.resume", {
+                ...(await getTraceContext(this.onGetTraceContext)),
+                sessionId,
+                clientName: config.clientName,
+                model: config.model,
+                reasoningEffort: config.reasoningEffort,
+                systemMessage: config.systemMessage,
+                availableTools: config.availableTools,
+                excludedTools: config.excludedTools,
+                tools: config.tools?.map((tool) => ({
+                    name: tool.name,
+                    description: tool.description,
+                    parameters: toJsonSchema(tool.parameters),
+                    overridesBuiltInTool: tool.overridesBuiltInTool,
+                    skipPermission: tool.skipPermission,
+                })),
+                provider: config.provider,
+                requestPermission: true,
+                requestUserInput: !!config.onUserInputRequest,
+                hooks: !!(config.hooks && Object.values(config.hooks).some(Boolean)),
+                workingDirectory: config.workingDirectory,
+                configDir: config.configDir,
+                streaming: config.streaming,
+                mcpServers: config.mcpServers,
+                envValueMode: "direct",
+                customAgents: config.customAgents,
+                agent: config.agent,
+                skillDirectories: config.skillDirectories,
+                disabledSkills: config.disabledSkills,
+                infiniteSessions: config.infiniteSessions,
+                disableResume: config.disableResume,
+            });
+
+            const { workspacePath } = response as {
+                sessionId: string;
+                workspacePath?: string;
+            };
+            session["_workspacePath"] = workspacePath;
+        } catch (e) {
+            this.sessions.delete(sessionId);
+            throw e;
+        }
 
         return session;
     }
@@ -1108,6 +1167,30 @@ export class CopilotClient {
                 envWithoutNodeDebug.COPILOT_SDK_AUTH_TOKEN = this.options.githubToken;
             }
 
+            if (!this.options.cliPath) {
+                throw new Error(
+                    "Path to Copilot CLI is required. Please provide it via the cliPath option, or use cliUrl to rely on a remote CLI."
+                );
+            }
+
+            // Set OpenTelemetry environment variables if telemetry is configured
+            if (this.options.telemetry) {
+                const t = this.options.telemetry;
+                envWithoutNodeDebug.COPILOT_OTEL_ENABLED = "true";
+                if (t.otlpEndpoint !== undefined)
+                    envWithoutNodeDebug.OTEL_EXPORTER_OTLP_ENDPOINT = t.otlpEndpoint;
+                if (t.filePath !== undefined)
+                    envWithoutNodeDebug.COPILOT_OTEL_FILE_EXPORTER_PATH = t.filePath;
+                if (t.exporterType !== undefined)
+                    envWithoutNodeDebug.COPILOT_OTEL_EXPORTER_TYPE = t.exporterType;
+                if (t.sourceName !== undefined)
+                    envWithoutNodeDebug.COPILOT_OTEL_SOURCE_NAME = t.sourceName;
+                if (t.captureContent !== undefined)
+                    envWithoutNodeDebug.OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT = String(
+                        t.captureContent
+                    );
+            }
+
             // Verify CLI exists before attempting to spawn
             if (!existsSync(this.options.cliPath)) {
                 throw new Error(
@@ -1222,8 +1305,6 @@ export class CopilotClient {
                     } else {
                         reject(new Error(`CLI server exited with code ${code}`));
                     }
-                } else if (this.options.autoRestart && this.state === "connected") {
-                    void this.reconnect();
                 }
             });
 
@@ -1375,13 +1456,11 @@ export class CopilotClient {
         );
 
         this.connection.onClose(() => {
-            if (this.state === "connected" && this.options.autoRestart) {
-                void this.reconnect();
-            }
+            this.state = "disconnected";
         });
 
         this.connection.onError((_error) => {
-            // Connection errors are handled via autoRestart if enabled
+            this.state = "disconnected";
         });
     }
 
@@ -1526,11 +1605,15 @@ export class CopilotClient {
         }
 
         try {
+            const traceparent = (params as { traceparent?: string }).traceparent;
+            const tracestate = (params as { tracestate?: string }).tracestate;
             const invocation = {
                 sessionId: params.sessionId,
                 toolCallId: params.toolCallId,
                 toolName: params.toolName,
                 arguments: params.arguments,
+                traceparent,
+                tracestate,
             };
             const result = await handler(params.arguments, invocation);
             return { result: this.normalizeToolResultV2(result) };
@@ -1567,7 +1650,10 @@ export class CopilotClient {
         try {
             const result = await session._handlePermissionRequestV2(params.permissionRequest);
             return { result };
-        } catch (_error) {
+        } catch (error) {
+            if (error instanceof Error && error.message === NO_RESULT_PERMISSION_V2_ERROR) {
+                throw error;
+            }
             return {
                 result: {
                     kind: "denied-no-approval-rule-and-could-not-request-from-user",
@@ -1606,18 +1692,5 @@ export class CopilotClient {
             typeof (value as ToolResultObject).textResultForLlm === "string" &&
             "resultType" in value
         );
-    }
-
-    /**
-     * Attempt to reconnect to the server
-     */
-    private async reconnect(): Promise<void> {
-        this.state = "disconnected";
-        try {
-            await this.stop();
-            await this.start();
-        } catch (_error) {
-            // Reconnection failed
-        }
     }
 }

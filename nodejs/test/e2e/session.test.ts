@@ -297,7 +297,19 @@ describe("Sessions", async () => {
     });
 
     it("should receive session events", async () => {
-        const session = await client.createSession({ onPermissionRequest: approveAll });
+        // Use onEvent to capture events dispatched during session creation.
+        // session.start is emitted during the session.create RPC; if the session
+        // weren't registered in the sessions map before the RPC, it would be dropped.
+        const earlyEvents: Array<{ type: string }> = [];
+        const session = await client.createSession({
+            onPermissionRequest: approveAll,
+            onEvent: (event) => {
+                earlyEvents.push(event);
+            },
+        });
+
+        expect(earlyEvents.some((e) => e.type === "session.start")).toBe(true);
+
         const receivedEvents: Array<{ type: string }> = [];
 
         session.on((event) => {
@@ -448,5 +460,17 @@ describe("Send Blocking Behavior", async () => {
         await expect(
             session.sendAndWait({ prompt: "Run 'sleep 2 && echo done'" }, 100)
         ).rejects.toThrow(/Timeout after 100ms/);
+    });
+
+    it("should set model with reasoningEffort", async () => {
+        const session = await client.createSession({ onPermissionRequest: approveAll });
+
+        const modelChangePromise = getNextEventOfType(session, "session.model_change");
+
+        await session.setModel("gpt-4.1", { reasoningEffort: "high" });
+
+        const event = await modelChangePromise;
+        expect(event.data.newModel).toBe("gpt-4.1");
+        expect(event.data.reasoningEffort).toBe("high");
     });
 });
