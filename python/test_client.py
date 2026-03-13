@@ -480,3 +480,34 @@ class TestSessionConfigForwarding:
             assert captured["session.model.switchTo"]["modelId"] == "gpt-4.1"
         finally:
             await client.force_stop()
+
+class TestAuthStatusApi:
+    @pytest.mark.asyncio
+    async def test_get_auth_status_allows_null_host_and_auth_type(self):
+        client = CopilotClient({"cli_path": CLI_PATH})
+        await client.start()
+
+        try:
+            captured = {}
+            original_request = client._client.request
+
+            async def mock_request(method, params):
+                captured[method] = params
+                if method == "auth.getStatus":
+                    return {
+                        "isAuthenticated": False,
+                        "authType": None,
+                        "host": None,
+                        "login": None,
+                    }
+                return await original_request(method, params)
+
+            client._client.request = mock_request
+            result = await client.get_auth_status()
+            assert captured["auth.getStatus"] == {}
+            assert result.isAuthenticated is False
+            assert result.authType is None
+            assert result.host is None
+            assert result.login is None
+        finally:
+            await client.force_stop()
