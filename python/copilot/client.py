@@ -933,16 +933,13 @@ class CopilotClient:
             if self._models_cache is not None:
                 return list(self._models_cache)  # Return a copy to prevent cache mutation
 
-            models: list[ModelInfo]
             if self._on_list_models:
                 # Use custom handler instead of CLI RPC
                 result = self._on_list_models()
-                # cast needed: inspect.isawaitable isn't a type guard, so the
-                # linter can't narrow list[ModelInfo] | Awaitable[list[ModelInfo]]
                 if inspect.isawaitable(result):
-                    models = cast(list[ModelInfo], await result)
+                    models = await result
                 else:
-                    models = cast(list[ModelInfo], result)
+                    models = result
             else:
                 if not self._client:
                     raise RuntimeError("Client not connected")
