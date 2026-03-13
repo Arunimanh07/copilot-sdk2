@@ -67,7 +67,8 @@ type Session struct {
 
 	// eventCh serializes user event handler dispatch. dispatchEvent enqueues;
 	// a single goroutine (processEvents) dequeues and invokes handlers in FIFO order.
-	eventCh chan SessionEvent
+	eventCh   chan SessionEvent
+	closeOnce sync.Once // guards eventCh close so Disconnect is safe to call more than once
 
 	// RPC provides typed session-scoped RPC methods.
 	RPC *rpc.SessionRpc
@@ -451,7 +452,15 @@ func (s *Session) handleHooksInvoke(hookType string, rawInput json.RawMessage) (
 // serial, FIFO dispatch without blocking the read loop.
 func (s *Session) dispatchEvent(event SessionEvent) {
 	go s.handleBroadcastEvent(event)
-	s.eventCh <- event
+
+	// Send to the event channel in a closure with a recover guard.
+	// Disconnect closes eventCh, and in Go sending on a closed channel
+	// panics — there is no non-panicking send primitive. We only want
+	// to suppress that specific panic; other panics are not expected here.
+	func() {
+		defer func() { recover() }()
+		s.eventCh <- event
+	}()
 }
 
 // processEvents is the single consumer goroutine for the event channel.
@@ -657,7 +666,7 @@ func (s *Session) Disconnect() error {
 		return fmt.Errorf("failed to disconnect session: %w", err)
 	}
 
-	close(s.eventCh)
+	s.closeOnce.Do(func() { close(s.eventCh) })
 
 	// Clear handlers
 	s.handlerMutex.Lock()
