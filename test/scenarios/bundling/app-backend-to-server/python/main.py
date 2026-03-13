@@ -5,7 +5,7 @@ import sys
 import urllib.request
 
 from flask import Flask, request, jsonify
-from copilot import CopilotClient, PermissionHandler
+from copilot import CopilotClient, PermissionHandler, ExternalServerConfig
 
 app = Flask(__name__)
 
@@ -13,7 +13,7 @@ CLI_URL = os.environ.get("CLI_URL", os.environ.get("COPILOT_CLI_URL", "localhost
 
 
 async def ask_copilot(prompt: str) -> str:
-    client = CopilotClient({"cli_url": CLI_URL})
+    client = CopilotClient(ExternalServerConfig(url=CLI_URL))
 
     try:
         session = await client.create_session(PermissionHandler.approve_all, "claude-haiku-4.5")
