@@ -195,12 +195,15 @@ public partial class ToolsTests(E2ETestFixture fixture, ITestOutputHelper output
                 new Dictionary<string, object?> { ["skip_permission"] = true })
         });
 
-        // TODO: Once the CLI respects skip_permission, use a tracking permission handler
-        // and assert it was NOT called for this tool.
+        var didRunPermissionRequest = false;
         var session = await CreateSessionAsync(new SessionConfig
         {
             Tools = [tool],
-            OnPermissionRequest = PermissionHandler.ApproveAll,
+            OnPermissionRequest = (_, _) =>
+            {
+                didRunPermissionRequest = true;
+                return Task.FromResult(new PermissionRequestResult { Kind = PermissionRequestResultKind.NoResult });
+            }
         });
 
         await session.SendAsync(new MessageOptions
@@ -211,6 +214,7 @@ public partial class ToolsTests(E2ETestFixture fixture, ITestOutputHelper output
         var assistantMessage = await TestHelper.GetFinalAssistantMessageAsync(session);
         Assert.NotNull(assistantMessage);
         Assert.Contains("RESULT", assistantMessage!.Data.Content ?? string.Empty);
+        Assert.False(didRunPermissionRequest);
     }
 
     [Fact(Skip = "Behaves as if no content was in the result. Likely that binary results aren't fully implemented yet.")]

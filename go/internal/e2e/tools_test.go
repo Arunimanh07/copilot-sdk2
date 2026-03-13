@@ -277,10 +277,12 @@ func TestTools(t *testing.T) {
 			})
 		safeLookupTool.SkipPermission = true
 
-		// TODO: Once the CLI respects SkipPermission, use a tracking permission handler
-		// and assert it was NOT called for this tool.
+		didRunPermissionRequest := false
 		session, err := client.CreateSession(t.Context(), &copilot.SessionConfig{
-			OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
+			OnPermissionRequest: func(request copilot.PermissionRequest, invocation copilot.PermissionInvocation) (copilot.PermissionRequestResult, error) {
+				didRunPermissionRequest = true
+				return copilot.PermissionRequestResult{Kind: copilot.PermissionRequestResultKindNoResult}, nil
+			},
 			Tools: []copilot.Tool{
 				safeLookupTool,
 			},
@@ -301,6 +303,10 @@ func TestTools(t *testing.T) {
 
 		if answer.Data.Content == nil || !strings.Contains(*answer.Data.Content, "RESULT: test123") {
 			t.Errorf("Expected answer to contain 'RESULT: test123', got %v", answer.Data.Content)
+		}
+
+		if didRunPermissionRequest {
+			t.Errorf("Expected permission handler to NOT be called for skipPermission tool")
 		}
 	})
 

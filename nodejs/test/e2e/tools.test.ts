@@ -160,10 +160,12 @@ describe("Custom tools", async () => {
     });
 
     it("skipPermission sent in tool definition", async () => {
-        // TODO: Once the CLI respects skipPermission, use a tracking permission handler
-        // and assert it was NOT called for this tool.
+        let didRunPermissionRequest = false;
         const session = await client.createSession({
-            onPermissionRequest: approveAll,
+            onPermissionRequest: () => {
+                didRunPermissionRequest = true;
+                return { kind: "no-result" };
+            },
             tools: [
                 defineTool("safe_lookup", {
                     description: "A safe lookup that skips permission",
@@ -180,6 +182,7 @@ describe("Custom tools", async () => {
             prompt: "Use safe_lookup to look up 'test123'",
         });
         expect(assistantMessage?.data.content).toContain("RESULT: test123");
+        expect(didRunPermissionRequest).toBe(false);
     });
 
     it("overrides built-in tool with custom tool", async () => {
