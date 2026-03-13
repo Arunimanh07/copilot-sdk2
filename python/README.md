@@ -144,7 +144,10 @@ All parameters are keyword-only:
 - `client_name` (str): Client name to identify the application using the SDK. Included in the User-Agent header for API requests.
 - `reasoning_effort` (str): Reasoning effort level for models that support it ("low", "medium", "high", "xhigh"). Use `list_models()` to check which models support this option.
 - `tools` (list): Custom tools exposed to the CLI.
-- `system_message` (dict): System message configuration.
+- `system_message` (dict): System message configuration. Supports three modes:
+  - **append** (default): Appends `content` after the SDK-managed prompt
+  - **replace**: Replaces the entire prompt with `content`
+  - **customize**: Selectively override individual sections via `sections` dict (keys: `"identity"`, `"tone"`, `"tool_efficiency"`, `"environment_context"`, `"code_change_rules"`, `"guidelines"`, `"safety"`, `"tool_instructions"`, `"custom_instructions"`, `"last_instructions"`; values: `SectionOverride` with `action` and optional `content`)
 - `available_tools` (list[str]): List of tool names to allow. Takes precedence over `excluded_tools`.
 - `excluded_tools` (list[str]): List of tool names to disable. Ignored if `available_tools` is set.
 - `on_user_input_request` (callable): Handler for user input requests from the agent (enables ask_user tool). See [User Input Requests](#user-input-requests) section.
