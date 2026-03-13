@@ -480,3 +480,32 @@ class TestSessionConfigForwarding:
             assert captured["session.model.switchTo"]["modelId"] == "gpt-4.1"
         finally:
             await client.force_stop()
+
+class TestDisconnectApi:
+    @pytest.mark.asyncio
+    async def test_disconnect_sends_correct_rpc(self):
+        client = CopilotClient({"cli_path": CLI_PATH})
+        await client.start()
+
+        try:
+            captured = {}
+            original_request = client._client.request
+
+            async def mock_request(method, params):
+                captured[method] = params
+                if method == "session.create":
+                    return {
+                        "sessionId": "session-disconnect",
+                        "workspacePath": "/tmp/test",
+                        "latestCheckpoint": {"checkpointId": "cp-1"}
+                    }
+                if method == "session.destroy":
+                    return {}
+                return await original_request(method, params)
+
+            client._client.request = mock_request
+            session = await client.create_session({"on_permission_request": PermissionHandler.approve_all})
+            await session.disconnect()
+            assert captured["session.destroy"]["sessionId"] == session.session_id
+        finally:
+            await client.force_stop()
