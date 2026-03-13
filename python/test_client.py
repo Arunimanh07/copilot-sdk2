@@ -480,3 +480,32 @@ class TestSessionConfigForwarding:
             assert captured["session.model.switchTo"]["modelId"] == "gpt-4.1"
         finally:
             await client.force_stop()
+
+class TestPingApi:
+    @pytest.mark.asyncio
+    async def test_ping_sends_none_message_by_default(self):
+        client = CopilotClient({"cli_path": CLI_PATH})
+        await client.start()
+
+        try:
+            captured = {}
+            original_request = client._client.request
+
+            async def mock_request(method, params):
+                captured[method] = params
+                if method == "ping":
+                    return {
+                        "message": "pong",
+                        "timestamp": 1704067200,
+                        "protocolVersion": 2,
+                    }
+                return await original_request(method, params)
+
+            client._client.request = mock_request
+            result = await client.ping()
+            assert captured["ping"] == {"message": None}
+            assert result.message == "pong"
+            assert result.timestamp == 1704067200
+            assert result.protocolVersion == 2
+        finally:
+            await client.force_stop()
