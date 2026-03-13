@@ -480,3 +480,39 @@ class TestSessionConfigForwarding:
             assert captured["session.model.switchTo"]["modelId"] == "gpt-4.1"
         finally:
             await client.force_stop()
+
+class TestListModelsApi:
+    @pytest.mark.asyncio
+    async def test_list_models_sends_correct_rpc(self):
+        client = CopilotClient({"cli_path": CLI_PATH})
+        await client.start()
+
+        try:
+            captured = {}
+            original_request = client._client.request
+
+            async def mock_request(method, params):
+                captured[method] = params
+                if method == "models.list":
+                    return {
+                        "models": [
+                            {
+                                "id": "gpt-4.1",
+                                "name": "GPT-4.1",
+                                "capabilities": {
+                                    "supports": {"vision": True},
+                                    "limits": {"max_prompt_tokens": 8192}
+                                }
+                            }
+                        ]
+                    }
+                return await original_request(method, params)
+
+            client._client.request = mock_request
+            result = await client.list_models()
+            assert captured["models.list"] == {}
+            assert len(result) == 1
+            assert result[0].id == "gpt-4.1"
+            assert result[0].name == "GPT-4.1"
+        finally:
+            await client.force_stop()
