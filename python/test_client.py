@@ -480,3 +480,44 @@ class TestSessionConfigForwarding:
             assert captured["session.model.switchTo"]["modelId"] == "gpt-4.1"
         finally:
             await client.force_stop()
+
+    @pytest.mark.asyncio
+    async def test_create_session_exposes_workspace_path(self):
+        client = CopilotClient({"cli_path": CLI_PATH})
+        await client.start()
+
+        try:
+            session = await client.create_session(
+                {"on_permission_request": PermissionHandler.approve_all}
+            )
+            assert session.workspace_path is not None
+            assert session.workspace_path.endswith(session.session_id)
+        finally:
+            await client.force_stop()
+
+    @pytest.mark.asyncio
+    async def test_destroy_warns_and_disconnects_session(self):
+        client = CopilotClient({"cli_path": CLI_PATH})
+        await client.start()
+
+        try:
+            session = await client.create_session(
+                {"on_permission_request": PermissionHandler.approve_all}
+            )
+
+            captured = {}
+            original_request = client._client.request
+
+            async def mock_request(method, params):
+                captured[method] = params
+                if method == "session.destroy":
+                    return {}
+                return await original_request(method, params)
+
+            client._client.request = mock_request
+            with pytest.deprecated_call(match=r"destroy\(\) is deprecated, use disconnect\(\) instead"):
+                await session.destroy()
+
+            assert captured["session.destroy"] == {"sessionId": session.session_id}
+        finally:
+            await client.force_stop()
