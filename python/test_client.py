@@ -480,3 +480,47 @@ class TestSessionConfigForwarding:
             assert captured["session.model.switchTo"]["modelId"] == "gpt-4.1"
         finally:
             await client.force_stop()
+
+class TestForegroundSessionApis:
+    @pytest.mark.asyncio
+    async def test_get_foreground_session_id_returns_none_when_absent(self):
+        client = CopilotClient({"cli_path": CLI_PATH})
+        await client.start()
+
+        try:
+            captured = {}
+            original_request = client._client.request
+
+            async def mock_request(method, params):
+                captured[method] = params
+                if method == "session.getForeground":
+                    return {}
+                return await original_request(method, params)
+
+            client._client.request = mock_request
+            result = await client.get_foreground_session_id()
+            assert captured["session.getForeground"] == {}
+            assert result is None
+        finally:
+            await client.force_stop()
+
+    @pytest.mark.asyncio
+    async def test_set_foreground_session_id_sends_correct_rpc(self):
+        client = CopilotClient({"cli_path": CLI_PATH})
+        await client.start()
+
+        try:
+            captured = {}
+            original_request = client._client.request
+
+            async def mock_request(method, params):
+                captured[method] = params
+                if method == "session.setForeground":
+                    return {"success": True}
+                return await original_request(method, params)
+
+            client._client.request = mock_request
+            await client.set_foreground_session_id("session-123")
+            assert captured["session.setForeground"] == {"sessionId": "session-123"}
+        finally:
+            await client.force_stop()
