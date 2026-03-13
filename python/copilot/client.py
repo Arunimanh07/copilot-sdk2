@@ -1269,8 +1269,9 @@ class CopilotClient:
 
         # Verify CLI exists
         if not os.path.exists(cli_path):
+            original_path = cli_path
             if (cli_path := shutil.which(cli_path)) is None:
-                raise RuntimeError(f"Copilot CLI not found at {cli_path}")
+                raise RuntimeError(f"Copilot CLI not found at {original_path}")
 
         # Start with user-provided cli_args, then add SDK-managed args
         args = list(cfg.cli_args) + [
