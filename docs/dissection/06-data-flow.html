@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Flow - copilot-sdk Dissection</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/styles/github-dark-dimmed.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/go.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/csharp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect rx=%2715%27 width=%27100%27 height=%27100%27 fill=%27%230F172A%27/%3E%3Ctext x=%2750%27 y=%2770%27 font-size=%2750%27 text-anchor=%27middle%27 fill=%27%2322C55E%27%3E%26lt;/%26gt;%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <button class="sidebar-toggle">Menu</button>
+  <div class="page-wrapper">
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <h1>copilot-sdk</h1>
+        <div class="subtitle">Dissection Documentation</div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Foundation</div>
+        <a href="index.html" class="sidebar-link"><span class="link-num">00</span> Overview</a>
+        <a href="01-discovery.html" class="sidebar-link"><span class="link-num">01</span> Discovery</a>
+        <a href="02-structure.html" class="sidebar-link"><span class="link-num">02</span> Structure</a>
+        <a href="03-tech-stack.html" class="sidebar-link"><span class="link-num">03</span> Tech Stack</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Architecture</div>
+        <a href="04-entry-points.html" class="sidebar-link"><span class="link-num">04</span> Entry Points</a>
+        <a href="05-architecture.html" class="sidebar-link"><span class="link-num">05</span> Architecture</a>
+        <a href="06-data-flow.html" class="sidebar-link active"><span class="link-num">06</span> Data Flow</a>
+        <a href="07-api-surface.html" class="sidebar-link"><span class="link-num">07</span> API Surface</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Implementation</div>
+        <a href="08-conventions.html" class="sidebar-link"><span class="link-num">08</span> Conventions</a>
+        <a href="09-testing.html" class="sidebar-link"><span class="link-num">09</span> Testing</a>
+        <a href="10-build-deploy.html" class="sidebar-link"><span class="link-num">10</span> Build &amp; Deploy</a>
+        <a href="11-dependencies.html" class="sidebar-link"><span class="link-num">11</span> Dependencies</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Operations</div>
+        <a href="12-security.html" class="sidebar-link"><span class="link-num">12</span> Security</a>
+        <a href="13-contribution.html" class="sidebar-link"><span class="link-num">13</span> Contribution</a>
+      </div>
+    </nav>
+    <main class="main-content">
+      <div class="content-area">
+
+        <div class="phase-badge"><span class="dot"></span>Phase 6/13 &mdash; Data Flow</div>
+
+        <h1>Phase 6: Data Flow Analysis</h1>
+        <p>Traces every significant data flow through the copilot-sdk across all four language SDKs (<span class="lang-pill ts">TypeScript</span> <span class="lang-pill py">Python</span> <span class="lang-pill go">Go</span> <span class="lang-pill cs">C#</span>). All SDKs implement the same protocol; differences in mechanics are noted where they occur.</p>
+
+        <nav class="toc">
+          <h2>Table of Contents</h2>
+          <ol>
+            <li><a href="#s1">End-to-End Message Flow</a></li>
+            <li><a href="#s2">JSON-RPC Protocol Flow</a></li>
+            <li><a href="#s3">Session Lifecycle Data Flow</a></li>
+            <li><a href="#s4">Streaming Events Flow</a></li>
+            <li><a href="#s5">Tool Execution Flow</a></li>
+            <li><a href="#s6">Hook Data Flow</a></li>
+            <li><a href="#s7">Permission Request Flow</a></li>
+            <li><a href="#s8">Error Flow</a></li>
+            <li><a href="#s9">Configuration Data Flow</a></li>
+            <li><a href="#s10">State Management</a></li>
+            <li><a href="#appendix">Appendix: Cross-SDK Consistency</a></li>
+          </ol>
+        </nav>
+
+        <!-- =============== Section 1 =============== -->
+        <section id="s1">
+          <h2>1. End-to-End Message Flow</h2>
+
+          <h3>High-Level Overview</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">End-to-End Message Flow</div>
+            <pre class="mermaid">
+flowchart LR
+    User["User Code"] -->|"prompt"| SDK["SDK Session"]
+    SDK -->|"JSON-RPC request"| CLI["CLI Process"]
+    CLI -->|"HTTP / API"| LLM["LLM Backend"]
+    LLM -->|"streams response"| CLI
+    CLI -->|"session.event notifications"| SDK
+    SDK -->|"_dispatchEvent"| User
+            </pre>
+          </div>
+
+          <h3>Detailed Step-by-Step Flow</h3>
+          <p><strong>Step 1: User sends a prompt.</strong> All four SDKs invoke the <code>session.send</code> JSON-RPC request with identical wire payloads:</p>
+
+          <div class="code-tabs">
+            <div class="tab-bar">
+              <button class="tab-btn active" data-tab="send-ts">TypeScript</button>
+              <button class="tab-btn" data-tab="send-py">Python</button>
+              <button class="tab-btn" data-tab="send-go">Go</button>
+              <button class="tab-btn" data-tab="send-cs">C#</button>
+            </div>
+            <div class="tab-panel active" id="send-ts">
+              <pre data-lang="TypeScript"><code class="language-typescript">// nodejs/src/session.ts:120-128
+async send(options: MessageOptions): Promise&lt;string&gt; {
+    const response = await this.connection.sendRequest("session.send", {
+        sessionId: this.sessionId,
+        prompt: options.prompt,
+        attachments: options.attachments,
+        mode: options.mode,
+    });
+    return (response as { messageId: string }).messageId;
+}</code></pre>
+            </div>
+            <div class="tab-panel" id="send-py">
+              <pre data-lang="Python"><code class="language-python"># python/copilot/session.py:142-151
+response = await self._client.request(
+    "session.send",
+    {
+        "sessionId": self.session_id,
+        "prompt": options["prompt"],
+        "attachments": options.get("attachments"),
+        "mode": options.get("mode"),
+    },
+)
+return response["messageId"]</code></pre>
+            </div>
+            <div class="tab-panel" id="send-go">
+              <pre data-lang="Go"><code class="language-go">// go/session.go:113-131
+result, err := s.client.Request("session.send", req)</code></pre>
+            </div>
+            <div class="tab-panel" id="send-cs">
+              <pre data-lang="C#"><code class="language-csharp">// dotnet/src/Session.cs:140-153
+var response = await InvokeRpcAsync&lt;SendMessageResponse&gt;(
+    "session.send", [request], cancellationToken);
+return response.MessageId;</code></pre>
+            </div>
+          </div>
+
+          <p><strong>Step 2:</strong> CLI processes the prompt &mdash; communicates with LLM backend, orchestrates tool usage, streams events back.</p>
+          <p><strong>Step 3:</strong> SDK receives events as JSON-RPC notifications &mdash; <code>session.event</code> carries <code>{sessionId, event}</code>. Client looks up session, dispatches event.</p>
+          <p><strong>Step 4:</strong> User code receives typed events. <code>session.idle</code> signals the assistant's turn is complete.</p>
+
+          <h3>The sendAndWait Convenience Flow</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">sendAndWait Convenience Flow</div>
+            <pre class="mermaid">
+flowchart TD
+    A["sendAndWait(prompt, timeout)"] --> B["Register idle/error listener"]
+    B --> C["send(prompt) → session.send RPC"]
+    C --> D["Events stream in: assistant.message..."]
+    D --> E{"session.idle received?"}
+    E -->|"Yes"| F["Resolve with lastAssistantMessage"]
+    E -->|"Timeout"| G["Reject with TimeoutError"]
+            </pre>
+          </div>
+          <div class="callout info">
+            <strong>Race prevention:</strong> All SDKs register the event listener <em>before</em> calling <code>send()</code> to prevent a race where <code>session.idle</code> could fire before the listener is attached.
+          </div>
+        </section>
+
+        <!-- =============== Section 2 =============== -->
+        <section id="s2">
+          <h2>2. JSON-RPC Protocol Flow</h2>
+
+          <h3>Transport Layer</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Transport Layer</div>
+            <pre class="mermaid">
+flowchart LR
+    A["User Code"] <-->|"calls"| B["SDK\nMessageConnection / JsonRpcClient"]
+    B <-->|"stdio (default)\nor TCP"| C["CLI Process"]
+            </pre>
+          </div>
+
+          <p><strong>stdio</strong> (default): SDK spawns CLI as child process, creates JSON-RPC connection over <code>stdin</code>/<code>stdout</code> pipes.</p>
+          <p><strong>TCP</strong>: SDK spawns CLI with <code>--port</code> or connects to external CLI server at <code>cliUrl</code>.</p>
+
+          <h3>Connection Establishment (TypeScript)</h3>
+          <pre data-lang="TypeScript"><code class="language-typescript">// nodejs/src/client.ts:1280-1360
+connectToServer():
+  if isChildProcess:  connectToParentProcessViaStdio()
+  elif useStdio:      connectToChildProcessViaStdio()
+  else:               connectViaTcp()
+
+// Each path ends with:
+this.connection = createMessageConnection(reader, writer)
+this.attachConnectionHandlers()
+this.connection.listen()</code></pre>
+
+          <h3>Complete JSON-RPC Method Catalog</h3>
+
+          <h4>Server-Scoped Requests (SDK &rarr; CLI)</h4>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>ping</code></td><td>Health check; returns <code>protocolVersion</code></td></tr>
+              <tr><td><code>status.get</code></td><td>Get CLI version and protocol version</td></tr>
+              <tr><td><code>auth.getStatus</code></td><td>Get authentication status</td></tr>
+              <tr><td><code>models.list</code></td><td>List available LLM models</td></tr>
+              <tr><td><code>tools.list</code></td><td>List available built-in tools</td></tr>
+              <tr><td><code>account.getQuota</code></td><td>Get usage quota information</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h4>Session Lifecycle Requests (SDK &rarr; CLI)</h4>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>session.create</code></td><td>Create a new conversation session</td></tr>
+              <tr><td><code>session.resume</code></td><td>Resume an existing session</td></tr>
+              <tr><td><code>session.destroy</code></td><td>Disconnect session (preserve disk data)</td></tr>
+              <tr><td><code>session.delete</code></td><td>Permanently delete session and all data</td></tr>
+              <tr><td><code>session.send</code></td><td>Send a user message</td></tr>
+              <tr><td><code>session.abort</code></td><td>Abort current processing</td></tr>
+              <tr><td><code>session.getMessages</code></td><td>Retrieve full conversation history</td></tr>
+              <tr><td><code>session.getLastId</code></td><td>Get most recently updated session ID</td></tr>
+              <tr><td><code>session.list</code></td><td>List all sessions with metadata</td></tr>
+              <tr><td><code>session.getForeground</code></td><td>Get foreground session (TUI+server mode)</td></tr>
+              <tr><td><code>session.setForeground</code></td><td>Switch TUI to display a session</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h4>Session-Scoped RPC Requests (SDK &rarr; CLI)</h4>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>session.model.getCurrent</code></td><td>Get current model for session</td></tr>
+              <tr><td><code>session.model.switchTo</code></td><td>Change session model</td></tr>
+              <tr><td><code>session.mode.get</code> / <code>.set</code></td><td>Get/set agent mode (interactive/plan/autopilot)</td></tr>
+              <tr><td><code>session.plan.read</code> / <code>.update</code> / <code>.delete</code></td><td>Plan file operations</td></tr>
+              <tr><td><code>session.workspace.listFiles</code> / <code>.readFile</code> / <code>.createFile</code></td><td>Workspace operations</td></tr>
+              <tr><td><code>session.fleet.start</code></td><td>Start fleet mode</td></tr>
+              <tr><td><code>session.agent.list</code> / <code>.getCurrent</code> / <code>.select</code> / <code>.deselect</code></td><td>Custom agent operations</td></tr>
+              <tr><td><code>session.compaction.compact</code></td><td>Trigger context compaction</td></tr>
+              <tr><td><code>session.tools.handlePendingToolCall</code></td><td>Respond to a pending tool call</td></tr>
+              <tr><td><code>session.permissions.handlePendingPermissionRequest</code></td><td>Respond to a pending permission request</td></tr>
+              <tr><td><code>session.log</code></td><td>Log message to session timeline</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h4>CLI &rarr; SDK Notifications</h4>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>session.event</code></td><td>Deliver a session event (all event types)</td></tr>
+              <tr><td><code>session.lifecycle</code></td><td>Session lifecycle change (create/delete/etc.)</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h4>CLI &rarr; SDK Requests (v2 Protocol &mdash; backward compat)</h4>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>tool.call</code></td><td>Request tool execution (v2 protocol)</td></tr>
+              <tr><td><code>permission.request</code></td><td>Request permission decision (v2 protocol)</td></tr>
+              <tr><td><code>userInput.request</code></td><td>Request user input</td></tr>
+              <tr><td><code>hooks.invoke</code></td><td>Invoke a hook handler</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Protocol Versioning</h3>
+          <pre data-lang="TypeScript"><code class="language-typescript">// nodejs/src/client.ts:837-865
+verifyProtocolVersion():
+  pingResult = await this.ping()
+  serverVersion = pingResult.protocolVersion
+  if serverVersion &lt; MIN || serverVersion &gt; max:
+    throw "SDK protocol version mismatch"
+  this.negotiatedProtocolVersion = serverVersion</code></pre>
+          <p><strong>Protocol v2:</strong> Tool calls and permissions sent as JSON-RPC <em>requests</em> from CLI to SDK (synchronous).</p>
+          <p><strong>Protocol v3:</strong> Tool calls and permissions broadcast as session events. SDK handles internally and responds asynchronously via <code>session.tools.handlePendingToolCall</code>.</p>
+          <div class="callout info">Both v2 and v3 adapters are always registered during connection setup, before version negotiation occurs. A v3 server simply never sends v2-style requests.</div>
+        </section>
+
+        <!-- =============== Section 3 =============== -->
+        <section id="s3">
+          <h2>3. Session Lifecycle Data Flow</h2>
+
+          <h3>Complete Session Creation Flow</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Complete Session Creation Flow</div>
+            <pre class="mermaid">
+flowchart TD
+    A["createSession(config)"] --> B["Validate config"]
+    B --> C["Auto-start client if not connected"]
+    C --> D["Generate sessionId (UUID v4)"]
+    D --> E["Create CopilotSession object\nRegister tools, permissions, hooks\nsessions.set(sessionId, session)"]
+    E --> F["sendRequest 'session.create' → CLI"]
+    F --> G["CLI initializes context, model, tools, MCP"]
+    G --> H["Store workspacePath on session"]
+    H --> I["Return session to caller"]
+    style E fill:#22C55E,color:#0F172A,stroke:#22C55E
+            </pre>
+          </div>
+
+          <div class="callout error">
+            <strong>Critical design:</strong> The session object is created and registered <em>before</em> the RPC is sent (step 4 before step 5). This prevents a race where CLI emits <code>session.start</code> events before the SDK has a handler registered. All four SDKs implement this identically.
+          </div>
+
+          <h3>Session Resume Flow</h3>
+          <p>Nearly identical to creation except: uses <code>session.resume</code> RPC, session ID is provided by user, additional <code>disableResume</code> option available.</p>
+
+          <h3>Session Disconnect Flow</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Session Disconnect Flow</div>
+            <pre class="mermaid">
+flowchart TD
+    A["session.disconnect()"] --> B["sendRequest session.destroy, sessionId\nCLI releases in-memory resources\ndisk preserved"]
+    B --> C["Clear eventHandlers,\ntoolHandlers, permissionHandler"]
+            </pre>
+          </div>
+
+          <h3>Session Delete Flow (Permanent)</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Session Delete Flow</div>
+            <pre class="mermaid">
+flowchart TD
+    A["client.deleteSession(sessionId)"] --> B["sendRequest session.delete, sessionId\nCLI deletes all disk data"]
+    B --> C["Remove session from\nclient.sessions map"]
+            </pre>
+          </div>
+
+          <h3>Client Shutdown Flow</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Client Shutdown Flow</div>
+            <pre class="mermaid">
+flowchart TD
+    A["client.stop()"] --> B["For each session: session.disconnect()\nTS: 3 retries, exponential backoff"]
+    B --> C["Clear sessions map\nDispose JSON-RPC connection\nClear models cache"]
+    C --> D["Close TCP socket if used\nKill CLI process if spawned\nstate = disconnected"]
+            </pre>
+          </div>
+        </section>
+
+        <!-- =============== Section 4 =============== -->
+        <section id="s4">
+          <h2>4. Streaming Events Flow</h2>
+
+          <h3>Event Delivery Architecture</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Event Delivery Architecture</div>
+            <pre class="mermaid">
+flowchart LR
+    A["CLI\nLLM generates tokens"] -->|"notification:\nsession.event"| B["SDK Client\nhandleSessionEventNotification\nsessions.get sessionId"]
+    B --> C["Session\n_dispatchEvent\n_handleBroadcastEvent"]
+    C --> D["User Code\nhandler event"]
+            </pre>
+          </div>
+
+          <h3>Event Type Categories</h3>
+
+          <h4>Session Lifecycle Events</h4>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Event Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>session.start</code></td><td>Session initialized (sessionId, version, producer, startTime, context)</td></tr>
+              <tr><td><code>session.resume</code></td><td>Session resumed from disk</td></tr>
+              <tr><td><code>session.idle</code></td><td>Session finished processing (critical for sendAndWait)</td></tr>
+              <tr><td><code>session.error</code></td><td>Session-level error occurred</td></tr>
+              <tr><td><code>session.shutdown</code></td><td>Session shutting down</td></tr>
+              <tr><td><code>session.title_changed</code></td><td>Session title updated</td></tr>
+              <tr><td><code>session.model_change</code></td><td>Model switched</td></tr>
+              <tr><td><code>session.mode_changed</code></td><td>Agent mode changed</td></tr>
+              <tr><td><code>session.truncation</code></td><td>Context truncation occurred</td></tr>
+              <tr><td><code>session.compaction_start</code> / <code>.complete</code></td><td>Context compaction lifecycle</td></tr>
+              <tr><td><code>session.usage_info</code></td><td>Token usage information</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h4>Assistant Events (Streaming)</h4>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Event Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>assistant.turn_start</code></td><td>Assistant begins processing</td></tr>
+              <tr><td><code>assistant.intent</code></td><td>Detected intent/plan</td></tr>
+              <tr><td><code>assistant.reasoning</code> / <code>.reasoning_delta</code></td><td>Full/incremental reasoning</td></tr>
+              <tr><td><code>assistant.streaming_delta</code></td><td>Incremental response token</td></tr>
+              <tr><td><code>assistant.message</code> / <code>.message_delta</code></td><td>Complete/incremental message</td></tr>
+              <tr><td><code>assistant.turn_end</code></td><td>Assistant finished processing</td></tr>
+              <tr><td><code>assistant.usage</code></td><td>Token usage for this turn</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h4>Tool Events</h4>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Event Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>tool.execution_start</code></td><td>Tool execution started</td></tr>
+              <tr><td><code>tool.execution_partial_result</code></td><td>Partial tool result</td></tr>
+              <tr><td><code>tool.execution_progress</code></td><td>Tool progress update</td></tr>
+              <tr><td><code>tool.execution_complete</code></td><td>Tool finished (text, terminal, image, audio, resource)</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h4>Broadcast Request Events (Protocol v3)</h4>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Event Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>external_tool.requested</code></td><td>Tool call broadcast (requestId, toolName, arguments, toolCallId)</td></tr>
+              <tr><td><code>permission.requested</code></td><td>Permission request broadcast (requestId, permissionRequest)</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Event Chain Structure</h3>
+          <p>Events form a linked list via <code>parentId</code>:</p>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Event Chain Structure</div>
+            <pre class="mermaid">
+flowchart LR
+    A["Event 1: session.start\nparentId: null"] --> B["Event 2: user.message\nparentId: aaa"]
+    B --> C["Event 3: assistant.turn_start"]
+    C --> D["...\nEvent N: session.idle"]
+            </pre>
+          </div>
+          <p>Events can be marked <code>ephemeral: true</code> for transient data that should not be persisted.</p>
+        </section>
+
+        <!-- =============== Section 5 =============== -->
+        <section id="s5">
+          <h2>5. Tool Execution Flow</h2>
+
+          <h3>Protocol v3 (Broadcast Model) &mdash; Current</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Tool Execution Flow (v3 External Tools)</div>
+            <pre class="mermaid">
+sequenceDiagram
+    participant CLI as CLI Server
+    participant SDK as SDK Client
+    participant Handler as Tool Handler
+    CLI->>SDK: notification: external_tool.requested
+    SDK->>Handler: handler(args, invocation)
+    Handler-->>SDK: result
+    SDK->>CLI: rpc: tools.handlePendingToolCall
+    Note over CLI: Continues with tool result
+            </pre>
+          </div>
+
+          <h4>Implementation per SDK</h4>
+          <div class="code-tabs">
+            <div class="tab-bar">
+              <button class="tab-btn active" data-tab="tool-ts">TypeScript</button>
+              <button class="tab-btn" data-tab="tool-py">Python</button>
+              <button class="tab-btn" data-tab="tool-go">Go</button>
+              <button class="tab-btn" data-tab="tool-cs">C#</button>
+            </div>
+            <div class="tab-panel active" id="tool-ts">
+              <pre data-lang="TypeScript"><code class="language-typescript">// nodejs/src/session.ts:355-389
+private async _executeToolAndRespond(
+    requestId, toolName, toolCallId, args, handler
+): Promise&lt;void&gt; {
+    try {
+        const rawResult = await handler(args, {
+            sessionId: this.sessionId, toolCallId, toolName, arguments: args,
+        });
+        let result: string;
+        if (rawResult == null) result = "";
+        else if (typeof rawResult === "string") result = rawResult;
+        else result = JSON.stringify(rawResult);
+        await this.rpc.tools.handlePendingToolCall({ requestId, result });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await this.rpc.tools.handlePendingToolCall({ requestId, error: message });
+    }
+}</code></pre>
+            </div>
+            <div class="tab-panel" id="tool-py">
+              <pre data-lang="Python"><code class="language-python"># python/copilot/session.py:292-296
+asyncio.ensure_future(
+    self._execute_tool_and_respond(
+        request_id, tool_name, tool_call_id, arguments, handler
+    )
+)</code></pre>
+            </div>
+            <div class="tab-panel" id="tool-go">
+              <pre data-lang="Go"><code class="language-go">// go/session.go:499-536 -- Uses goroutines
+go s.executeToolAndRespond(
+    *requestID, *toolName, toolCallID,
+    event.Data.Arguments, handler)</code></pre>
+            </div>
+            <div class="tab-panel" id="tool-cs">
+              <pre data-lang="C#"><code class="language-csharp">// dotnet/src/Session.cs:358-389 -- async void
+private async void HandleBroadcastEventAsync(SessionEvent sessionEvent)
+{
+    await ExecuteToolAndRespondAsync(
+        data.RequestId, data.ToolName, ...);
+}</code></pre>
+            </div>
+          </div>
+
+          <h3>Protocol v2 (Synchronous RPC) &mdash; Legacy</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Tool Execution Flow (v2 Synchronous RPC)</div>
+            <pre class="mermaid">
+sequenceDiagram
+    participant CLI as CLI
+    participant SDK as SDK
+    participant Handler as Handler
+    CLI->>SDK: request: tool.call
+    Note over SDK: handleToolCallRequestV2&lt;br/&gt;session.getToolHandler(toolName)
+    SDK->>Handler: handler(invocation)
+    Handler-->>SDK: result
+    SDK-->>CLI: response: textResultForLLM, resultType
+            </pre>
+          </div>
+
+          <h3>Tool Registration Data Flow</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Tool Registration Data Flow</div>
+            <pre class="mermaid">
+flowchart TD
+    A["User provides tools in SessionConfig:\ntools: name, description, parameters, handler"] --> B["Wire Payload"]
+    A --> C["Local Registration"]
+    B --> D["CLI receives:\ntools: name, desc, params\nno handlers"]
+    C --> E["Session stores:\ntoolHandlers.set name, handler\nlocal only"]
+            </pre>
+          </div>
+          <div class="callout info">The CLI only receives tool metadata. The handler function stays local to the SDK process.</div>
+        </section>
+
+        <!-- =============== Section 6 =============== -->
+        <section id="s6">
+          <h2>6. Hook Data Flow</h2>
+
+          <h3>Hook Invocation Flow</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Hook Invocation Flow</div>
+            <pre class="mermaid">
+sequenceDiagram
+    participant CLI as CLI
+    participant SDK as SDK
+    participant Hook as User Hook
+    CLI->>SDK: request: hooks.invoke(hookType, input)
+    Note over SDK: _handleHooksInvoke&lt;br/&gt;handler = handlerMap[hookType]
+    SDK->>Hook: handler(input, sessionId)
+    Hook-->>SDK: result
+    SDK-->>CLI: response: output
+    Note over CLI: Applies hook output
+            </pre>
+          </div>
+
+          <h3>Hook Types and Their Data</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Hook Type</th><th>When Invoked</th><th>Input</th><th>Output Effect</th></tr></thead>
+            <tbody>
+              <tr><td><code>preToolUse</code></td><td>Before a tool executes</td><td>Tool name, args</td><td>Can modify/cancel tool execution</td></tr>
+              <tr><td><code>postToolUse</code></td><td>After a tool executes</td><td>Tool name, result</td><td>Can modify tool result</td></tr>
+              <tr><td><code>userPromptSubmitted</code></td><td>When user sends a message</td><td>User prompt</td><td>Can modify/reject the prompt</td></tr>
+              <tr><td><code>sessionStart</code></td><td>Session starts</td><td>Session context</td><td>Can configure session</td></tr>
+              <tr><td><code>sessionEnd</code></td><td>Session ends</td><td>Session summary</td><td>Cleanup</td></tr>
+              <tr><td><code>errorOccurred</code></td><td>Error in session</td><td>Error details</td><td>Error handling/logging</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Hook Registration</h3>
+          <pre data-lang="text"><code class="language-plaintext">// Hooks are registered at session creation time:
+config.hooks = {
+    onPreToolUse: async (input, { sessionId }) =&gt; { ... },
+    onPostToolUse: async (input, { sessionId }) =&gt; { ... },
+}
+// CLI is told hooks are enabled via boolean flag:
+payload["hooks"] = true  // (not the actual handler functions)</code></pre>
+          <div class="callout info">The <code>hooks: true</code> flag tells CLI to invoke <code>hooks.invoke</code> RPC at trigger points. Actual handler logic stays in the SDK process.</div>
+        </section>
+
+        <!-- =============== Section 7 =============== -->
+        <section id="s7">
+          <h2>7. Permission Request Flow</h2>
+
+          <h3>Protocol v3 Permission Flow (Broadcast)</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Protocol v3 Permission Flow</div>
+            <pre class="mermaid">
+sequenceDiagram
+    participant CLI as CLI
+    participant SDK as SDK
+    participant Handler as User Handler
+    CLI->>SDK: notification: session.event&lt;br/&gt;permission.requested
+    Note over SDK: _handleBroadcastEvent
+    SDK->>Handler: permissionHandler(request, sessionId)
+    Handler-->>SDK: kind: approved
+    SDK->>CLI: rpc: permissions.handlePendingPermissionRequest&lt;br/&gt;requestId, result
+    Note over CLI: Proceeds or aborts tool
+            </pre>
+          </div>
+
+          <h3>Protocol v2 Permission Flow (Synchronous)</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Protocol v2 Permission Flow</div>
+            <pre class="mermaid">
+sequenceDiagram
+    participant CLI as CLI
+    participant SDK as SDK
+    CLI->>SDK: request: permission.request
+    Note over SDK: handlePermissionRequestV2&lt;br/&gt;permissionHandler(request, sessionId)
+    SDK-->>CLI: response: result kind
+            </pre>
+          </div>
+
+          <h3>Permission Handler Contract</h3>
+          <div class="callout error">
+            <strong>Required:</strong> A permission handler is required when creating a session. Enforced by all four SDKs.
+          </div>
+
+          <h3>Permission Result Types</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Kind</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>approved</code></td><td>Tool execution permitted</td></tr>
+              <tr><td><code>denied-by-rules</code></td><td>Denied by policy rules</td></tr>
+              <tr><td><code>denied-interactively-by-user</code></td><td>User explicitly denied (optional feedback)</td></tr>
+              <tr><td><code>denied-no-approval-rule-and-could-not-request-from-user</code></td><td>No rule matched and user unreachable</td></tr>
+              <tr><td><code>denied-by-content-exclusion-policy</code></td><td>Content exclusion (path, message)</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Error Fallback</h3>
+          <p>If the permission handler throws, all SDKs catch the error and return a denial:</p>
+          <pre data-lang="TypeScript"><code class="language-typescript">// nodejs/src/session.ts:404-418
+catch (_error) {
+    await this.rpc.permissions.handlePendingPermissionRequest({
+        requestId,
+        result: { kind: "denied-no-approval-rule-and-could-not-request-from-user" },
+    });
+}</code></pre>
+        </section>
+
+        <!-- =============== Section 8 =============== -->
+        <section id="s8">
+          <h2>8. Error Flow</h2>
+
+          <h3>Error Propagation Layers</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Error Propagation Layers</div>
+            <pre class="mermaid">
+flowchart TD
+    L4["Layer 4: Session Event Errors\nsession.error event: message, stack\nDelivered to event handlers, causes sendAndWait to reject"]
+    L3["Layer 3: SDK Application Errors\nClient not connected | onPermissionRequest handler required\nprotocol version mismatch | CLI process exited with code N"]
+    L2["Layer 2: JSON-RPC Protocol Errors\nResponseError with code/message\nTS: ResponseError, Py: JsonRpcError, Go: jsonrpc2.Error, C#: RemoteInvocationException"]
+    L1["Layer 1: JSON-RPC Transport Errors\nConnection refused / broken pipe / timeout\nProcess exit before response"]
+    L4 --- L3 --- L2 --- L1
+            </pre>
+          </div>
+
+          <h3>Client.start() Error Flow</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Client.start() Error Flow</div>
+            <pre class="mermaid">
+flowchart TD
+    A["client.start()\nstate = connecting"] --> B["startCLIServer()\nmay fail: CLI not found"]
+    B --> C["connectToServer()\nmay fail: TCP connect error"]
+    C --> D["verifyProtocolVersion()\nmay fail: version mismatch"]
+    D --> E["state = connected\nor error on catch"]
+            </pre>
+          </div>
+
+          <h3>Protocol Version Verification Race</h3>
+          <p>TypeScript races <code>ping</code> against process exit to detect early CLI crashes:</p>
+          <pre data-lang="TypeScript"><code class="language-typescript">// nodejs/src/client.ts:841-846
+if (this.processExitPromise) {
+    pingResult = await Promise.race([this.ping(), this.processExitPromise]);
+} else {
+    pingResult = await this.ping();
+}</code></pre>
+
+          <h3>Client.stop() Error Aggregation</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>SDK</th><th>Error Aggregation</th></tr></thead>
+            <tbody>
+              <tr><td><span class="lang-pill ts">TypeScript</span></td><td>Returns <code>Error[]</code> array</td></tr>
+              <tr><td><span class="lang-pill py">Python</span></td><td>Raises <code>ExceptionGroup[StopError]</code></td></tr>
+              <tr><td><span class="lang-pill go">Go</span></td><td>Returns <code>errors.Join(errs...)</code></td></tr>
+              <tr><td><span class="lang-pill cs">C#</span></td><td>Throws <code>AggregateException</code> if multiple, single if one</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Connection Error Recovery</h3>
+          <pre data-lang="TypeScript"><code class="language-typescript">// nodejs/src/client.ts:1414-1418
+this.connection.onClose(() =&gt; {
+    if (this.state === "connected" &amp;&amp; this.options.autoRestart) {
+        void this.reconnect();
+    }
+});</code></pre>
+        </section>
+
+        <!-- =============== Section 9 =============== -->
+        <section id="s9">
+          <h2>9. Configuration Data Flow</h2>
+
+          <h3>Configuration Propagation Chain</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Configuration Propagation Chain</div>
+            <pre class="mermaid">
+flowchart TD
+    A["User-Provided Options\nCopilotClientOptions\ncliPath, cliUrl, useStdio, port, cwd,\nenv, githubToken, autoStart, logLevel, ..."] -->|"Validated and merged\nwith defaults"| B["client.options internal\nUsed during start to spawn CLI / connect"]
+    B --> C["SessionConfig\nmodel, tools, systemMessage,\nprovider, hooks, mcpServers,\ncustomAgents, ..."]
+    C -->|"Wire Payload\nsent to CLI"| D["Wire Payload: session.create RPC\nmodel, sessionId, clientName, reasoningEffort\ntools: name, desc, params - no handlers\nsystemMessage, provider, mcpServers\nrequestPermission: true, hooks: true/false\nworkingDirectory, streaming, customAgents"]
+    C -->|"Local Registration\nkept in SDK"| E["Local Registration\nsession.registerTools\nsession.registerPermissionHandler\nsession.registerUserInputHandler\nsession.registerHooks\nsession.on onEvent"]
+            </pre>
+          </div>
+
+          <h3>Key Separation Principle</h3>
+          <div class="callout info">
+            <strong>Data sent to CLI:</strong> Session metadata, model selection, tool schemas, directory, feature flags, provider config. CLI needs to know <em>what</em> tools and features are available.<br><br>
+            <strong>Data kept local in SDK:</strong> Handler functions (tool, permission, event, hooks, user input). These are callable objects that cannot be serialized over JSON-RPC.
+          </div>
+
+          <h3>Default Values</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Option</th><th>Default</th></tr></thead>
+            <tbody>
+              <tr><td><code>useStdio</code></td><td><code>true</code> (unless <code>cliUrl</code> provided)</td></tr>
+              <tr><td><code>port</code></td><td><code>0</code> (OS-assigned when TCP)</td></tr>
+              <tr><td><code>cwd</code></td><td><code>process.cwd()</code> / <code>os.getcwd()</code></td></tr>
+              <tr><td><code>autoStart</code></td><td><code>true</code></td></tr>
+              <tr><td><code>autoRestart</code></td><td><code>true</code></td></tr>
+              <tr><td><code>logLevel</code></td><td><code>"debug"</code></td></tr>
+              <tr><td><code>useLoggedInUser</code></td><td><code>true</code> (unless <code>githubToken</code> provided)</td></tr>
+              <tr><td><code>envValueMode</code></td><td><code>"direct"</code> (always)</td></tr>
+              <tr><td><code>requestPermission</code></td><td><code>true</code> (always)</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+        </section>
+
+        <!-- =============== Section 10 =============== -->
+        <section id="s10">
+          <h2>10. State Management</h2>
+
+          <h3>State Distribution Map</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">State Distribution Map</div>
+            <pre class="mermaid">
+flowchart LR
+    A["SDK Client Process\n\nCopilotClient: state, connection,\ncliProcess, socket, actualPort,\nmodelsCache, negotiatedProtocolVersion,\nsessions Map, lifecycleHandlers, options\n\nCopilotSession per session: sessionId,\nworkspacePath, connection ref,\neventHandlers, typedEventHandlers,\ntoolHandlers, permissionHandler,\nuserInputHandler, hooks, _rpc"]
+    B["CLI Process\n\nConversation history persisted\nPlanning state\nTool registry built-in + SDK schemas\nModel state\nWorking directory / Git context\nMCP server connections\nAuthentication state\nSession workspace files"]
+    A <-->|"JSON-RPC"| B
+            </pre>
+          </div>
+
+          <h3>State Ownership Summary</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>State</th><th>Owned By</th><th>Persisted?</th><th>Shared?</th></tr></thead>
+            <tbody>
+              <tr><td>Connection state</td><td>Client</td><td>No (in-memory)</td><td>No</td></tr>
+              <tr><td>Session map</td><td>Client</td><td>No (in-memory)</td><td>No</td></tr>
+              <tr><td>Models cache</td><td>Client</td><td>No (in-memory)</td><td>No</td></tr>
+              <tr><td>Protocol version</td><td>Client</td><td>No (in-memory)</td><td>No</td></tr>
+              <tr><td>Event/tool/permission handlers</td><td>Session</td><td>No (in-memory)</td><td>No</td></tr>
+              <tr><td>Conversation history</td><td>CLI</td><td>Yes (disk)</td><td>Via RPC</td></tr>
+              <tr><td>Tool schemas</td><td>CLI</td><td>Yes (disk)</td><td>Via RPC</td></tr>
+              <tr><td>Session workspace</td><td>CLI</td><td>Yes (disk)</td><td>Via RPC</td></tr>
+              <tr><td>Authentication</td><td>CLI</td><td>Yes (config)</td><td>Via RPC</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Concurrency and Thread Safety</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>SDK</th><th>Session Map</th><th>Handler Collections</th><th>Models Cache</th></tr></thead>
+            <tbody>
+              <tr><td><span class="lang-pill ts">TypeScript</span></td><td>Single-threaded (event loop)</td><td>Set (single-threaded)</td><td>Promise-based lock</td></tr>
+              <tr><td><span class="lang-pill py">Python</span></td><td><code>threading.Lock</code></td><td><code>threading.Lock</code></td><td><code>asyncio.Lock</code></td></tr>
+              <tr><td><span class="lang-pill go">Go</span></td><td><code>sync.Mutex</code></td><td><code>sync.RWMutex</code></td><td><code>sync.Mutex</code></td></tr>
+              <tr><td><span class="lang-pill cs">C#</span></td><td><code>ConcurrentDictionary</code></td><td><code>event</code> (CAS loop)</td><td><code>SemaphoreSlim</code></td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Session-Client Relationship</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Session-Client Relationship</div>
+            <pre class="mermaid">
+flowchart LR
+    A["CopilotClient 1\nOwns connection, CLI process\nRoutes notifications by sessionId"] -->|"manages N"| B["CopilotSession N\nReferences same connection\nDispatches events to handlers\nExecutes tools locally"]
+            </pre>
+          </div>
+          <p>Sessions hold a reference to the client's connection (not a copy), so all sessions communicate through the same JSON-RPC channel.</p>
+
+          <h3>Lifecycle of Cached Models</h3>
+          <pre data-lang="text"><code class="language-plaintext">ListModels():
+  acquire lock
+  if cache != null:   return copy of cache   // defensive copy
+  models = RPC("models.list")
+  cache = copy of models                     // defensive copy
+  release lock
+  return copy of models                      // defensive copy
+
+Client.stop():
+  cache = null                               // invalidated</code></pre>
+          <p>The triple-copy pattern prevents external mutation of the cached data.</p>
+        </section>
+
+        <!-- =============== Appendix =============== -->
+        <section id="appendix">
+          <h2>Appendix: Cross-SDK Implementation Consistency</h2>
+          <p>All four SDKs implement the identical JSON-RPC protocol and exhibit the same observable behavior. Major implementation differences:</p>
+
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Aspect</th><th><span class="lang-pill ts">TypeScript</span></th><th><span class="lang-pill py">Python</span></th><th><span class="lang-pill go">Go</span></th><th><span class="lang-pill cs">C#</span></th></tr></thead>
+            <tbody>
+              <tr><td>JSON-RPC library</td><td><code>vscode-jsonrpc</code></td><td>Custom <code>JsonRpcClient</code></td><td>Custom <code>jsonrpc2</code></td><td><code>StreamJsonRpc</code></td></tr>
+              <tr><td>Event dispatch</td><td>Sync iteration over Set</td><td>Sync iteration over copied set</td><td>Sync iteration over copied slice</td><td>Multicast delegate</td></tr>
+              <tr><td>Tool exec (v3)</td><td><code>void</code> async function</td><td><code>asyncio.ensure_future()</code></td><td><code>go</code> goroutine</td><td><code>async void</code></td></tr>
+              <tr><td>Session map</td><td><code>Map&lt;string, Session&gt;</code></td><td><code>dict[str, Session]</code></td><td><code>map[string]*Session</code></td><td><code>ConcurrentDictionary</code></td></tr>
+              <tr><td>Typed events</td><td>Discriminated unions</td><td><code>@dataclass</code> + enum</td><td>Struct + type string</td><td>Record subclasses</td></tr>
+              <tr><td>Error cleanup</td><td>try/catch + delete</td><td>try/except + pop</td><td>if err + delete</td><td>try/catch + TryRemove</td></tr>
+              <tr><td>Generated RPC</td><td><code>createServerRpc</code> / <code>createSessionRpc</code></td><td><code>ServerRpc</code> / <code>SessionRpc</code></td><td><code>rpc.NewServerRpc</code> / <code>NewSessionRpc</code></td><td><code>ServerRpc</code> / <code>SessionRpc</code></td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+        </section>
+
+      </div>
+      <nav class="page-nav">
+        <a href="05-architecture.html" class="page-nav-link prev">
+          <span class="page-nav-label">Previous</span>
+          <span class="page-nav-title">05 — Architecture &amp; Patterns</span>
+        </a>
+        <a href="07-api-surface.html" class="page-nav-link next">
+          <span class="page-nav-label">Next</span>
+          <span class="page-nav-title">07 — API Surface</span>
+        </a>
+      </nav>
+    </main>
+  </div>
+
+  <button class="scroll-top" title="Back to top">&uarr;</button>
+  <script src="app.js"></script>
+</body>
+</html>

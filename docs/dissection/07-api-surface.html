@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Surface - copilot-sdk Dissection</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/styles/github-dark-dimmed.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/go.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/csharp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect rx=%2715%27 width=%27100%27 height=%27100%27 fill=%27%230F172A%27/%3E%3Ctext x=%2750%27 y=%2770%27 font-size=%2750%27 text-anchor=%27middle%27 fill=%27%2322C55E%27%3E%26lt;/%26gt;%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <button class="sidebar-toggle">Menu</button>
+  <div class="page-wrapper">
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <h1>copilot-sdk</h1>
+        <div class="subtitle">Dissection Documentation</div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Foundation</div>
+        <a href="index.html" class="sidebar-link"><span class="link-num">00</span> Overview</a>
+        <a href="01-discovery.html" class="sidebar-link"><span class="link-num">01</span> Discovery</a>
+        <a href="02-structure.html" class="sidebar-link"><span class="link-num">02</span> Structure</a>
+        <a href="03-tech-stack.html" class="sidebar-link"><span class="link-num">03</span> Tech Stack</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Architecture</div>
+        <a href="04-entry-points.html" class="sidebar-link"><span class="link-num">04</span> Entry Points</a>
+        <a href="05-architecture.html" class="sidebar-link"><span class="link-num">05</span> Architecture</a>
+        <a href="06-data-flow.html" class="sidebar-link"><span class="link-num">06</span> Data Flow</a>
+        <a href="07-api-surface.html" class="sidebar-link active"><span class="link-num">07</span> API Surface</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Implementation</div>
+        <a href="08-conventions.html" class="sidebar-link"><span class="link-num">08</span> Conventions</a>
+        <a href="09-testing.html" class="sidebar-link"><span class="link-num">09</span> Testing</a>
+        <a href="10-build-deploy.html" class="sidebar-link"><span class="link-num">10</span> Build &amp; Deploy</a>
+        <a href="11-dependencies.html" class="sidebar-link"><span class="link-num">11</span> Dependencies</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Operations</div>
+        <a href="12-security.html" class="sidebar-link"><span class="link-num">12</span> Security</a>
+        <a href="13-contribution.html" class="sidebar-link"><span class="link-num">13</span> Contribution</a>
+      </div>
+    </nav>
+    <main class="main-content">
+      <div class="content-area">
+
+        <div class="phase-badge"><span class="dot"></span>Phase 7/13 &mdash; API Surface</div>
+
+        <h1>Phase 7: Complete API Surface Reference</h1>
+        <p>Every public symbol, method, type, and extension point across <span class="lang-pill ts">TypeScript</span> <span class="lang-pill py">Python</span> <span class="lang-pill go">Go</span> <span class="lang-pill cs">C#</span>.</p>
+
+        <nav class="toc">
+          <h2>Table of Contents</h2>
+          <ol>
+            <li><a href="#s1">Exported Symbols Per SDK</a></li>
+            <li><a href="#s2">Client API</a></li>
+            <li><a href="#s3">Session API</a></li>
+            <li><a href="#s4">Type System</a></li>
+            <li><a href="#s5">Tool Definition API</a></li>
+            <li><a href="#s6">Hook / Callback API</a></li>
+            <li><a href="#s7">Permission API</a></li>
+            <li><a href="#s8">Extension Points</a></li>
+            <li><a href="#s9">JSON-RPC Methods</a></li>
+            <li><a href="#s10">Cross-Language API Comparison</a></li>
+            <li><a href="#appendix">Appendix: SDK-Specific Differences</a></li>
+          </ol>
+        </nav>
+
+        <!-- =============== Section 1 =============== -->
+        <section id="s1">
+          <h2>1. Exported Symbols Per SDK</h2>
+
+          <h3><span class="lang-pill ts">TypeScript</span> <code>nodejs/src/index.ts</code></h3>
+          <pre data-lang="TypeScript"><code class="language-typescript">// Classes
+export { CopilotClient } from "./client.js";
+export { CopilotSession, type AssistantMessageEvent } from "./session.js";
+
+// Functions
+export { defineTool, approveAll } from "./types.js";
+
+// Types (re-exported)
+export type {
+    ConnectionState, CopilotClientOptions, CustomAgentConfig,
+    ForegroundSessionInfo, GetAuthStatusResponse, GetStatusResponse,
+    InfiniteSessionConfig, MCPLocalServerConfig, MCPRemoteServerConfig,
+    MCPServerConfig, MessageOptions, ModelBilling, ModelCapabilities,
+    ModelInfo, ModelPolicy, PermissionHandler, PermissionRequest,
+    PermissionRequestResult, ResumeSessionConfig, SessionConfig,
+    SessionEvent, SessionEventHandler, SessionEventPayload,
+    SessionEventType, SessionLifecycleEvent, SessionLifecycleEventType,
+    SessionLifecycleHandler, SessionContext, SessionListFilter,
+    SessionMetadata, SystemMessageAppendConfig, SystemMessageConfig,
+    SystemMessageReplaceConfig, Tool, ToolHandler, ToolInvocation,
+    ToolResultObject, TypedSessionEventHandler,
+    TypedSessionLifecycleHandler, ZodSchema,
+} from "./types.js";</code></pre>
+
+          <h3><span class="lang-pill py">Python</span> <code>python/copilot/__init__.py</code></h3>
+          <pre data-lang="Python"><code class="language-python"># Classes
+from .client import CopilotClient
+from .session import CopilotSession
+
+# Functions
+from .tools import define_tool
+
+# Types (re-exported)
+from .types import (
+    AzureProviderOptions, ConnectionState, CustomAgentConfig,
+    GetAuthStatusResponse, GetStatusResponse, MCPLocalServerConfig,
+    MCPRemoteServerConfig, MCPServerConfig, MessageOptions,
+    ModelBilling, ModelCapabilities, ModelInfo, ModelPolicy,
+    PermissionHandler, PermissionRequest, PermissionRequestResult,
+    PingResponse, ProviderConfig, ResumeSessionConfig, SessionConfig,
+    SessionContext, SessionEvent, SessionListFilter, SessionMetadata,
+    StopError, Tool, ToolHandler, ToolInvocation, ToolResult,
+)</code></pre>
+
+          <h3><span class="lang-pill go">Go</span> <code>go/</code> package</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Category</th><th>Symbols</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Structs</strong></td><td><code>Client</code>, <code>Session</code>, <code>ClientOptions</code>, <code>SessionConfig</code>, <code>ResumeSessionConfig</code>, <code>Tool</code>, <code>ToolInvocation</code>, <code>ToolResult</code>, <code>ToolBinaryResult</code>, <code>MessageOptions</code>, <code>ProviderConfig</code>, <code>AzureProviderOptions</code>, <code>SystemMessageConfig</code>, <code>MCPLocalServerConfig</code>, <code>MCPRemoteServerConfig</code>, <code>CustomAgentConfig</code>, <code>InfiniteSessionConfig</code>, <code>PermissionRequestResult</code>, <code>SessionHooks</code>, <code>PreToolUseHookInput/Output</code>, <code>PostToolUseHookInput/Output</code>, <code>SessionStartHookInput/Output</code>, <code>SessionEndHookInput/Output</code>, <code>ErrorOccurredHookInput/Output</code>, <code>ModelInfo</code>, <code>SessionContext</code>, <code>SessionMetadata</code></td></tr>
+              <tr><td><strong>Type Aliases</strong></td><td><code>ConnectionState</code>, <code>SessionEventHandler</code>, <code>SessionLifecycleHandler</code>, <code>PermissionRequestResultKind</code>, <code>MCPServerConfig</code></td></tr>
+              <tr><td><strong>Functions</strong></td><td><code>NewClient()</code>, <code>Bool()</code>, <code>String()</code>, <code>Float64()</code>, <code>DefineTool()</code></td></tr>
+              <tr><td><strong>Variables</strong></td><td><code>PermissionHandler.ApproveAll</code></td></tr>
+              <tr><td><strong>Constants</strong></td><td><code>StateDisconnected</code>, <code>StateConnecting</code>, <code>StateConnected</code>, <code>StateError</code>, <code>PermissionRequestResultKindApproved</code>, <code>...Denied*</code>, <code>SessionLifecycleCreated/Deleted/Updated/Foreground/Background</code></td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3><span class="lang-pill cs">C#</span> <code>dotnet/src/</code> namespace <code>GitHub.Copilot.SDK</code></h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Category</th><th>Symbols</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Classes</strong></td><td><code>CopilotClient</code>, <code>CopilotSession</code>, <code>CopilotClientOptions</code>, <code>SessionConfig</code>, <code>ResumeSessionConfig</code>, <code>ToolResultObject</code>, <code>ToolInvocation</code>, <code>PermissionRequestResult</code>, <code>SessionHooks</code>, <code>PreToolUseHookInput/Output</code>, <code>PostToolUseHookInput/Output</code>, <code>SessionStartHookInput/Output</code>, <code>SessionEndHookInput/Output</code>, <code>ErrorOccurredHookInput/Output</code>, <code>ProviderConfig</code>, <code>McpLocalServerConfig</code>, <code>McpRemoteServerConfig</code>, <code>CustomAgentConfig</code>, <code>InfiniteSessionConfig</code>, <code>SystemMessageConfig</code>, <code>ModelInfo</code>, <code>SessionContext</code>, <code>SessionMetadata</code></td></tr>
+              <tr><td><strong>Enums</strong></td><td><code>ConnectionState</code>, <code>SystemMessageMode</code></td></tr>
+              <tr><td><strong>Delegates</strong></td><td><code>ToolHandler</code>, <code>PermissionRequestHandler</code>, <code>UserInputHandler</code>, <code>PreToolUseHandler</code>, <code>PostToolUseHandler</code>, <code>SessionEventHandler</code></td></tr>
+              <tr><td><strong>Static</strong></td><td><code>PermissionHandler.ApproveAll</code></td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+        </section>
+
+        <!-- =============== Section 2 =============== -->
+        <section id="s2">
+          <h2>2. Client API</h2>
+
+          <h3>Constructor</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Language</th><th>Signature</th></tr></thead>
+            <tbody>
+              <tr><td><span class="lang-pill ts">TS</span></td><td><code>new CopilotClient(options?: CopilotClientOptions)</code></td></tr>
+              <tr><td><span class="lang-pill py">Py</span></td><td><code>CopilotClient(options?: CopilotClientOptions)</code></td></tr>
+              <tr><td><span class="lang-pill go">Go</span></td><td><code>NewClient(options *ClientOptions) *Client</code></td></tr>
+              <tr><td><span class="lang-pill cs">C#</span></td><td><code>new CopilotClient(options?: CopilotClientOptions)</code></td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>CopilotClientOptions</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Field</th><th><span class="lang-pill ts">TS</span></th><th><span class="lang-pill py">Py</span></th><th><span class="lang-pill go">Go</span></th><th><span class="lang-pill cs">C#</span></th></tr></thead>
+            <tbody>
+              <tr><td>CLI path</td><td><code>cliPath?: string</code></td><td><code>cli_path: str</code></td><td><code>CLIPath string</code></td><td><code>CliPath string?</code></td></tr>
+              <tr><td>CLI args</td><td><code>cliArgs?: string[]</code></td><td><code>cli_args: list[str]</code></td><td><code>CLIArgs []string</code></td><td><code>CliArgs string[]?</code></td></tr>
+              <tr><td>Working dir</td><td><code>cwd?: string</code></td><td><code>cwd: str</code></td><td><code>Cwd string</code></td><td><code>Cwd string?</code></td></tr>
+              <tr><td>Port</td><td><code>port?: number</code></td><td><code>port: int</code></td><td><code>Port int</code></td><td><code>Port int</code></td></tr>
+              <tr><td>Use stdio</td><td><code>useStdio?: boolean</code></td><td><code>use_stdio: bool</code></td><td><code>UseStdio *bool</code></td><td><code>UseStdio bool</code></td></tr>
+              <tr><td>CLI URL</td><td><code>cliUrl?: string</code></td><td><code>cli_url: str</code></td><td><code>CLIUrl string</code></td><td><code>CliUrl string?</code></td></tr>
+              <tr><td>Auto start</td><td><code>autoStart?: boolean</code></td><td><code>auto_start: bool</code></td><td><code>AutoStart *bool</code></td><td><code>AutoStart bool</code></td></tr>
+              <tr><td>Auto restart</td><td><code>autoRestart?: boolean</code></td><td><code>auto_restart: bool</code></td><td><code>AutoRestart *bool</code></td><td><code>AutoRestart bool</code></td></tr>
+              <tr><td>Environment</td><td><code>env?: Record&lt;string,string&gt;</code></td><td><code>env: dict</code></td><td><code>Env []string</code></td><td><code>Environment IReadOnlyDictionary?</code></td></tr>
+              <tr><td>GitHub token</td><td><code>githubToken?: string</code></td><td><code>github_token: str</code></td><td><code>GitHubToken string</code></td><td><code>GitHubToken string?</code></td></tr>
+              <tr><td>Model lister</td><td><code>onListModels?: () =&gt; Promise&lt;ModelInfo[]&gt;</code></td><td><code>on_list_models: Callable</code></td><td><code>OnListModels func(ctx)([]ModelInfo, error)</code></td><td><code>OnListModels Func&lt;..., Task&lt;List&lt;ModelInfo&gt;&gt;&gt;?</code></td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Client Methods</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Method</th><th><span class="lang-pill ts">TS</span></th><th><span class="lang-pill py">Py</span></th><th><span class="lang-pill go">Go</span></th><th><span class="lang-pill cs">C#</span></th></tr></thead>
+            <tbody>
+              <tr><td>Start</td><td><code>start(): Promise&lt;void&gt;</code></td><td><code>async start()</code></td><td><code>Start(ctx) error</code></td><td><code>StartAsync(ct) Task</code></td></tr>
+              <tr><td>Stop</td><td><code>stop(): Promise&lt;Error[]&gt;</code></td><td><code>async stop()</code></td><td><code>Stop() error</code></td><td><code>StopAsync(ct) Task</code></td></tr>
+              <tr><td>Force stop</td><td><code>forceStop()</code></td><td><code>async force_stop()</code></td><td><code>ForceStop()</code></td><td><code>ForceStopAsync() Task</code></td></tr>
+              <tr><td>Create session</td><td><code>createSession(config)</code></td><td><code>create_session(config)</code></td><td><code>CreateSession(ctx, *SessionConfig)</code></td><td><code>CreateSessionAsync(config, ct)</code></td></tr>
+              <tr><td>Resume session</td><td><code>resumeSession(id, config)</code></td><td><code>resume_session(id, config)</code></td><td><code>ResumeSession(ctx, id, *ResumeSessionConfig)</code></td><td><code>ResumeSessionAsync(id, config, ct)</code></td></tr>
+              <tr><td>Ping</td><td><code>ping(msg?)</code></td><td><code>ping(msg?)</code></td><td><code>Ping(ctx, msg)</code></td><td><code>PingAsync(msg?, ct)</code></td></tr>
+              <tr><td>Get status</td><td><code>getStatus()</code></td><td><code>get_status()</code></td><td><code>GetStatus(ctx)</code></td><td><code>GetStatusAsync(ct)</code></td></tr>
+              <tr><td>Auth status</td><td><code>getAuthStatus()</code></td><td><code>get_auth_status()</code></td><td><code>GetAuthStatus(ctx)</code></td><td><code>GetAuthStatusAsync(ct)</code></td></tr>
+              <tr><td>List models</td><td><code>listModels()</code></td><td><code>list_models()</code></td><td><code>ListModels(ctx)</code></td><td><code>ListModelsAsync(ct)</code></td></tr>
+              <tr><td>List sessions</td><td><code>listSessions(filter?)</code></td><td><code>list_sessions(filter?)</code></td><td><code>ListSessions(ctx, *SessionListFilter)</code></td><td><code>ListSessionsAsync(filter?, ct)</code></td></tr>
+              <tr><td>Delete session</td><td><code>deleteSession(id)</code></td><td><code>delete_session(id)</code></td><td><code>DeleteSession(ctx, id)</code></td><td><code>DeleteSessionAsync(id, ct)</code></td></tr>
+              <tr><td>Lifecycle events</td><td><code>on(handler): () =&gt; void</code></td><td><code>on(handler) -&gt; Callable</code></td><td><code>On(handler) func()</code></td><td><code>On(handler) IDisposable</code></td></tr>
+              <tr><td>Dispose</td><td><code>[Symbol.asyncDispose]()</code></td><td><code>async __aexit__()</code></td><td><code>Stop()</code></td><td><code>DisposeAsync()</code></td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+        </section>
+
+        <!-- =============== Section 3 =============== -->
+        <section id="s3">
+          <h2>3. Session API</h2>
+
+          <h3>Session Properties</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Property</th><th><span class="lang-pill ts">TS</span></th><th><span class="lang-pill py">Py</span></th><th><span class="lang-pill go">Go</span></th><th><span class="lang-pill cs">C#</span></th></tr></thead>
+            <tbody>
+              <tr><td>Session ID</td><td><code>readonly sessionId: string</code></td><td><code>session_id: str</code></td><td><code>SessionID string</code></td><td><code>SessionId { get; }</code></td></tr>
+              <tr><td>Workspace</td><td><code>get workspacePath()</code></td><td><code>workspace_path</code> (property)</td><td><code>WorkspacePath() string</code></td><td><code>WorkspacePath { get; }</code></td></tr>
+              <tr><td>Typed RPC</td><td><code>get rpc()</code></td><td><code>rpc</code> (property)</td><td><code>RPC *rpc.SessionRpc</code></td><td><code>Rpc</code> (property)</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Session Methods</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Method</th><th><span class="lang-pill ts">TS</span></th><th><span class="lang-pill py">Py</span></th><th><span class="lang-pill go">Go</span></th><th><span class="lang-pill cs">C#</span></th></tr></thead>
+            <tbody>
+              <tr><td>Send</td><td><code>send(options)</code></td><td><code>send(options)</code></td><td><code>Send(ctx, MessageOptions)</code></td><td><code>SendAsync(options, ct)</code></td></tr>
+              <tr><td>Send &amp; wait</td><td><code>sendAndWait(options, timeout?)</code></td><td><code>send_and_wait(options, timeout?)</code></td><td><code>SendAndWait(ctx, MessageOptions)</code></td><td><code>SendAndWaitAsync(options, timeout?, ct)</code></td></tr>
+              <tr><td>Subscribe</td><td><code>on(handler): () =&gt; void</code></td><td><code>on(handler) -&gt; Callable</code></td><td><code>On(handler) func()</code></td><td><code>On(handler) IDisposable</code></td></tr>
+              <tr><td>Typed subscribe</td><td><code>on&lt;K&gt;(type, handler)</code></td><td>N/A</td><td>N/A</td><td>N/A (pattern matching)</td></tr>
+              <tr><td>Get messages</td><td><code>getMessages()</code></td><td><code>get_messages()</code></td><td><code>GetMessages(ctx)</code></td><td><code>GetMessagesAsync(ct)</code></td></tr>
+              <tr><td>Disconnect</td><td><code>disconnect()</code></td><td><code>disconnect()</code></td><td><code>Disconnect() error</code></td><td><code>DisposeAsync()</code></td></tr>
+              <tr><td>Abort</td><td><code>abort()</code></td><td><code>abort()</code></td><td><code>Abort(ctx) error</code></td><td><code>AbortAsync(ct)</code></td></tr>
+              <tr><td>Set model</td><td><code>setModel(model)</code></td><td><code>set_model(model)</code></td><td><code>SetModel(ctx, model)</code></td><td><code>SetModelAsync(model, ct)</code></td></tr>
+              <tr><td>Log</td><td><code>log(message, options?)</code></td><td><code>log(message, level?, ephemeral?)</code></td><td><code>Log(ctx, message, *LogOptions)</code></td><td><code>LogAsync(message, level?, ephemeral?, ct)</code></td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>MessageOptions</h3>
+          <div class="code-tabs">
+            <div class="tab-bar">
+              <button class="tab-btn active" data-tab="msg-ts">TypeScript</button>
+              <button class="tab-btn" data-tab="msg-py">Python</button>
+              <button class="tab-btn" data-tab="msg-go">Go</button>
+              <button class="tab-btn" data-tab="msg-cs">C#</button>
+            </div>
+            <div class="tab-panel active" id="msg-ts"><pre data-lang="TypeScript"><code class="language-typescript">interface MessageOptions {
+    prompt: string;
+    attachments?: Array&lt;FileAttachment | DirectoryAttachment | SelectionAttachment&gt;;
+    mode?: "enqueue" | "immediate";
+}</code></pre></div>
+            <div class="tab-panel" id="msg-py"><pre data-lang="Python"><code class="language-python">class MessageOptions(TypedDict):
+    prompt: str
+    attachments: NotRequired[list[Attachment]]
+    mode: NotRequired[Literal["enqueue", "immediate"]]</code></pre></div>
+            <div class="tab-panel" id="msg-go"><pre data-lang="Go"><code class="language-go">type MessageOptions struct {
+    Prompt      string
+    Attachments []Attachment
+    Mode        string  // "enqueue" or "immediate"
+}</code></pre></div>
+            <div class="tab-panel" id="msg-cs"><pre data-lang="C#"><code class="language-csharp">public class MessageOptions {
+    public string Prompt { get; init; }
+    public List&lt;Attachment&gt;? Attachments { get; init; }
+    public string? Mode { get; init; }
+}</code></pre></div>
+          </div>
+        </section>
+
+        <!-- =============== Section 4 =============== -->
+        <section id="s4">
+          <h2>4. Type System</h2>
+
+          <h3>SessionConfig</h3>
+          <p>The most important configuration type &mdash; controls model selection, tools, permissions, hooks, provider, MCP servers, and more.</p>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Field</th><th><span class="lang-pill ts">TS</span></th><th><span class="lang-pill py">Py</span></th><th><span class="lang-pill go">Go</span></th><th><span class="lang-pill cs">C#</span></th></tr></thead>
+            <tbody>
+              <tr><td>Model</td><td><code>model?: string</code></td><td><code>model: str</code></td><td><code>Model string</code></td><td><code>Model string?</code></td></tr>
+              <tr><td>Tools</td><td><code>tools?: Tool&lt;any&gt;[]</code></td><td><code>tools: list[Tool]</code></td><td><code>Tools []Tool</code></td><td><code>Tools List&lt;AIFunction&gt;?</code></td></tr>
+              <tr><td>System message</td><td><code>systemMessage?: SystemMessageConfig</code></td><td><code>system_message</code></td><td><code>SystemMessage *SystemMessageConfig</code></td><td><code>SystemMessage?</code></td></tr>
+              <tr><td>Permission handler</td><td><code>onPermissionRequest: PermissionHandler</code></td><td><code>on_permission_request</code></td><td><code>OnPermissionRequest PermissionHandlerFunc</code></td><td><code>OnPermissionRequest?</code></td></tr>
+              <tr><td>User input</td><td><code>onUserInputRequest?</code></td><td><code>on_user_input_request</code></td><td><code>OnUserInputRequest</code></td><td><code>OnUserInputRequest?</code></td></tr>
+              <tr><td>Hooks</td><td><code>hooks?: SessionHooks</code></td><td><code>hooks</code></td><td><code>Hooks *SessionHooks</code></td><td><code>Hooks?</code></td></tr>
+              <tr><td>Provider (BYOK)</td><td><code>provider?: ProviderConfig</code></td><td><code>provider</code></td><td><code>Provider *ProviderConfig</code></td><td><code>Provider?</code></td></tr>
+              <tr><td>MCP servers</td><td><code>mcpServers?: Record&lt;string, MCPServerConfig&gt;</code></td><td><code>mcp_servers: dict</code></td><td><code>MCPServers map[string]MCPServerConfig</code></td><td><code>McpServers Dictionary?</code></td></tr>
+              <tr><td>Custom agents</td><td><code>customAgents?: CustomAgentConfig[]</code></td><td><code>custom_agents</code></td><td><code>CustomAgents []CustomAgentConfig</code></td><td><code>CustomAgents?</code></td></tr>
+              <tr><td>Working dir</td><td><code>workingDirectory?: string</code></td><td><code>working_directory</code></td><td><code>WorkingDirectory string</code></td><td><code>WorkingDirectory?</code></td></tr>
+              <tr><td>Streaming</td><td><code>streaming?: boolean</code></td><td><code>streaming: bool</code></td><td><code>Streaming bool</code></td><td><code>Streaming bool?</code></td></tr>
+              <tr><td>Infinite sessions</td><td><code>infiniteSessions?</code></td><td><code>infinite_sessions</code></td><td><code>InfiniteSessions</code></td><td><code>InfiniteSessions?</code></td></tr>
+              <tr><td>Reasoning effort</td><td><code>reasoningEffort?</code></td><td><code>reasoning_effort</code></td><td><code>ReasoningEffort string</code></td><td><code>ReasoningEffort?</code></td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>ProviderConfig (BYOK)</h3>
+          <div class="code-tabs">
+            <div class="tab-bar">
+              <button class="tab-btn active" data-tab="prov-ts">TypeScript</button>
+              <button class="tab-btn" data-tab="prov-go">Go</button>
+            </div>
+            <div class="tab-panel active" id="prov-ts"><pre data-lang="TypeScript"><code class="language-typescript">interface ProviderConfig {
+    type?: "openai" | "azure" | "anthropic";
+    wireApi?: "completions" | "responses";
+    baseUrl: string;
+    apiKey?: string;
+    bearerToken?: string;
+    azure?: { apiVersion?: string };
+}</code></pre></div>
+            <div class="tab-panel" id="prov-go"><pre data-lang="Go"><code class="language-go">type ProviderConfig struct {
+    Type        string                 `json:"type,omitempty"`
+    WireApi     string                 `json:"wireApi,omitempty"`
+    BaseURL     string                 `json:"baseUrl"`
+    APIKey      string                 `json:"apiKey,omitempty"`
+    BearerToken string                 `json:"bearerToken,omitempty"`
+    Azure       *AzureProviderOptions  `json:"azure,omitempty"`
+}</code></pre></div>
+          </div>
+
+          <h3>SessionEvent</h3>
+          <p>Code-generated from a shared schema. Different patterns per language:</p>
+          <div class="code-tabs">
+            <div class="tab-bar">
+              <button class="tab-btn active" data-tab="evt-ts">TypeScript</button>
+              <button class="tab-btn" data-tab="evt-go">Go</button>
+              <button class="tab-btn" data-tab="evt-cs">C#</button>
+            </div>
+            <div class="tab-panel active" id="evt-ts"><pre data-lang="TypeScript"><code class="language-typescript">// Discriminated union on `type`
+type SessionEvent =
+  | { type: "assistant.message"; data: { content: string; ... }; ... }
+  | { type: "session.idle"; data: { ... }; ... }
+  | { type: "session.error"; data: { message: string; ... }; ... }
+  | { type: "external_tool.requested"; data: { requestId: string; ... }; ... }
+  | { type: "permission.requested"; data: { ... }; ... }
+  // ... many more</code></pre></div>
+            <div class="tab-panel" id="evt-go"><pre data-lang="Go"><code class="language-go">// Single struct with typed data
+type SessionEvent struct {
+    Data      Data             `json:"data"`
+    Ephemeral *bool            `json:"ephemeral,omitempty"`
+    ID        string           `json:"id"`
+    ParentID  *string          `json:"parentId"`
+    Timestamp time.Time        `json:"timestamp"`
+    Type      SessionEventType `json:"type"`
+}</code></pre></div>
+            <div class="tab-panel" id="evt-cs"><pre data-lang="C#"><code class="language-csharp">// Class hierarchy
+public abstract class SessionEvent { ... }
+public class AssistantMessageEvent : SessionEvent { ... }
+public class SessionIdleEvent : SessionEvent { ... }
+public class SessionErrorEvent : SessionEvent { ... }
+public class ExternalToolRequestedEvent : SessionEvent { ... }
+public class PermissionRequestedEvent : SessionEvent { ... }</code></pre></div>
+          </div>
+
+          <h3>ConnectionState</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th><span class="lang-pill ts">TS</span></th><th><span class="lang-pill py">Py</span></th><th><span class="lang-pill go">Go</span></th><th><span class="lang-pill cs">C#</span></th></tr></thead>
+            <tbody>
+              <tr><td><code>"disconnected" | "connecting" | "connected" | "error"</code></td><td><code>Literal["disconnected", ...]</code></td><td><code>StateDisconnected | StateConnecting | ...</code></td><td><code>enum ConnectionState { ... }</code></td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+        </section>
+
+        <!-- =============== Section 5 =============== -->
+        <section id="s5">
+          <h2>5. Tool Definition API</h2>
+
+          <div class="code-tabs">
+            <div class="tab-bar">
+              <button class="tab-btn active" data-tab="tool-ts">TypeScript</button>
+              <button class="tab-btn" data-tab="tool-py">Python</button>
+              <button class="tab-btn" data-tab="tool-go">Go</button>
+              <button class="tab-btn" data-tab="tool-cs">C#</button>
+            </div>
+            <div class="tab-panel active" id="tool-ts"><pre data-lang="TypeScript"><code class="language-typescript">// defineTool() with Zod schema for type inference
+import { defineTool } from "@github/copilot-sdk";
+
+const weatherTool = defineTool("get_weather", {
+    description: "Get weather for a location",
+    parameters: z.object({ location: z.string() }),
+    handler: async (args) =&gt; {
+        // args is typed as { location: string }
+        return { temperature: 72 };
+    },
+});
+
+// Tool interface
+interface Tool&lt;TArgs = unknown&gt; {
+    name: string;
+    description?: string;
+    parameters?: ZodSchema&lt;TArgs&gt; | Record&lt;string, unknown&gt;;
+    handler: ToolHandler&lt;TArgs&gt;;
+    overridesBuiltInTool?: boolean;
+}</code></pre></div>
+            <div class="tab-panel" id="tool-py"><pre data-lang="Python"><code class="language-python">from pydantic import BaseModel, Field
+from copilot import define_tool
+
+class GetWeatherParams(BaseModel):
+    city: str = Field(description="City name")
+    unit: str = Field(description="Temperature unit")
+
+# Decorator approach
+@define_tool(description="Get weather for a city")
+def get_weather(params: GetWeatherParams) -&gt; str:
+    return f"Weather in {params.city}: 22 degrees {params.unit}"
+
+# Tool dataclass
+@dataclass
+class Tool:
+    name: str
+    description: str
+    handler: ToolHandler
+    parameters: dict[str, Any] | None = None
+    overrides_built_in_tool: bool = False</code></pre></div>
+            <div class="tab-panel" id="tool-go"><pre data-lang="Go"><code class="language-go">type GetWeatherParams struct {
+    City string `json:"city" jsonschema:"city name"`
+    Unit string `json:"unit" jsonschema:"temperature unit"`
+}
+
+tool := copilot.DefineTool("get_weather", "Get weather for a city",
+    func(params GetWeatherParams, inv copilot.ToolInvocation) (any, error) {
+        return fmt.Sprintf("Weather in %s: 22 degrees %s",
+            params.City, params.Unit), nil
+    })
+
+// Tool struct
+type Tool struct {
+    Name                 string         `json:"name"`
+    Description          string         `json:"description,omitempty"`
+    Parameters           map[string]any `json:"parameters,omitempty"`
+    OverridesBuiltInTool bool           `json:"overridesBuiltInTool,omitempty"`
+    Handler              ToolHandler    `json:"-"`
+}</code></pre></div>
+            <div class="tab-panel" id="tool-cs"><pre data-lang="C#"><code class="language-csharp">using Microsoft.Extensions.AI;
+
+// Define tool from a method
+[Description("Get weather for a location")]
+static string GetWeather(string location) =&gt; $"Weather in {location}: 72F";
+
+var session = await client.CreateSessionAsync(new()
+{
+    OnPermissionRequest = PermissionHandler.ApproveAll,
+    Tools = [AIFunctionFactory.Create(GetWeather)]
+});
+
+// ToolInvocation class
+public class ToolInvocation {
+    public string SessionId { get; set; }
+    public string ToolCallId { get; set; }
+    public string ToolName { get; set; }
+    public object? Arguments { get; set; }
+}</code></pre></div>
+          </div>
+
+          <h3>ToolResult Types</h3>
+          <div class="code-tabs">
+            <div class="tab-bar">
+              <button class="tab-btn active" data-tab="tr-ts">TypeScript</button>
+              <button class="tab-btn" data-tab="tr-go">Go</button>
+            </div>
+            <div class="tab-panel active" id="tr-ts"><pre data-lang="TypeScript"><code class="language-typescript">type ToolResultObject = {
+    textResultForLlm: string;
+    binaryResultsForLlm?: ToolBinaryResult[];
+    resultType: "success" | "failure" | "rejected" | "denied";
+    error?: string;
+    sessionLog?: string;
+    toolTelemetry?: Record&lt;string, unknown&gt;;
+};</code></pre></div>
+            <div class="tab-panel" id="tr-go"><pre data-lang="Go"><code class="language-go">type ToolResult struct {
+    TextResultForLLM    string             `json:"textResultForLlm"`
+    BinaryResultsForLLM []ToolBinaryResult `json:"binaryResultsForLlm,omitempty"`
+    ResultType          string             `json:"resultType"`
+    Error               string             `json:"error,omitempty"`
+    SessionLog          string             `json:"sessionLog,omitempty"`
+    ToolTelemetry       map[string]any     `json:"toolTelemetry,omitempty"`
+}</code></pre></div>
+          </div>
+        </section>
+
+        <!-- =============== Section 6 =============== -->
+        <section id="s6">
+          <h2>6. Hook / Callback API</h2>
+          <p>Six lifecycle hooks via <code>SessionHooks</code>:</p>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Hook</th><th>When Invoked</th><th>Input</th><th>Output</th></tr></thead>
+            <tbody>
+              <tr><td><code>onPreToolUse</code></td><td>Before tool execution</td><td><code>PreToolUseHookInput</code></td><td>allow / deny / ask + modified args</td></tr>
+              <tr><td><code>onPostToolUse</code></td><td>After tool execution</td><td><code>PostToolUseHookInput</code></td><td>Optional modifications</td></tr>
+              <tr><td><code>onUserPromptSubmitted</code></td><td>User sends prompt</td><td><code>UserPromptSubmittedHookInput</code></td><td>Optional modifications</td></tr>
+              <tr><td><code>onSessionStart</code></td><td>Session starts</td><td><code>SessionStartHookInput</code></td><td>Optional system prompt additions</td></tr>
+              <tr><td><code>onSessionEnd</code></td><td>Session ends</td><td><code>SessionEndHookInput</code></td><td>Optional summary</td></tr>
+              <tr><td><code>onErrorOccurred</code></td><td>Error happens</td><td><code>ErrorOccurredHookInput</code></td><td>retry / skip / abort</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>PreToolUseHookInput/Output</h3>
+          <pre data-lang="TypeScript"><code class="language-typescript">interface PreToolUseHookInput {
+    timestamp: number;       // Unix ms
+    cwd: string;
+    toolName: string;
+    toolArgs: unknown;
+}
+
+interface PreToolUseHookOutput {
+    permissionDecision?: "allow" | "deny" | "ask";
+    permissionDecisionReason?: string;
+    modifiedArgs?: unknown;
+    additionalContext?: string;
+    suppressOutput?: boolean;
+}</code></pre>
+
+          <h3>SessionHooks Configuration</h3>
+          <div class="code-tabs">
+            <div class="tab-bar">
+              <button class="tab-btn active" data-tab="hk-ts">TypeScript</button>
+              <button class="tab-btn" data-tab="hk-py">Python</button>
+              <button class="tab-btn" data-tab="hk-go">Go</button>
+              <button class="tab-btn" data-tab="hk-cs">C#</button>
+            </div>
+            <div class="tab-panel active" id="hk-ts"><pre data-lang="TypeScript"><code class="language-typescript">interface SessionHooks {
+    onPreToolUse?: PreToolUseHandler;
+    onPostToolUse?: PostToolUseHandler;
+    onUserPromptSubmitted?: UserPromptSubmittedHandler;
+    onSessionStart?: SessionStartHandler;
+    onSessionEnd?: SessionEndHandler;
+    onErrorOccurred?: ErrorOccurredHandler;
+}</code></pre></div>
+            <div class="tab-panel" id="hk-py"><pre data-lang="Python"><code class="language-python">class SessionHooks(TypedDict, total=False):
+    on_pre_tool_use: PreToolUseHandler
+    on_post_tool_use: PostToolUseHandler
+    on_user_prompt_submitted: UserPromptSubmittedHandler
+    on_session_start: SessionStartHandler
+    on_session_end: SessionEndHandler
+    on_error_occurred: ErrorOccurredHandler</code></pre></div>
+            <div class="tab-panel" id="hk-go"><pre data-lang="Go"><code class="language-go">type SessionHooks struct {
+    OnPreToolUse          PreToolUseHandler
+    OnPostToolUse         PostToolUseHandler
+    OnUserPromptSubmitted UserPromptSubmittedHandler
+    OnSessionStart        SessionStartHandler
+    OnSessionEnd          SessionEndHandler
+    OnErrorOccurred       ErrorOccurredHandler
+}</code></pre></div>
+            <div class="tab-panel" id="hk-cs"><pre data-lang="C#"><code class="language-csharp">public class SessionHooks {
+    public PreToolUseHandler? OnPreToolUse { get; set; }
+    public PostToolUseHandler? OnPostToolUse { get; set; }
+    public UserPromptSubmittedHandler? OnUserPromptSubmitted { get; set; }
+    public SessionStartHandler? OnSessionStart { get; set; }
+    public SessionEndHandler? OnSessionEnd { get; set; }
+    public ErrorOccurredHandler? OnErrorOccurred { get; set; }
+}</code></pre></div>
+          </div>
+        </section>
+
+        <!-- =============== Section 7 =============== -->
+        <section id="s7">
+          <h2>7. Permission API</h2>
+
+          <h3>Permission Handler Signature</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Language</th><th>Signature</th></tr></thead>
+            <tbody>
+              <tr><td><span class="lang-pill ts">TS</span></td><td><code>(request: PermissionRequest, inv: { sessionId }) =&gt; Promise&lt;PermissionRequestResult&gt;</code></td></tr>
+              <tr><td><span class="lang-pill py">Py</span></td><td><code>(request, inv) -&gt; PermissionRequestResult | Awaitable[...]</code></td></tr>
+              <tr><td><span class="lang-pill go">Go</span></td><td><code>func(request, inv) (PermissionRequestResult, error)</code></td></tr>
+              <tr><td><span class="lang-pill cs">C#</span></td><td><code>delegate Task&lt;PermissionRequestResult&gt; PermissionRequestHandler(...)</code></td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>PermissionRequest</h3>
+          <pre data-lang="TypeScript"><code class="language-typescript">interface PermissionRequest {
+    kind: "shell" | "write" | "mcp" | "read" | "url" | "custom-tool";
+    toolCallId?: string;
+    [key: string]: unknown;  // Additional fields vary by kind
+}</code></pre>
+
+          <h3>PermissionRequestResult</h3>
+          <pre data-lang="TypeScript"><code class="language-typescript">type PermissionRequestResult = {
+    kind: "approved"
+        | "denied-by-rules"
+        | "denied-interactively-by-user"
+        | "denied-no-approval-rule-and-could-not-request-from-user";
+    rules?: any[];
+};</code></pre>
+
+          <h3>Built-in <code>approveAll</code></h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Language</th><th>Usage</th></tr></thead>
+            <tbody>
+              <tr><td><span class="lang-pill ts">TS</span></td><td><code>import { approveAll } from "@github/copilot-sdk"</code></td></tr>
+              <tr><td><span class="lang-pill py">Py</span></td><td><code>PermissionHandler.approve_all</code></td></tr>
+              <tr><td><span class="lang-pill go">Go</span></td><td><code>copilot.PermissionHandler.ApproveAll</code></td></tr>
+              <tr><td><span class="lang-pill cs">C#</span></td><td><code>PermissionHandler.ApproveAll</code></td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>User Input Handler</h3>
+          <pre data-lang="TypeScript"><code class="language-typescript">type UserInputHandler = (
+    request: UserInputRequest,
+    invocation: { sessionId: string }
+) =&gt; Promise&lt;UserInputResponse&gt; | UserInputResponse;
+
+interface UserInputRequest {
+    question: string;
+    choices?: string[];
+    allowFreeform?: boolean;
+}
+
+interface UserInputResponse {
+    answer: string;
+    wasFreeform: boolean;
+}</code></pre>
+        </section>
+
+        <!-- =============== Section 8 =============== -->
+        <section id="s8">
+          <h2>8. Extension Points</h2>
+
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Extension Points</div>
+            <pre class="mermaid">
+flowchart LR
+    A["&lt;b&gt;1. Custom Tools&lt;/b&gt;&lt;br/&gt;Register via SessionConfig.tools.&lt;br/&gt;Each has name, description,&lt;br/&gt;schema, handler."]
+    B["&lt;b&gt;2. Permission Handlers&lt;/b&gt;&lt;br/&gt;Required for session creation.&lt;br/&gt;Controls shell, write, MCP, read,&lt;br/&gt;URL, and custom-tool permissions."]
+    C["&lt;b&gt;3. User Input Handlers&lt;/b&gt;&lt;br/&gt;Optional. Enables ask_user tool&lt;br/&gt;for agent-to-user questions."]
+    D["&lt;b&gt;4. Lifecycle Hooks&lt;/b&gt;&lt;br/&gt;Six hook points #40;see Section 6#41;.&lt;br/&gt;Intercept and modify&lt;br/&gt;session lifecycle."]
+    A ~~~ B ~~~ C ~~~ D
+            </pre>
+          </div>
+
+          <h3>5. Custom Agents</h3>
+          <pre data-lang="TypeScript"><code class="language-typescript">const config: SessionConfig = {
+    customAgents: [{
+        name: "code-reviewer",
+        displayName: "Code Reviewer",
+        description: "Reviews code for quality",
+        prompt: "You are a code reviewer...",
+        tools: ["read_file", "grep"],
+        mcpServers: { ... },
+        infer: true,
+    }],
+    agent: "code-reviewer",  // Activate this agent
+};</code></pre>
+
+          <h3>6. MCP Server Integration</h3>
+          <pre data-lang="TypeScript"><code class="language-typescript">const config: SessionConfig = {
+    mcpServers: {
+        "my-server": {
+            type: "local",
+            tools: ["*"],
+            command: "node",
+            args: ["./mcp-server.js"],
+            env: { API_KEY: "..." },
+        },
+        "remote-server": {
+            type: "http",
+            tools: ["*"],
+            url: "https://example.com/mcp",
+            headers: { Authorization: "Bearer ..." },
+        },
+    },
+};</code></pre>
+
+          <h3>7. BYOK Provider Configuration</h3>
+          <pre data-lang="TypeScript"><code class="language-typescript">const config: SessionConfig = {
+    provider: {
+        type: "openai",
+        baseUrl: "https://api.openai.com/v1",
+        apiKey: "sk-...",
+    },
+    model: "gpt-4",
+};</code></pre>
+
+          <h3>8. Extension Module (TypeScript Only)</h3>
+          <pre data-lang="TypeScript"><code class="language-typescript">// nodejs/src/extension.ts
+import { joinSession } from "@github/copilot-sdk/extension";
+
+const session = await joinSession({
+    onPermissionRequest: approveAll,
+    tools: [myTool],
+});</code></pre>
+
+          <h3>9. Custom Model Lister</h3>
+          <pre data-lang="TypeScript"><code class="language-typescript">const client = new CopilotClient({
+    onListModels: async () =&gt; [
+        { id: "my-model", name: "My Model", capabilities: { ... } }
+    ],
+});</code></pre>
+
+          <h3>10. Typed RPC Access</h3>
+          <pre data-lang="TypeScript"><code class="language-typescript">await session.rpc.tools.handlePendingToolCall({ requestId, result });
+await session.rpc.permissions.handlePendingPermissionRequest({ requestId, result });
+await session.rpc.model.switchTo({ modelId: "gpt-4.1" });
+await session.rpc.log({ message: "Hello", level: "info" });</code></pre>
+        </section>
+
+        <!-- =============== Section 9 =============== -->
+        <section id="s9">
+          <h2>9. JSON-RPC Methods</h2>
+          <p>All SDKs communicate with the Copilot CLI via the same JSON-RPC protocol.</p>
+
+          <h3>Server-Level Methods</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>RPC Method</th><th>Direction</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>ping</code></td><td>Client &rarr; Server</td><td>Health check, returns message + timestamp + protocol version</td></tr>
+              <tr><td><code>status.get</code></td><td>Client &rarr; Server</td><td>Get CLI version and protocol version</td></tr>
+              <tr><td><code>auth.getStatus</code></td><td>Client &rarr; Server</td><td>Get authentication status</td></tr>
+              <tr><td><code>models.list</code></td><td>Client &rarr; Server</td><td>List available models</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Session Lifecycle Methods</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>RPC Method</th><th>Direction</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>session.create</code></td><td>Client &rarr; Server</td><td>Create a new session</td></tr>
+              <tr><td><code>session.resume</code></td><td>Client &rarr; Server</td><td>Resume an existing session</td></tr>
+              <tr><td><code>session.destroy</code></td><td>Client &rarr; Server</td><td>Disconnect / release a session</td></tr>
+              <tr><td><code>session.delete</code></td><td>Client &rarr; Server</td><td>Permanently delete session data</td></tr>
+              <tr><td><code>session.list</code></td><td>Client &rarr; Server</td><td>List all sessions</td></tr>
+              <tr><td><code>session.getLastId</code></td><td>Client &rarr; Server</td><td>Get most recently used session ID</td></tr>
+              <tr><td><code>session.getForeground</code></td><td>Client &rarr; Server</td><td>Get TUI foreground session ID</td></tr>
+              <tr><td><code>session.setForeground</code></td><td>Client &rarr; Server</td><td>Set TUI foreground session</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Session Communication Methods</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>RPC Method</th><th>Direction</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>session.send</code></td><td>Client &rarr; Server</td><td>Send a message to a session</td></tr>
+              <tr><td><code>session.abort</code></td><td>Client &rarr; Server</td><td>Abort current processing</td></tr>
+              <tr><td><code>session.getMessages</code></td><td>Client &rarr; Server</td><td>Get session event history</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Session-Scoped RPC Methods</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>RPC Method</th><th>Direction</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>session.tools.handlePendingToolCall</code></td><td>Client &rarr; Server</td><td>Respond to a tool call request</td></tr>
+              <tr><td><code>session.permissions.handlePendingPermissionRequest</code></td><td>Client &rarr; Server</td><td>Respond to a permission request</td></tr>
+              <tr><td><code>session.model.switchTo</code></td><td>Client &rarr; Server</td><td>Change model mid-session</td></tr>
+              <tr><td><code>session.log</code></td><td>Client &rarr; Server</td><td>Log a message to timeline</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Server &rarr; Client Notifications (Session Events)</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Event Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>assistant.message</code></td><td>Final assistant response</td></tr>
+              <tr><td><code>assistant.message_delta</code></td><td>Streaming message chunk</td></tr>
+              <tr><td><code>assistant.reasoning_delta</code></td><td>Streaming reasoning chunk</td></tr>
+              <tr><td><code>session.idle</code></td><td>Session finished processing</td></tr>
+              <tr><td><code>session.error</code></td><td>Session encountered an error</td></tr>
+              <tr><td><code>session.start</code></td><td>Session started</td></tr>
+              <tr><td><code>external_tool.requested</code></td><td>Tool call broadcast (v3)</td></tr>
+              <tr><td><code>permission.requested</code></td><td>Permission request broadcast (v3)</td></tr>
+              <tr><td><code>user_input.requested</code></td><td>User input request broadcast</td></tr>
+              <tr><td><code>hook.invoked</code></td><td>Hook invocation request</td></tr>
+              <tr><td><code>tool.executing</code></td><td>Tool is being executed</td></tr>
+              <tr><td><code>tool.executed</code></td><td>Tool execution completed</td></tr>
+              <tr><td><code>plan.updated</code></td><td>Plan file updated</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Client-Level Lifecycle Notifications</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Event Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>session.created</code></td><td>A session was created</td></tr>
+              <tr><td><code>session.deleted</code></td><td>A session was deleted</td></tr>
+              <tr><td><code>session.updated</code></td><td>A session was updated</td></tr>
+              <tr><td><code>session.foreground</code></td><td>Session moved to foreground</td></tr>
+              <tr><td><code>session.background</code></td><td>Session moved to background</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+        </section>
+
+        <!-- =============== Section 10 =============== -->
+        <section id="s10">
+          <h2>10. Cross-Language API Comparison</h2>
+
+          <h3>Creating a Client and Session</h3>
+          <div class="code-tabs">
+            <div class="tab-bar">
+              <button class="tab-btn active" data-tab="cs-ts">TypeScript</button>
+              <button class="tab-btn" data-tab="cs-py">Python</button>
+              <button class="tab-btn" data-tab="cs-go">Go</button>
+              <button class="tab-btn" data-tab="cs-cs">C#</button>
+            </div>
+            <div class="tab-panel active" id="cs-ts"><pre data-lang="TypeScript"><code class="language-typescript">import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient({ autoStart: true });
+const session = await client.createSession({
+    onPermissionRequest: approveAll,
+    model: "gpt-4",
+});</code></pre></div>
+            <div class="tab-panel" id="cs-py"><pre data-lang="Python"><code class="language-python">from copilot import CopilotClient, PermissionHandler
+
+async with CopilotClient() as client:
+    session = await client.create_session({
+        "on_permission_request": PermissionHandler.approve_all,
+        "model": "gpt-4",
+    })</code></pre></div>
+            <div class="tab-panel" id="cs-go"><pre data-lang="Go"><code class="language-go">client := copilot.NewClient(nil)
+if err := client.Start(ctx); err != nil {
+    log.Fatal(err)
+}
+defer client.Stop()
+
+session, err := client.CreateSession(ctx, &amp;copilot.SessionConfig{
+    OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
+    Model:               "gpt-4",
+})</code></pre></div>
+            <div class="tab-panel" id="cs-cs"><pre data-lang="C#"><code class="language-csharp">await using var client = new CopilotClient();
+await using var session = await client.CreateSessionAsync(new()
+{
+    OnPermissionRequest = PermissionHandler.ApproveAll,
+    Model = "gpt-4",
+});</code></pre></div>
+          </div>
+
+          <h3>Sending a Message</h3>
+          <div class="code-tabs">
+            <div class="tab-bar">
+              <button class="tab-btn active" data-tab="sm-ts">TypeScript</button>
+              <button class="tab-btn" data-tab="sm-py">Python</button>
+              <button class="tab-btn" data-tab="sm-go">Go</button>
+              <button class="tab-btn" data-tab="sm-cs">C#</button>
+            </div>
+            <div class="tab-panel active" id="sm-ts"><pre data-lang="TypeScript"><code class="language-typescript">const response = await session.sendAndWait({ prompt: "What is 2+2?" });
+console.log(response?.data.content);</code></pre></div>
+            <div class="tab-panel" id="sm-py"><pre data-lang="Python"><code class="language-python">response = await session.send_and_wait({"prompt": "What is 2+2?"})
+if response:
+    print(response.data.content)</code></pre></div>
+            <div class="tab-panel" id="sm-go"><pre data-lang="Go"><code class="language-go">response, err := session.SendAndWait(ctx, copilot.MessageOptions{
+    Prompt: "What is 2+2?",
+})
+if response != nil {
+    fmt.Println(*response.Data.Content)
+}</code></pre></div>
+            <div class="tab-panel" id="sm-cs"><pre data-lang="C#"><code class="language-csharp">var response = await session.SendAndWaitAsync(new MessageOptions
+{
+    Prompt = "What is 2+2?"
+});
+Console.WriteLine(response?.Data?.Content);</code></pre></div>
+          </div>
+
+          <h3>Defining a Custom Tool</h3>
+          <div class="code-tabs">
+            <div class="tab-bar">
+              <button class="tab-btn active" data-tab="dt-ts">TypeScript</button>
+              <button class="tab-btn" data-tab="dt-py">Python</button>
+              <button class="tab-btn" data-tab="dt-go">Go</button>
+              <button class="tab-btn" data-tab="dt-cs">C#</button>
+            </div>
+            <div class="tab-panel active" id="dt-ts"><pre data-lang="TypeScript"><code class="language-typescript">const tool = defineTool("get_weather", {
+    description: "Get weather for a location",
+    parameters: z.object({ city: z.string() }),
+    handler: async (args) =&gt; `Weather in ${args.city}: 72F`,
+});</code></pre></div>
+            <div class="tab-panel" id="dt-py"><pre data-lang="Python"><code class="language-python">from pydantic import BaseModel
+from copilot import define_tool
+
+class WeatherParams(BaseModel):
+    city: str
+
+@define_tool(description="Get weather for a location")
+def get_weather(params: WeatherParams) -&gt; str:
+    return f"Weather in {params.city}: 72F"</code></pre></div>
+            <div class="tab-panel" id="dt-go"><pre data-lang="Go"><code class="language-go">type WeatherParams struct {
+    City string `json:"city"`
+}
+
+tool := copilot.DefineTool("get_weather", "Get weather for a location",
+    func(params WeatherParams, inv copilot.ToolInvocation) (any, error) {
+        return fmt.Sprintf("Weather in %s: 72F", params.City), nil
+    })</code></pre></div>
+            <div class="tab-panel" id="dt-cs"><pre data-lang="C#"><code class="language-csharp">[Description("Get weather for a location")]
+static string GetWeather(string city) =&gt; $"Weather in {city}: 72F";
+
+// Pass as: Tools = [AIFunctionFactory.Create(GetWeather)]</code></pre></div>
+          </div>
+
+          <h3>Subscribing to Events</h3>
+          <div class="code-tabs">
+            <div class="tab-bar">
+              <button class="tab-btn active" data-tab="ev-ts">TypeScript</button>
+              <button class="tab-btn" data-tab="ev-py">Python</button>
+              <button class="tab-btn" data-tab="ev-go">Go</button>
+              <button class="tab-btn" data-tab="ev-cs">C#</button>
+            </div>
+            <div class="tab-panel active" id="ev-ts"><pre data-lang="TypeScript"><code class="language-typescript">const unsubscribe = session.on("assistant.message", (event) =&gt; {
+    console.log("Assistant:", event.data.content);
+});
+// Later: unsubscribe();</code></pre></div>
+            <div class="tab-panel" id="ev-py"><pre data-lang="Python"><code class="language-python">def handler(event):
+    if event.type == "assistant.message":
+        print(f"Assistant: {event.data.content}")
+
+unsubscribe = session.on(handler)
+# Later: unsubscribe()</code></pre></div>
+            <div class="tab-panel" id="ev-go"><pre data-lang="Go"><code class="language-go">unsubscribe := session.On(func(event copilot.SessionEvent) {
+    if event.Type == copilot.AssistantMessage {
+        fmt.Println("Assistant:", *event.Data.Content)
+    }
+})
+// Later: unsubscribe()</code></pre></div>
+            <div class="tab-panel" id="ev-cs"><pre data-lang="C#"><code class="language-csharp">using var subscription = session.On(evt =&gt;
+{
+    if (evt is AssistantMessageEvent msg)
+    {
+        Console.WriteLine($"Assistant: {msg.Data?.Content}");
+    }
+});
+// Auto-unsubscribed when disposed</code></pre></div>
+          </div>
+
+          <h3>Resource Cleanup</h3>
+          <div class="code-tabs">
+            <div class="tab-bar">
+              <button class="tab-btn active" data-tab="rc-ts">TypeScript</button>
+              <button class="tab-btn" data-tab="rc-py">Python</button>
+              <button class="tab-btn" data-tab="rc-go">Go</button>
+              <button class="tab-btn" data-tab="rc-cs">C#</button>
+            </div>
+            <div class="tab-panel active" id="rc-ts"><pre data-lang="TypeScript"><code class="language-typescript">// Manual
+await session.disconnect();
+await client.stop();
+
+// Auto-dispose
+await using session = await client.createSession({ ... });</code></pre></div>
+            <div class="tab-panel" id="rc-py"><pre data-lang="Python"><code class="language-python"># Manual
+await session.disconnect()
+await client.stop()
+
+# Context manager
+async with CopilotClient() as client:
+    session = await client.create_session({ ... })</code></pre></div>
+            <div class="tab-panel" id="rc-go"><pre data-lang="Go"><code class="language-go">// Always manual with defer
+defer client.Stop()
+defer session.Disconnect()</code></pre></div>
+            <div class="tab-panel" id="rc-cs"><pre data-lang="C#"><code class="language-csharp">// Manual
+await session.DisposeAsync();
+await client.DisposeAsync();
+
+// Auto-dispose
+await using var client = new CopilotClient();
+await using var session = await client.CreateSessionAsync(new() { ... });</code></pre></div>
+          </div>
+        </section>
+
+        <!-- =============== Appendix =============== -->
+        <section id="appendix">
+          <h2>Appendix: SDK-Specific Differences</h2>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Feature</th><th><span class="lang-pill ts">TS</span></th><th><span class="lang-pill py">Py</span></th><th><span class="lang-pill go">Go</span></th><th><span class="lang-pill cs">C#</span></th></tr></thead>
+            <tbody>
+              <tr><td>Tool schema source</td><td>Zod / raw JSON Schema</td><td>Pydantic <code>BaseModel</code></td><td>Struct tags + <code>jsonschema-go</code></td><td><code>AIFunctionFactory</code> (M.E.AI)</td></tr>
+              <tr><td>Async model</td><td><code>Promise</code> / <code>async/await</code></td><td><code>asyncio</code> / <code>async/await</code></td><td><code>context.Context</code> / goroutines</td><td><code>Task</code> / <code>async/await</code></td></tr>
+              <tr><td>Event pattern</td><td>Typed discriminated union</td><td>Enum-based <code>SessionEventType</code></td><td>String-typed <code>SessionEventType</code></td><td>Class hierarchy + pattern matching</td></tr>
+              <tr><td>Typed subscribe</td><td><code>session.on&lt;K&gt;(type, handler)</code></td><td>N/A</td><td>N/A</td><td>C# pattern matching</td></tr>
+              <tr><td>Dispose pattern</td><td><code>Symbol.asyncDispose</code></td><td><code>__aenter__/__aexit__</code></td><td><code>defer session.Disconnect()</code></td><td><code>IAsyncDisposable</code></td></tr>
+              <tr><td>Permission handler</td><td><code>approveAll</code> function</td><td><code>PermissionHandler.approve_all</code></td><td><code>PermissionHandler.ApproveAll</code> var</td><td><code>PermissionHandler.ApproveAll</code> static</td></tr>
+              <tr><td>Error handling</td><td>Exceptions</td><td><code>ExceptionGroup</code> (stop)</td><td><code>error</code> return values</td><td>Exceptions + <code>CancellationToken</code></td></tr>
+              <tr><td>Thread safety</td><td>Single-threaded (event loop)</td><td>Locks + asyncio</td><td><code>sync.Mutex</code> / <code>sync.RWMutex</code></td><td><code>ConcurrentDictionary</code> + <code>SemaphoreSlim</code></td></tr>
+              <tr><td>Child process ext</td><td><code>joinSession()</code></td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+              <tr><td>Optional bool</td><td>N/A</td><td>N/A</td><td><code>Bool(v bool) *bool</code></td><td>N/A (nullable)</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+        </section>
+
+      </div>
+      <nav class="page-nav">
+        <a href="06-data-flow.html" class="page-nav-link prev">
+          <span class="page-nav-label">Previous</span>
+          <span class="page-nav-title">06 — Data Flow</span>
+        </a>
+        <a href="08-conventions.html" class="page-nav-link next">
+          <span class="page-nav-label">Next</span>
+          <span class="page-nav-title">08 — Conventions</span>
+        </a>
+      </nav>
+    </main>
+  </div>
+
+  <button class="scroll-top" title="Back to top">&uarr;</button>
+  <script src="app.js"></script>
+</body>
+</html>

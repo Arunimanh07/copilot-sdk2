@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security Surface - copilot-sdk Dissection</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/styles/github-dark-dimmed.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/go.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/csharp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect rx=%2715%27 width=%27100%27 height=%27100%27 fill=%27%230F172A%27/%3E%3Ctext x=%2750%27 y=%2770%27 font-size=%2750%27 text-anchor=%27middle%27 fill=%27%2322C55E%27%3E%26lt;/%26gt;%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <button class="sidebar-toggle">Menu</button>
+  <div class="page-wrapper">
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <h1>copilot-sdk</h1>
+        <div class="subtitle">Dissection Documentation</div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Foundation</div>
+        <a href="index.html" class="sidebar-link"><span class="link-num">00</span> Overview</a>
+        <a href="01-discovery.html" class="sidebar-link"><span class="link-num">01</span> Discovery</a>
+        <a href="02-structure.html" class="sidebar-link"><span class="link-num">02</span> Structure</a>
+        <a href="03-tech-stack.html" class="sidebar-link"><span class="link-num">03</span> Tech Stack</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Architecture</div>
+        <a href="04-entry-points.html" class="sidebar-link"><span class="link-num">04</span> Entry Points</a>
+        <a href="05-architecture.html" class="sidebar-link"><span class="link-num">05</span> Architecture</a>
+        <a href="06-data-flow.html" class="sidebar-link"><span class="link-num">06</span> Data Flow</a>
+        <a href="07-api-surface.html" class="sidebar-link"><span class="link-num">07</span> API Surface</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Implementation</div>
+        <a href="08-conventions.html" class="sidebar-link"><span class="link-num">08</span> Conventions</a>
+        <a href="09-testing.html" class="sidebar-link"><span class="link-num">09</span> Testing</a>
+        <a href="10-build-deploy.html" class="sidebar-link"><span class="link-num">10</span> Build &amp; Deploy</a>
+        <a href="11-dependencies.html" class="sidebar-link"><span class="link-num">11</span> Dependencies</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Operations</div>
+        <a href="12-security.html" class="sidebar-link active"><span class="link-num">12</span> Security</a>
+        <a href="13-contribution.html" class="sidebar-link"><span class="link-num">13</span> Contribution</a>
+      </div>
+    </nav>
+    <main class="main-content">
+      <div class="content-area">
+
+        <div class="phase-badge"><span class="dot"></span>Phase 12/13 &mdash; Security Surface</div>
+
+        <h1>Phase 12: Security Surface Analysis</h1>
+
+        <div class="callout info">
+          <div class="callout-title">Scope</div>
+          <p><strong>Analysis date:</strong> 2026-03-12<br>
+          <strong>Scope:</strong> <code>copilot-sdk</code> repository &mdash; Node.js, Python, Go, and .NET SDK clients<br>
+          <strong>Purpose:</strong> Documentation of existing security-relevant behaviors; no recommendations included.</p>
+        </div>
+
+        <!-- Table of Contents -->
+        <nav class="toc">
+          <div class="toc-title">Table of Contents</div>
+          <ol class="toc-list">
+            <li><a href="#auth-model"><span class="toc-num">01</span> Authentication Model</a></li>
+            <li><a href="#token-handling"><span class="toc-num">02</span> Token / Credential Handling</a></li>
+            <li><a href="#permission-system"><span class="toc-num">03</span> Permission System</a></li>
+            <li><a href="#process-security"><span class="toc-num">04</span> Process Security</a></li>
+            <li><a href="#input-validation"><span class="toc-num">05</span> Input Validation</a></li>
+            <li><a href="#secret-management"><span class="toc-num">06</span> Secret Management</a></li>
+            <li><a href="#network-security"><span class="toc-num">07</span> Network Security</a></li>
+            <li><a href="#attack-surface"><span class="toc-num">08</span> Attack Surface</a></li>
+            <li><a href="#byok"><span class="toc-num">09</span> BYOK (Bring Your Own Key)</a></li>
+            <li><a href="#security-policies"><span class="toc-num">10</span> Security Policies</a></li>
+          </ol>
+        </nav>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 1: Authentication Model -->
+        <!-- ============================================================ -->
+        <h2 id="auth-model">1. Authentication Model</h2>
+        <p>The SDK supports four authentication methods, documented in <span class="file-ref">docs/auth/index.md</span>. They are applied in a strict priority order.</p>
+
+        <h3 id="auth-priority-chain">1.1 Authentication Priority Chain</h3>
+        <p>As stated in <span class="file-ref">docs/auth/index.md:269-278</span>:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Priority</th>
+                <th>Method</th>
+                <th>Trigger</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>Explicit <code>githubToken</code></td>
+                <td>Token passed to SDK constructor</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>HMAC key</td>
+                <td><code>CAPI_HMAC_KEY</code> or <code>COPILOT_HMAC_KEY</code> env vars</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>Direct API token</td>
+                <td><code>GITHUB_COPILOT_API_TOKEN</code> + <code>COPILOT_API_URL</code></td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>Environment variable tokens</td>
+                <td><code>COPILOT_GITHUB_TOKEN</code> then <code>GH_TOKEN</code> then <code>GITHUB_TOKEN</code></td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td>Stored OAuth credentials</td>
+                <td>From previous <code>copilot</code> CLI login</td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td>GitHub CLI auth</td>
+                <td><code>gh auth</code> credentials</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="github-signed-in-user">1.2 GitHub Signed-in User (Default)</h3>
+        <p>The default path. Users authenticate via GitHub OAuth device flow. Credentials are stored in the system keychain by the CLI. The SDK reads these stored credentials automatically when no explicit token is provided (<span class="file-ref">docs/auth/index.md:14-22</span>).</p>
+        <p>All four SDKs create a client with no arguments to use this path:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <code>new CopilotClient()</code> &mdash; <span class="file-ref">nodejs/src/client.ts:229</span></li>
+          <li><span class="lang-pill py">Python</span> <code>CopilotClient()</code> &mdash; <span class="file-ref">python/copilot/client.py:126</span></li>
+          <li><span class="lang-pill go">Go</span> <code>copilot.NewClient(nil)</code> &mdash; <span class="file-ref">go/client.go:106</span></li>
+          <li><span class="lang-pill cs">.NET</span> <code>new CopilotClient()</code> &mdash; <span class="file-ref">dotnet/src/Client.cs:103</span></li>
+        </ul>
+
+        <h3 id="oauth-github-app">1.3 OAuth GitHub App</h3>
+        <p>Users authorize an OAuth app; the app receives a user access token (<code>gho_</code> or <code>ghu_</code> prefix) and passes it to the SDK via <code>githubToken</code>. Supported token prefixes are documented in <span class="file-ref">docs/auth/index.md:192-198</span>:</p>
+        <ul>
+          <li><code>gho_</code> &mdash; OAuth user access tokens</li>
+          <li><code>ghu_</code> &mdash; GitHub App user access tokens</li>
+          <li><code>github_pat_</code> &mdash; Fine-grained personal access tokens</li>
+          <li><code>ghp_</code> &mdash; Classic personal access tokens (<strong>NOT supported</strong>, deprecated)</li>
+        </ul>
+
+        <h3 id="env-var-tokens">1.4 Environment Variable Tokens</h3>
+        <p>For CI/CD and server-to-server. The SDK auto-detects tokens from environment variables in this order (<span class="file-ref">docs/auth/index.md:209-213</span>):</p>
+        <ol>
+          <li><code>COPILOT_GITHUB_TOKEN</code></li>
+          <li><code>GH_TOKEN</code></li>
+          <li><code>GITHUB_TOKEN</code></li>
+        </ol>
+
+        <h3 id="byok-auth">1.5 BYOK (Bring Your Own Key)</h3>
+        <p>Bypasses GitHub Copilot authentication entirely. API keys from OpenAI, Azure AI Foundry, Anthropic, or compatible endpoints are passed directly in the session config. See <a href="#byok">Section 9</a> for full details.</p>
+
+        <h3 id="auth-validation-external-server">1.6 Auth Validation When Using External Server</h3>
+        <p>All four SDKs enforce that <code>githubToken</code> and <code>useLoggedInUser</code> cannot be combined with <code>cliUrl</code>. When <code>cliUrl</code> is set, the external CLI server manages its own auth:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <span class="file-ref">nodejs/src/client.ts:215-219</span> &mdash; throws <code>Error</code></li>
+          <li><span class="lang-pill py">Python</span> <span class="file-ref">python/copilot/client.py:144-150</span> &mdash; raises <code>ValueError</code></li>
+          <li><span class="lang-pill go">Go</span> <span class="file-ref">go/client.go:144-146</span> &mdash; calls <code>panic()</code></li>
+          <li><span class="lang-pill cs">.NET</span> <span class="file-ref">dotnet/src/Client.cs:133-136</span> &mdash; throws <code>ArgumentException</code></li>
+        </ul>
+
+        <h3 id="hmac-auth">1.7 HMAC Authentication</h3>
+        <p>The auth types system includes an <code>"hmac"</code> auth type, referenced in:</p>
+        <ul>
+          <li><span class="file-ref">nodejs/src/types.ts:977</span> &mdash; <code>authType?: "user" | "env" | "gh-cli" | "hmac" | "api-key" | "token"</code></li>
+          <li><span class="file-ref">dotnet/src/Types.cs:1689</span> &mdash; Enum documentation for <code>"hmac"</code> variant</li>
+        </ul>
+        <p>HMAC keys are read from <code>CAPI_HMAC_KEY</code> or <code>COPILOT_HMAC_KEY</code> environment variables (<span class="file-ref">docs/auth/index.md:274</span>). This is priority 2 in the auth chain, just below explicit <code>githubToken</code>.</p>
+
+        <h3 id="auth-status-api">1.8 Auth Status API</h3>
+        <p>All SDKs expose a method to query authentication status via the <code>auth.getStatus</code> JSON-RPC call:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <code>getAuthStatus()</code> &mdash; <span class="file-ref">nodejs/src/client.ts:775-781</span></li>
+          <li><span class="lang-pill py">Python</span> <code>get_auth_status()</code> &mdash; <span class="file-ref">python/copilot/client.py:896-915</span></li>
+          <li><span class="lang-pill go">Go</span> <code>GetAuthStatus(ctx)</code> &mdash; <span class="file-ref">go/client.go:1053-1064</span></li>
+          <li><span class="lang-pill cs">.NET</span> <code>GetAuthStatusAsync(ct)</code> &mdash; <span class="file-ref">dotnet/src/Client.cs:638-643</span></li>
+        </ul>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 2: Token / Credential Handling -->
+        <!-- ============================================================ -->
+        <h2 id="token-handling">2. Token / Credential Handling</h2>
+
+        <h3 id="token-flow-sdk-to-cli">2.1 Token Flow: SDK to CLI</h3>
+        <p>When a <code>githubToken</code> is provided to the SDK constructor, it is passed to the CLI subprocess via an <strong>environment variable</strong>, not via command-line arguments. The pattern is identical across all four SDKs:</p>
+        <ol>
+          <li>The SDK passes <code>--auth-token-env COPILOT_SDK_AUTH_TOKEN</code> as a CLI argument, telling the CLI to read the token from that env var.</li>
+          <li>The SDK sets <code>COPILOT_SDK_AUTH_TOKEN</code> in the subprocess environment to the token value.</li>
+        </ol>
+        <p>This avoids the token appearing in <code>ps</code> or <code>/proc/*/cmdline</code> output.</p>
+
+        <p><strong>Citations:</strong></p>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="token-flow-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="token-flow-py">Python</button>
+            <button class="tab-btn" data-tab="token-flow-go">Go</button>
+            <button class="tab-btn" data-tab="token-flow-cs">.NET</button>
+          </div>
+          <div class="tab-panel active" id="token-flow-ts">
+<pre data-lang="TypeScript">// nodejs/src/client.ts:1126-1139
+args.push("--auth-token-env", "COPILOT_SDK_AUTH_TOKEN");
+// ...
+envWithoutNodeDebug.COPILOT_SDK_AUTH_TOKEN = this.options.githubToken;</pre>
+          </div>
+          <div class="tab-panel" id="token-flow-py">
+<pre data-lang="Python"># python/copilot/client.py:1300-1322
+args.extend(["--auth-token-env", "COPILOT_SDK_AUTH_TOKEN"])
+# ...
+env["COPILOT_SDK_AUTH_TOKEN"] = self.options["github_token"]</pre>
+          </div>
+          <div class="tab-panel" id="token-flow-go">
+<pre data-lang="Go">// go/client.go:1174-1210
+args = append(args, "--auth-token-env", "COPILOT_SDK_AUTH_TOKEN")
+// ...
+c.process.Env = append(c.process.Env, "COPILOT_SDK_AUTH_TOKEN="+c.options.GitHubToken)</pre>
+          </div>
+          <div class="tab-panel" id="token-flow-cs">
+<pre data-lang="C#">// dotnet/src/Client.cs:1023-1064
+args.AddRange(["--auth-token-env", "COPILOT_SDK_AUTH_TOKEN"]);
+// ...
+startInfo.Environment["COPILOT_SDK_AUTH_TOKEN"] = options.GitHubToken;</pre>
+          </div>
+        </div>
+
+        <h3 id="token-storage-in-memory">2.2 Token Storage in SDK Memory</h3>
+        <p>The <code>githubToken</code> is stored as a field on the client options object for the lifetime of the client:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <span class="file-ref">nodejs/src/client.ts:151</span> &mdash; <code>githubToken?: string</code> in the private <code>options</code> field</li>
+          <li><span class="lang-pill py">Python</span> <span class="file-ref">python/copilot/client.py:201-202</span> &mdash; <code>self.options["github_token"] = github_token</code></li>
+          <li><span class="lang-pill go">Go</span> <span class="file-ref">go/client.go:188-189</span> &mdash; <code>opts.GitHubToken = options.GitHubToken</code></li>
+          <li><span class="lang-pill cs">.NET</span> <span class="file-ref">dotnet/src/Client.cs:1064</span> &mdash; set during <code>StartCliServerAsync</code></li>
+        </ul>
+        <p>The token lives in process memory; none of the SDKs persist it to disk.</p>
+
+        <h3 id="auto-login-suppression">2.3 Auto-Login Suppression</h3>
+        <p>When a <code>githubToken</code> is explicitly provided, all SDKs default <code>useLoggedInUser</code> to <code>false</code>, which causes <code>--no-auto-login</code> to be passed to the CLI:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <span class="file-ref">nodejs/src/client.ts:249-250</span></li>
+          <li><span class="lang-pill py">Python</span> <span class="file-ref">python/copilot/client.py:179-183</span></li>
+          <li><span class="lang-pill go">Go</span> <span class="file-ref">go/client.go:1178-1186</span></li>
+          <li><span class="lang-pill cs">.NET</span> <span class="file-ref">dotnet/src/Client.cs:1029-1033</span></li>
+        </ul>
+
+        <h3 id="env-var-inheritance">2.4 Environment Variable Inheritance</h3>
+        <p>The CLI subprocess inherits the parent process's environment by default (filtered):</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <span class="file-ref">nodejs/src/client.ts:247</span> &mdash; <code>env: options.env ?? process.env</code>, then <code>NODE_DEBUG</code> is deleted (<span class="file-ref">nodejs/src/client.ts:1134-1135</span>)</li>
+          <li><span class="lang-pill py">Python</span> <span class="file-ref">python/copilot/client.py:1314-1318</span> &mdash; <code>env = dict(os.environ)</code> if not overridden</li>
+          <li><span class="lang-pill go">Go</span> <span class="file-ref">go/client.go:199-201</span> &mdash; <code>opts.Env = os.Environ()</code> if not set</li>
+          <li><span class="lang-pill cs">.NET</span> <span class="file-ref">dotnet/src/Client.cs:1050-1059</span> &mdash; uses <code>ProcessStartInfo.Environment</code>, removes <code>NODE_DEBUG</code></li>
+        </ul>
+        <p>All SDKs allow overriding the environment via <code>env</code>/<code>Environment</code> options, giving callers full control over what the CLI subprocess sees.</p>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 3: Permission System -->
+        <!-- ============================================================ -->
+        <h2 id="permission-system">3. Permission System</h2>
+        <p>The SDK implements a permission request/response system that mediates CLI requests for potentially sensitive operations (tool invocations, file access, etc.).</p>
+
+        <h3 id="mandatory-permission-handler">3.1 Mandatory Permission Handler</h3>
+        <p>All four SDKs <strong>require</strong> an <code>onPermissionRequest</code> handler when creating or resuming a session. Attempting to create a session without one results in an error:</p>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="perm-handler-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="perm-handler-py">Python</button>
+            <button class="tab-btn" data-tab="perm-handler-go">Go</button>
+            <button class="tab-btn" data-tab="perm-handler-cs">.NET</button>
+          </div>
+          <div class="tab-panel active" id="perm-handler-ts">
+<pre data-lang="TypeScript">// nodejs/src/client.ts:540-543
+if (!config?.onPermissionRequest) {
+    throw new Error("An onPermissionRequest handler is required ...");
+}</pre>
+          </div>
+          <div class="tab-panel" id="perm-handler-py">
+<pre data-lang="Python"># python/copilot/client.py:487-491
+if not cfg.get("on_permission_request"):
+    raise ValueError("An on_permission_request handler is required ...")</pre>
+          </div>
+          <div class="tab-panel" id="perm-handler-go">
+<pre data-lang="Go">// go/client.go:488-489
+if config == nil || config.OnPermissionRequest == nil {
+    return nil, fmt.Errorf("an OnPermissionRequest handler is required ...")
+}</pre>
+          </div>
+          <div class="tab-panel" id="perm-handler-cs">
+<pre data-lang="C#">// dotnet/src/Client.cs:389-393
+if (config.OnPermissionRequest == null)
+    throw new ArgumentException("An OnPermissionRequest handler is required ...");</pre>
+          </div>
+        </div>
+
+        <h3 id="permission-result-kinds">3.2 Permission Request Result Kinds</h3>
+        <p>The permission system supports four result kinds, defined across all SDKs:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Kind</th>
+                <th>String Value</th>
+                <th>Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Approved</td>
+                <td><code>"approved"</code></td>
+                <td>Permission granted</td>
+              </tr>
+              <tr>
+                <td>Denied by Rules</td>
+                <td><code>"denied-by-rules"</code></td>
+                <td>Denied by policy/rules</td>
+              </tr>
+              <tr>
+                <td>Denied (No User)</td>
+                <td><code>"denied-no-approval-rule-and-could-not-request-from-user"</code></td>
+                <td>Cannot ask user</td>
+              </tr>
+              <tr>
+                <td>Denied by User</td>
+                <td><code>"denied-interactively-by-user"</code></td>
+                <td>User explicitly denied</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Reference: <span class="file-ref">go/types.go:110-125</span>, <span class="file-ref">dotnet/src/Types.cs:270-336</span>, <span class="file-ref">nodejs/src/types.ts:243</span></p>
+
+        <h3 id="pre-built-permission-handlers">3.3 Pre-Built Permission Handlers</h3>
+        <p>Each SDK provides an <code>approveAll</code> / <code>ApproveAll</code> convenience handler that approves every request:</p>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="approve-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="approve-go">Go</button>
+            <button class="tab-btn" data-tab="approve-cs">.NET</button>
+          </div>
+          <div class="tab-panel active" id="approve-ts">
+<pre data-lang="TypeScript">// nodejs/src/types.ts:251
+export const approveAll: PermissionHandler = () =&gt; ({ kind: "approved" });</pre>
+          </div>
+          <div class="tab-panel" id="approve-go">
+<pre data-lang="Go">// go/permissions.go:4-11
+var PermissionHandler = struct {
+    ApproveAll PermissionHandlerFunc
+}{
+    ApproveAll: func(_ PermissionRequest, _ PermissionInvocation) (PermissionRequestResult, error) {
+        return PermissionRequestResult{Kind: PermissionRequestResultKindApproved}, nil
+    },
+}</pre>
+          </div>
+          <div class="tab-panel" id="approve-cs">
+<pre data-lang="C#">// dotnet/src/PermissionHandlers.cs:8-12
+public static class PermissionHandler
+{
+    public static PermissionRequestHandler ApproveAll { get; } =
+        (_, _) =&gt; Task.FromResult(new PermissionRequestResult { Kind = PermissionRequestResultKind.Approved });
+}</pre>
+          </div>
+        </div>
+
+        <h3 id="permission-protocol-versions">3.4 Permission Protocol Versions</h3>
+        <p>The SDK supports two protocol versions for permission handling:</p>
+        <ul>
+          <li><strong>Protocol v2:</strong> The CLI sends <code>permission.request</code> RPC calls. The SDK registers a handler for these:
+            <ul>
+              <li><span class="lang-pill ts">TypeScript</span> <span class="file-ref">nodejs/src/client.ts:1387-1391</span></li>
+              <li><span class="lang-pill py">Python</span> <span class="file-ref">python/copilot/client.py:1434</span></li>
+              <li><span class="lang-pill go">Go</span> <span class="file-ref">go/client.go:1365</span></li>
+              <li><span class="lang-pill cs">.NET</span> <span class="file-ref">dotnet/src/Client.cs:1196</span></li>
+            </ul>
+          </li>
+          <li><strong>Protocol v3:</strong> The CLI sends permission requests as broadcast <code>permission.requested</code> events, dispatched in <code>CopilotSession._dispatchEvent</code> (<span class="file-ref">nodejs/src/client.ts:1375-1377</span>).</li>
+        </ul>
+        <p>Both v2 adapters are always registered because they are set up before version negotiation; a v3 server simply never invokes them.</p>
+
+        <h3 id="default-deny">3.5 Default Deny When No Handler</h3>
+        <p>If a permission request arrives for a session that has no handler registered (or if the handler call fails), the default is <strong>deny</strong> with <code>DeniedCouldNotRequestFromUser</code>:</p>
+        <ul>
+          <li><span class="lang-pill go">Go</span> <span class="file-ref">go/client.go:1513-1517</span></li>
+          <li><span class="lang-pill cs">.NET</span> <span class="file-ref">dotnet/src/Session.cs:336-338</span></li>
+          <li><span class="lang-pill ts">TypeScript</span> <span class="file-ref">nodejs/src/session.ts:500-504</span></li>
+        </ul>
+
+        <h3 id="request-permission-flag">3.6 requestPermission Flag</h3>
+        <p>All SDKs set <code>requestPermission: true</code> on session create/resume RPC calls, instructing the CLI to route permission decisions through the SDK rather than handling them internally:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <span class="file-ref">nodejs/src/client.ts:588</span></li>
+          <li><span class="lang-pill py">Python</span> <span class="file-ref">python/copilot/client.py:533</span></li>
+          <li><span class="lang-pill go">Go</span> <span class="file-ref">go/client.go:529</span></li>
+        </ul>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 4: Process Security -->
+        <!-- ============================================================ -->
+        <h2 id="process-security">4. Process Security</h2>
+
+        <h3 id="cli-process-spawning">4.1 CLI Process Spawning</h3>
+        <p>When not using an external server (<code>cliUrl</code>), each SDK spawns the Copilot CLI as a child process:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> Uses <code>spawn()</code> from <code>node:child_process</code> &mdash; <span class="file-ref">nodejs/src/client.ts:1163-1176</span></li>
+          <li><span class="lang-pill py">Python</span> Uses <code>subprocess.Popen()</code> &mdash; <span class="file-ref">python/copilot/client.py:1331-1352</span></li>
+          <li><span class="lang-pill go">Go</span> Uses <code>os/exec.CommandContext()</code> &mdash; <span class="file-ref">go/client.go:1197</span></li>
+          <li><span class="lang-pill cs">.NET</span> Uses <code>System.Diagnostics.Process</code> &mdash; <span class="file-ref">dotnet/src/Client.cs:1067-1068</span></li>
+        </ul>
+
+        <h3 id="window-hiding-windows">4.2 Window Hiding on Windows</h3>
+        <p>All four SDKs suppress console window creation on Windows to prevent visual disruption:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>SDK</th>
+                <th>Mechanism</th>
+                <th>File:Line</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="lang-pill ts">TypeScript</span></td>
+                <td><code>windowsHide: true</code> in spawn options</td>
+                <td><span class="file-ref">nodejs/src/client.ts:1167, 1174</span></td>
+              </tr>
+              <tr>
+                <td><span class="lang-pill py">Python</span></td>
+                <td><code>subprocess.CREATE_NO_WINDOW</code> creation flag</td>
+                <td><span class="file-ref">python/copilot/client.py:1325</span></td>
+              </tr>
+              <tr>
+                <td><span class="lang-pill go">Go</span></td>
+                <td><code>SysProcAttr.HideWindow = true</code></td>
+                <td><span class="file-ref">go/process_windows.go:13-14</span></td>
+              </tr>
+              <tr>
+                <td><span class="lang-pill cs">.NET</span></td>
+                <td><code>ProcessStartInfo.CreateNoWindow = true</code></td>
+                <td><span class="file-ref">dotnet/src/Client.cs:1047</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>On non-Windows for Go, <code>configureProcAttr</code> is a no-op (<span class="file-ref">go/process_other.go:9-11</span>).</p>
+
+        <h3 id="shell-execution-disabled">4.3 Shell Execution Disabled</h3>
+        <p>All SDKs explicitly avoid shell execution:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <code>spawn()</code> is used directly (no <code>shell: true</code>)</li>
+          <li><span class="lang-pill py">Python</span> Arguments are passed as a list to <code>Popen</code>, not as a shell string</li>
+          <li><span class="lang-pill cs">.NET</span> <code>UseShellExecute = false</code> &mdash; <span class="file-ref">dotnet/src/Client.cs:1042</span></li>
+        </ul>
+
+        <h3 id="cli-arguments">4.4 CLI Arguments</h3>
+        <p>The SDK always passes a fixed set of flags to the CLI process:</p>
+<pre data-lang="shell">--headless --no-auto-update --log-level &lt;level&gt;</pre>
+        <p>Plus transport mode (<code>--stdio</code> or <code>--port &lt;n&gt;</code>), and optionally:</p>
+        <ul>
+          <li><code>--auth-token-env COPILOT_SDK_AUTH_TOKEN</code> (when <code>githubToken</code> is set)</li>
+          <li><code>--no-auto-login</code> (when <code>useLoggedInUser</code> is false)</li>
+        </ul>
+        <p>These are hardcoded; user-provided <code>cliArgs</code> are prepended before SDK-managed args.</p>
+
+        <h3 id="process-lifecycle">4.5 Process Lifecycle</h3>
+        <p><strong>Graceful stop:</strong> SDKs send stop/close signals and wait for process termination with a timeout:</p>
+        <ul>
+          <li><span class="lang-pill py">Python</span> <code>terminate()</code> then <code>wait(timeout=5)</code> then <code>kill()</code> &mdash; <span class="file-ref">python/copilot/client.py:385-389</span></li>
+          <li><span class="lang-pill ts">TypeScript</span> <code>kill()</code> &mdash; <span class="file-ref">nodejs/src/client.ts:421</span></li>
+          <li><span class="lang-pill go">Go</span> <code>killProcess()</code> via <code>os.Process.Kill()</code> &mdash; <span class="file-ref">go/client.go:1282-1289</span></li>
+          <li><span class="lang-pill cs">.NET</span> <code>Process.Kill()</code> &mdash; <span class="file-ref">dotnet/src/Client.cs:355</span></li>
+        </ul>
+        <p><strong>Force stop:</strong> All SDKs provide a <code>forceStop()</code> method that immediately kills the process without waiting:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <code>SIGKILL</code> &mdash; <span class="file-ref">nodejs/src/client.ts:497</span></li>
+          <li><span class="lang-pill go">Go</span> <code>osProcess.Kill()</code> outside of start/stop mutex &mdash; <span class="file-ref">go/client.go:401-404</span></li>
+        </ul>
+
+        <h3 id="process-monitoring">4.6 Process Monitoring</h3>
+        <p>Go implements explicit process monitoring with a goroutine (<span class="file-ref">go/client.go:1297-1310</span>) that signals a done channel on exit. The process pointer is stored atomically (<span class="file-ref">go/client.go:95</span>) to allow safe concurrent access for kill operations.</p>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 5: Input Validation -->
+        <!-- ============================================================ -->
+        <h2 id="input-validation">5. Input Validation</h2>
+
+        <h3 id="constructor-level-validation">5.1 Constructor-Level Validation</h3>
+        <p>All SDKs validate mutually exclusive options at construction time:</p>
+        <ul>
+          <li><code>cliUrl</code> is mutually exclusive with <code>useStdio</code> and <code>cliPath</code>:
+            <ul>
+              <li><span class="lang-pill ts">TypeScript</span> <span class="file-ref">nodejs/src/client.ts:205-207</span></li>
+              <li><span class="lang-pill go">Go</span> <span class="file-ref">go/client.go:140-141</span></li>
+            </ul>
+          </li>
+          <li><code>isChildProcess</code> must use stdio, not <code>cliUrl</code>:
+            <ul>
+              <li><span class="lang-pill ts">TypeScript</span> <span class="file-ref">nodejs/src/client.ts:209-213</span></li>
+            </ul>
+          </li>
+          <li>Auth options cannot be used with external server: see <a href="#auth-validation-external-server">Section 1.6</a></li>
+        </ul>
+
+        <h3 id="protocol-version-verification">5.2 Protocol Version Verification</h3>
+        <p>After connecting, all SDKs verify the CLI server's protocol version via a <code>ping</code> RPC call:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <span class="file-ref">nodejs/src/client.ts:837-864</span> &mdash; checks <code>MIN_PROTOCOL_VERSION</code> (2) to <code>getSdkProtocolVersion()</code></li>
+          <li><span class="lang-pill py">Python</span> <span class="file-ref">python/copilot/client.py:54</span> &mdash; <code>MIN_PROTOCOL_VERSION = 2</code></li>
+          <li><span class="lang-pill go">Go</span> <span class="file-ref">go/client.go:1140-1141</span> &mdash; rejects if server version is out of range</li>
+          <li><span class="lang-pill cs">.NET</span> <span class="file-ref">dotnet/src/Client.cs:974-998</span></li>
+        </ul>
+        <p>If the version is outside the supported range, the connection is refused with a descriptive error.</p>
+
+        <h3 id="cli-path-verification">5.3 CLI Path Verification</h3>
+        <p>The Node.js SDK verifies the CLI binary exists before attempting to spawn:</p>
+<pre data-lang="TypeScript">// nodejs/src/client.ts:1148-1153
+if (!existsSync(this.options.cliPath)) {
+    throw new Error(`Copilot CLI not found at ${this.options.cliPath}...`);
+}</pre>
+        <p>Python performs a similar check at <span class="file-ref">python/copilot/client.py:1288-1289</span>.</p>
+
+        <h3 id="port-parsing">5.4 Port Parsing</h3>
+        <p>For TCP mode, all SDKs parse the port from CLI stdout using regex:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <code>stdout.match(/listening on port (\d+)/i)</code> &mdash; <span class="file-ref">nodejs/src/client.ts:1189</span></li>
+          <li><span class="lang-pill py">Python</span> <code>re.search(r"listening on port (\d+)", ...)</code> &mdash; <span class="file-ref">python/copilot/client.py:1371</span></li>
+          <li><span class="lang-pill go">Go</span> <code>regexp.MustCompile("listening on port (\\d+)")</code> &mdash; <span class="file-ref">go/client.go:1254</span></li>
+          <li><span class="lang-pill cs">.NET</span> <code>ListeningOnPortRegex()</code> generated regex &mdash; <span class="file-ref">dotnet/src/Client.cs:1102</span></li>
+        </ul>
+
+        <h3 id="session-create-rpc-payload">5.5 Session Create RPC Payload</h3>
+        <p>Tool definitions are serialized with name, description, and parameters before being sent to the CLI. Parameters go through JSON Schema conversion:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <code>toJsonSchema()</code> at <span class="file-ref">nodejs/src/client.ts:73-78</span> &mdash; handles both Zod schemas and raw JSON schemas</li>
+          <li>The <code>envValueMode</code> is set to <code>"direct"</code> on all create/resume calls:
+            <ul>
+              <li><span class="lang-pill ts">TypeScript</span> <span class="file-ref">nodejs/src/client.ts:594</span></li>
+              <li><span class="lang-pill py">Python</span> <span class="file-ref">python/copilot/client.py:564</span></li>
+              <li><span class="lang-pill go">Go</span> <span class="file-ref">go/client.go:508</span></li>
+            </ul>
+          </li>
+        </ul>
+
+        <h3 id="permission-request-payload-validation">5.6 Permission Request Payload Validation</h3>
+        <p>v2 permission request handlers validate the incoming payload before processing:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <span class="file-ref">nodejs/src/client.ts:1595-1596</span> &mdash; checks <code>sessionId</code> is string and <code>permissionRequest</code> exists</li>
+          <li><span class="lang-pill go">Go</span> <span class="file-ref">go/client.go:1502-1503</span> &mdash; returns error code <code>-32602</code> if session ID or request is empty</li>
+          <li><span class="lang-pill py">Python</span> <span class="file-ref">python/copilot/client.py:1650-1652</span> &mdash; raises <code>ValueError</code> on invalid payload</li>
+        </ul>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 6: Secret Management -->
+        <!-- ============================================================ -->
+        <h2 id="secret-management">6. Secret Management</h2>
+
+        <h3 id="gitignore-coverage">6.1 .gitignore Coverage</h3>
+        <p>The repository uses per-directory <span class="file-ref">.gitignore</span> files. <code>.env</code> files are excluded across multiple SDK directories:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>.gitignore File</th>
+                <th>Excludes <code>.env</code></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="file-ref">nodejs/.gitignore:76-80</span></td>
+                <td><code>.env</code>, <code>.env.development.local</code>, <code>.env.test.local</code>, <code>.env.production.local</code>, <code>.env.local</code></td>
+              </tr>
+              <tr>
+                <td><span class="file-ref">python/.gitignore:123</span></td>
+                <td><code>.env</code></td>
+              </tr>
+              <tr>
+                <td><span class="file-ref">go/.gitignore:24</span></td>
+                <td><code>.env</code></td>
+              </tr>
+              <tr>
+                <td>Root <span class="file-ref">.gitignore:2</span></td>
+                <td><code>docs/.validation/</code> (build artifacts only)</td>
+              </tr>
+              <tr>
+                <td><span class="file-ref">dotnet/.gitignore</span></td>
+                <td>Does <strong>not</strong> mention <code>.env</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="security-env-vars">6.2 Security-Relevant Environment Variables</h3>
+        <p>The following environment variables carry credentials:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Variable</th>
+                <th>Purpose</th>
+                <th>Where Referenced</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>COPILOT_SDK_AUTH_TOKEN</code></td>
+                <td>Internal: token passed to CLI subprocess</td>
+                <td>All four SDK clients</td>
+              </tr>
+              <tr>
+                <td><code>COPILOT_GITHUB_TOKEN</code></td>
+                <td>GitHub token for Copilot (priority 1 env var)</td>
+                <td><span class="file-ref">docs/auth/index.md:210</span></td>
+              </tr>
+              <tr>
+                <td><code>GH_TOKEN</code></td>
+                <td>GitHub CLI compatible token (priority 2)</td>
+                <td><span class="file-ref">docs/auth/index.md:211</span></td>
+              </tr>
+              <tr>
+                <td><code>GITHUB_TOKEN</code></td>
+                <td>GitHub Actions compatible token (priority 3)</td>
+                <td><span class="file-ref">docs/auth/index.md:212</span></td>
+              </tr>
+              <tr>
+                <td><code>GITHUB_COPILOT_API_TOKEN</code></td>
+                <td>Direct API token</td>
+                <td><span class="file-ref">docs/auth/index.md:275</span></td>
+              </tr>
+              <tr>
+                <td><code>COPILOT_API_URL</code></td>
+                <td>API endpoint for direct API token mode</td>
+                <td><span class="file-ref">docs/auth/index.md:275</span></td>
+              </tr>
+              <tr>
+                <td><code>CAPI_HMAC_KEY</code> / <code>COPILOT_HMAC_KEY</code></td>
+                <td>HMAC signing key</td>
+                <td><span class="file-ref">docs/auth/index.md:274</span></td>
+              </tr>
+              <tr>
+                <td><code>GITHUB_CLIENT_ID</code> / <code>GITHUB_CLIENT_SECRET</code></td>
+                <td>OAuth app credentials (app code, not SDK)</td>
+                <td><span class="file-ref">docs/setup/github-oauth.md:100-101</span></td>
+              </tr>
+              <tr>
+                <td><code>FOUNDRY_API_KEY</code></td>
+                <td>Azure AI Foundry API key (BYOK)</td>
+                <td><span class="file-ref">docs/auth/byok.md:41</span></td>
+              </tr>
+              <tr>
+                <td><code>OPENAI_API_KEY</code></td>
+                <td>OpenAI API key (BYOK)</td>
+                <td><span class="file-ref">docs/auth/byok.md:212</span></td>
+              </tr>
+              <tr>
+                <td><code>ANTHROPIC_API_KEY</code></td>
+                <td>Anthropic API key (BYOK)</td>
+                <td><span class="file-ref">docs/auth/byok.md:291</span></td>
+              </tr>
+              <tr>
+                <td><code>AZURE_OPENAI_KEY</code></td>
+                <td>Azure OpenAI API key (BYOK)</td>
+                <td><span class="file-ref">docs/auth/byok.md:225</span></td>
+              </tr>
+              <tr>
+                <td><code>COPILOT_CLI_PATH</code></td>
+                <td>CLI binary path override</td>
+                <td><span class="file-ref">go/client.go:205</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="node-debug-suppression">6.3 NODE_DEBUG Suppression</h3>
+        <p>All SDKs remove <code>NODE_DEBUG</code> from the CLI subprocess environment to prevent verbose debug output from polluting stdio transport:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <span class="file-ref">nodejs/src/client.ts:1135</span></li>
+          <li><span class="lang-pill cs">.NET</span> <span class="file-ref">dotnet/src/Client.cs:1059</span></li>
+        </ul>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 7: Network Security -->
+        <!-- ============================================================ -->
+        <h2 id="network-security">7. Network Security</h2>
+
+        <h3 id="transport-modes">7.1 Transport Modes</h3>
+        <p>The SDK communicates with the CLI via two transport modes:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Mode</th>
+                <th>Protocol</th>
+                <th>When Used</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>stdio</strong> (default)</td>
+                <td>JSON-RPC over stdin/stdout pipes</td>
+                <td>Local child process</td>
+              </tr>
+              <tr>
+                <td><strong>TCP</strong></td>
+                <td>JSON-RPC over raw TCP socket</td>
+                <td>External server (<code>cliUrl</code>) or port mode</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="tcp-connection-details">7.2 TCP Connection Details</h3>
+        <p>TCP connections use plain TCP sockets &mdash; there is no TLS between SDK and CLI:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <code>new Socket().connect(port, host)</code> &mdash; <span class="file-ref">nodejs/src/client.ts:1342-1344</span></li>
+          <li><span class="lang-pill go">Go</span> <code>net.Dialer.DialContext(ctx, "tcp", address)</code> with 10s timeout &mdash; <span class="file-ref">go/client.go:1334-1337</span></li>
+          <li><span class="lang-pill cs">.NET</span> <code>new TcpClient().ConnectAsync(host, port)</code> &mdash; <span class="file-ref">dotnet/src/Client.cs:1173-1174</span></li>
+        </ul>
+        <div class="callout warning">
+          <div class="callout-title">No Built-in Auth on TCP Path</div>
+          <p>The default host is <code>localhost</code>. The docs note that when using <code>cliUrl</code> in production, the network path between SDK and CLI should be secured (<span class="file-ref">docs/setup/backend-services.md:471</span>): <em>"No built-in auth between SDK and CLI &mdash; Secure the network path (same host, VPC, etc.)"</em></p>
+        </div>
+
+        <h3 id="cli-to-cloud">7.3 CLI-to-Cloud Communication</h3>
+        <p>The SDK itself does not make direct API calls to model providers. The CLI subprocess handles all outbound network communication to:</p>
+        <ul>
+          <li>GitHub Copilot API</li>
+          <li>Azure AI Foundry / Azure OpenAI endpoints</li>
+          <li>OpenAI API</li>
+          <li>Anthropic API</li>
+          <li>Local model servers (Ollama, Foundry Local)</li>
+        </ul>
+        <p>BYOK provider <code>baseUrl</code> values are passed through the session config to the CLI, which makes the actual HTTP(S) requests.</p>
+
+        <h3 id="url-parsing">7.4 URL Parsing</h3>
+        <p>The <code>cliUrl</code> parameter is parsed to extract host and port. The Node.js SDK has a <code>parseCliUrl</code> method (<span class="file-ref">nodejs/src/client.ts:224</span>). The Go SDK has a <code>parseCliUrl</code> function (<span class="file-ref">go/client.go:151</span>). The Python SDK's test suite confirms HTTPS URLs are accepted (<span class="file-ref">python/test_client.py:58-59</span>).</p>
+
+        <h3 id="proxy-support">7.5 Proxy Support</h3>
+        <p>There is no explicit proxy configuration in the SDK layer. Proxy handling, if any, would be in the CLI subprocess, which inherits the parent process's environment variables (including standard proxy env vars like <code>HTTP_PROXY</code>, <code>HTTPS_PROXY</code>).</p>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 8: Attack Surface -->
+        <!-- ============================================================ -->
+        <h2 id="attack-surface">8. Attack Surface</h2>
+
+        <h3 id="entry-points">8.1 Entry Points</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Entry Point</th>
+                <th>Description</th>
+                <th>Risk Context</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>SDK Constructor</strong></td>
+                <td>Accepts <code>cliPath</code>, <code>cliUrl</code>, <code>githubToken</code>, env vars</td>
+                <td><code>cliPath</code> is used directly as executable path</td>
+              </tr>
+              <tr>
+                <td><strong>Session Create</strong></td>
+                <td>Accepts model name, provider config (with API keys), tools, system message, working directory</td>
+                <td>Tool definitions and system messages are passed to CLI</td>
+              </tr>
+              <tr>
+                <td><strong>Message Send</strong></td>
+                <td>User prompts sent to CLI</td>
+                <td>Prompt content goes to model provider</td>
+              </tr>
+              <tr>
+                <td><strong>Tool Handler Callbacks</strong></td>
+                <td>SDK-registered tools invoked by CLI</td>
+                <td>Tool arguments come from model output</td>
+              </tr>
+              <tr>
+                <td><strong>Permission Handler</strong></td>
+                <td>SDK-registered handler invoked by CLI</td>
+                <td>Must decide whether to allow actions</td>
+              </tr>
+              <tr>
+                <td><strong>TCP Listener</strong></td>
+                <td>When CLI runs in headless mode on a port</td>
+                <td>Network-accessible JSON-RPC endpoint</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="tool-registration-execution">8.2 Tool Registration and Execution</h3>
+        <p>Custom tools are registered at session creation time. The tool handler receives arguments from the CLI, which come from model output:</p>
+<pre data-lang="TypeScript">// nodejs/src/types.ts:132-142
+export interface ToolInvocation {
+    sessionId: string;
+    toolCallId: string;
+    toolName: string;
+    arguments: unknown;  // From model output
+}</pre>
+        <p>The <code>arguments</code> field is typed as <code>unknown</code> &mdash; the SDK does not validate tool arguments against the declared schema. Schema validation (if any) occurs in the CLI or model provider side.</p>
+
+        <h3 id="tool-override-mechanism">8.3 Tool Override Mechanism</h3>
+        <p>Tools can be marked with <code>overridesBuiltInTool: true</code> (<span class="file-ref">nodejs/src/types.ts:169</span>), which allows SDK-registered tools to replace CLI built-in tools. Without this flag, a name clash results in an error.</p>
+
+        <h3 id="system-message-injection">8.4 System Message Injection Surface</h3>
+        <p>Session creation accepts a <code>systemMessage</code> parameter (<span class="file-ref">nodejs/src/client.ts:584</span>) that is sent to the CLI. The <code>SystemMessageAppendConfig</code> type (<span class="file-ref">nodejs/src/types.ts:202-208</span>) supports an <code>"append"</code> mode with a <code>content</code> string. This content is concatenated into the system prompt.</p>
+
+        <h3 id="working-directory">8.5 Working Directory</h3>
+        <p>Session creation accepts a <code>workingDirectory</code> parameter (<span class="file-ref">nodejs/src/client.ts:591</span>) that controls where the CLI operates. This path is not validated by the SDK before being sent to the CLI.</p>
+
+        <h3 id="mcp-server-configuration">8.6 MCP Server Configuration</h3>
+        <p>Session creation accepts an <code>mcpServers</code> parameter (<span class="file-ref">nodejs/src/client.ts:593</span>) for Model Context Protocol server definitions, which the CLI connects to as additional tool sources.</p>
+
+        <h3 id="custom-agent-configuration">8.7 Custom Agent Configuration</h3>
+        <p>Session creation accepts <code>customAgents</code> and <code>agent</code> parameters (<span class="file-ref">nodejs/src/client.ts:595-596</span>) that configure agent behavior. The agent config can include MCP server references (<span class="file-ref">python/copilot/client.py:1270</span>).</p>
+
+        <h3 id="headless-tcp-mode">8.8 Headless TCP Mode Exposure</h3>
+        <p>When the CLI runs in headless mode (<code>--headless --port &lt;n&gt;</code>), it exposes a JSON-RPC server on a TCP port with no built-in authentication between SDK and CLI. The docs explicitly note this: <span class="file-ref">docs/setup/backend-services.md:471</span>.</p>
+
+        <h3 id="cliargs-passthrough">8.9 <code>cliArgs</code> Passthrough</h3>
+        <p>All SDKs accept user-provided <code>cliArgs</code> that are prepended to SDK-managed arguments:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <span class="file-ref">nodejs/src/client.ts:1111</span> &mdash; <code>...this.options.cliArgs</code></li>
+          <li><span class="lang-pill py">Python</span> <span class="file-ref">python/copilot/client.py:1292-1293</span></li>
+          <li><span class="lang-pill go">Go</span> <span class="file-ref">go/client.go:1164</span></li>
+          <li><span class="lang-pill cs">.NET</span> <span class="file-ref">dotnet/src/Client.cs:1007-1009</span></li>
+        </ul>
+        <p>These args are not sanitized by the SDK before being passed to the process.</p>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 9: BYOK (Bring Your Own Key) -->
+        <!-- ============================================================ -->
+        <h2 id="byok">9. BYOK (Bring Your Own Key)</h2>
+
+        <h3 id="byok-overview">9.1 Overview</h3>
+        <p>BYOK mode allows using the SDK without a GitHub Copilot subscription by providing API keys from third-party model providers. Documented in <span class="file-ref">docs/auth/byok.md</span>.</p>
+
+        <h3 id="supported-providers">9.2 Supported Providers</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th><code>type</code> Value</th>
+                <th>Authentication</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>OpenAI</td>
+                <td><code>"openai"</code></td>
+                <td><code>apiKey</code> or <code>bearerToken</code></td>
+              </tr>
+              <tr>
+                <td>Azure OpenAI / Azure AI Foundry</td>
+                <td><code>"azure"</code></td>
+                <td><code>apiKey</code></td>
+              </tr>
+              <tr>
+                <td>Anthropic</td>
+                <td><code>"anthropic"</code></td>
+                <td><code>apiKey</code></td>
+              </tr>
+              <tr>
+                <td>Ollama (local)</td>
+                <td><code>"openai"</code></td>
+                <td>None required</td>
+              </tr>
+              <tr>
+                <td>Microsoft Foundry Local</td>
+                <td><code>"openai"</code></td>
+                <td>None required</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Reference: <span class="file-ref">docs/auth/byok.md:7-14</span></p>
+
+        <h3 id="provider-config-fields">9.3 Provider Config Fields</h3>
+        <p>From <span class="file-ref">docs/auth/byok.md:172-181</span>:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>type</code></td>
+                <td><code>"openai"</code> / <code>"azure"</code> / <code>"anthropic"</code></td>
+                <td>Provider type</td>
+              </tr>
+              <tr>
+                <td><code>baseUrl</code></td>
+                <td>string</td>
+                <td><strong>Required.</strong> API endpoint URL</td>
+              </tr>
+              <tr>
+                <td><code>apiKey</code></td>
+                <td>string</td>
+                <td>API key (optional for local providers)</td>
+              </tr>
+              <tr>
+                <td><code>bearerToken</code></td>
+                <td>string</td>
+                <td>Bearer token auth (takes precedence over apiKey)</td>
+              </tr>
+              <tr>
+                <td><code>wireApi</code></td>
+                <td><code>"completions"</code> / <code>"responses"</code></td>
+                <td>API format</td>
+              </tr>
+              <tr>
+                <td><code>azure.apiVersion</code></td>
+                <td>string</td>
+                <td>Azure API version</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="bearer-token-limitations">9.4 Bearer Token Limitations</h3>
+        <p>Bearer tokens are <strong>static only</strong> (<span class="file-ref">docs/auth/byok.md:307</span>): <em>"The bearerToken option accepts a static token string only. The SDK does not refresh this token automatically."</em></p>
+
+        <h3 id="identity-provider-limitations">9.5 Identity Provider Limitations</h3>
+        <p>BYOK does not support (<span class="file-ref">docs/auth/byok.md:426-430</span>):</p>
+        <ul>
+          <li>Microsoft Entra ID (Azure AD) managed identities or service principals</li>
+          <li>Third-party OIDC, SAML, or federated identity</li>
+          <li>Azure Managed Identity natively</li>
+        </ul>
+
+        <h3 id="azure-managed-identity-workaround">9.6 Azure Managed Identity Workaround</h3>
+        <p><span class="file-ref">docs/setup/azure-managed-identity.md</span> documents a pattern where <code>DefaultAzureCredential</code> from the Azure Identity library obtains a short-lived bearer token, which is then passed as <code>bearer_token</code> in the BYOK provider config. The application is responsible for token refresh before expiry (~1 hour).</p>
+
+        <h3 id="api-key-transmission">9.7 API Key Transmission to CLI</h3>
+        <p>BYOK API keys and bearer tokens are passed in the session create RPC payload as part of the <code>provider</code> configuration. In Python, <code>bearer_token</code> is mapped to <code>bearerToken</code> for wire format:</p>
+<pre data-lang="Python"># python/copilot/client.py:1239-1240
+if "bearer_token" in provider:
+    wire_provider["bearerToken"] = provider["bearer_token"]</pre>
+        <p>The keys travel over the JSON-RPC connection (stdio pipes or TCP socket) to the CLI, which then uses them for outbound API calls.</p>
+
+        <h3 id="custom-model-listing">9.8 Custom Model Listing</h3>
+        <p>BYOK supports <code>onListModels</code> override (<span class="file-ref">docs/auth/byok.md:311-417</span>), which completely replaces the CLI's <code>models.list</code> RPC. Results are cached after first call.</p>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 10: Security Policies -->
+        <!-- ============================================================ -->
+        <h2 id="security-policies">10. Security Policies</h2>
+
+        <h3 id="security-md">10.1 SECURITY.md</h3>
+        <p>The repository's <span class="file-ref">SECURITY.md</span> (root level) establishes:</p>
+        <ul>
+          <li><strong>Disclosure policy:</strong> Coordinated disclosure via email to <code>opensource-security@github.com</code> (<span class="file-ref">SECURITY.md:15</span>)</li>
+          <li><strong>No public disclosure:</strong> Vulnerabilities must not be reported via GitHub issues, discussions, or pull requests (<span class="file-ref">SECURITY.md:13</span>)</li>
+          <li><strong>Bug bounty scope:</strong> Open source repositories are outside GitHub's bug bounty scope (<span class="file-ref">SECURITY.md:7</span>)</li>
+          <li><strong>Safe harbor:</strong> References GitHub's Safe Harbor Policy (<span class="file-ref">SECURITY.md:31</span>)</li>
+        </ul>
+
+        <h3 id="required-disclosure-info">10.2 Required Disclosure Information</h3>
+        <p>From <span class="file-ref">SECURITY.md:17-25</span>, reporters are asked to provide:</p>
+        <ul>
+          <li>Type of issue (buffer overflow, SQL injection, XSS, etc.)</li>
+          <li>Full paths of affected source files</li>
+          <li>Location of affected code (tag/branch/commit or URL)</li>
+          <li>Special configuration to reproduce</li>
+          <li>Step-by-step reproduction instructions</li>
+          <li>Proof-of-concept or exploit code</li>
+          <li>Impact assessment</li>
+        </ul>
+
+        <h3 id="copyright-ownership">10.3 Copyright and Ownership</h3>
+        <p>The source code carries Microsoft copyright headers:</p>
+        <ul>
+          <li><span class="lang-pill ts">TypeScript</span> <span class="file-ref">nodejs/src/client.ts:1-3</span> &mdash; "Copyright (c) Microsoft Corporation. All rights reserved."</li>
+          <li><span class="lang-pill cs">.NET</span> <span class="file-ref">dotnet/src/Client.cs:1-3</span> &mdash; same</li>
+        </ul>
+
+        <h3 id="protocol-version-security-boundary">10.4 Protocol Version as Security Boundary</h3>
+        <p>The protocol version negotiation (<code>MIN_PROTOCOL_VERSION = 2</code>) acts as a compatibility gate. A mismatched server is rejected before any session operations occur. This prevents the SDK from communicating with potentially incompatible or outdated CLI servers that may have different security behaviors.</p>
+
+        <!-- ============================================================ -->
+        <!-- Summary of Security-Relevant Architecture -->
+        <!-- ============================================================ -->
+        <h2 id="summary">Summary of Security-Relevant Architecture</h2>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Security Boundary Overview</div>
+          <pre class="mermaid">
+flowchart LR
+  A["&lt;b&gt;Application&lt;/b&gt;&lt;br/&gt;Provides token&lt;br/&gt;Registers tools&lt;br/&gt;Handles permissions&lt;br/&gt;Sends prompts"] --> B["&lt;b&gt;SDK Client&lt;/b&gt;&lt;br/&gt;(in-process)&lt;br/&gt;Validates opts&lt;br/&gt;Spawns CLI&lt;br/&gt;JSON-RPC conn&lt;br/&gt;Routes events&lt;br/&gt;Env var token"]
+  B --> C["&lt;b&gt;Copilot CLI&lt;/b&gt;&lt;br/&gt;(subprocess / TCP)&lt;br/&gt;Auth to GitHub&lt;br/&gt;BYOK to APIs&lt;br/&gt;Tool execution&lt;br/&gt;Model calls"]
+  C --> D["&lt;b&gt;Cloud Services&lt;/b&gt;&lt;br/&gt;GitHub API&lt;br/&gt;OpenAI&lt;br/&gt;Azure AI&lt;br/&gt;Anthropic"]
+          </pre>
+        </div>
+
+        <p><strong>Key security boundaries:</strong></p>
+        <ol>
+          <li><strong>Application &lt;-&gt; SDK:</strong> In-process trust boundary; SDK validates constructor options and requires permission handlers.</li>
+          <li><strong>SDK &lt;-&gt; CLI:</strong> Process boundary; tokens passed via env vars, communication over JSON-RPC (stdio or TCP). No TLS on TCP path.</li>
+          <li><strong>CLI &lt;-&gt; Cloud:</strong> Network boundary; the CLI handles all outbound HTTPS to model providers and GitHub APIs.</li>
+        </ol>
+
+      </div>
+      <nav class="page-nav">
+        <a href="11-dependencies.html" class="page-nav-link prev">
+          <span class="page-nav-label">Previous</span>
+          <span class="page-nav-title">11 — Dependencies</span>
+        </a>
+        <a href="13-contribution.html" class="page-nav-link next">
+          <span class="page-nav-label">Next</span>
+          <span class="page-nav-title">13 — Contribution Guide</span>
+        </a>
+      </nav>
+    </main>
+  </div>
+  <button class="scroll-top" aria-label="Scroll to top">&#8593;</button>
+  <script src="app.js"></script>
+</body>
+</html>

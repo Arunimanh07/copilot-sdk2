@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conventions - copilot-sdk Dissection</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/styles/github-dark-dimmed.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/go.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/csharp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect rx=%2715%27 width=%27100%27 height=%27100%27 fill=%27%230F172A%27/%3E%3Ctext x=%2750%27 y=%2770%27 font-size=%2750%27 text-anchor=%27middle%27 fill=%27%2322C55E%27%3E%26lt;/%26gt;%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <button class="sidebar-toggle">Menu</button>
+  <div class="page-wrapper">
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <h1>copilot-sdk</h1>
+        <div class="subtitle">Dissection Documentation</div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Foundation</div>
+        <a href="index.html" class="sidebar-link"><span class="link-num">00</span> Overview</a>
+        <a href="01-discovery.html" class="sidebar-link"><span class="link-num">01</span> Discovery</a>
+        <a href="02-structure.html" class="sidebar-link"><span class="link-num">02</span> Structure</a>
+        <a href="03-tech-stack.html" class="sidebar-link"><span class="link-num">03</span> Tech Stack</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Architecture</div>
+        <a href="04-entry-points.html" class="sidebar-link"><span class="link-num">04</span> Entry Points</a>
+        <a href="05-architecture.html" class="sidebar-link"><span class="link-num">05</span> Architecture</a>
+        <a href="06-data-flow.html" class="sidebar-link"><span class="link-num">06</span> Data Flow</a>
+        <a href="07-api-surface.html" class="sidebar-link"><span class="link-num">07</span> API Surface</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Implementation</div>
+        <a href="08-conventions.html" class="sidebar-link active"><span class="link-num">08</span> Conventions</a>
+        <a href="09-testing.html" class="sidebar-link"><span class="link-num">09</span> Testing</a>
+        <a href="10-build-deploy.html" class="sidebar-link"><span class="link-num">10</span> Build &amp; Deploy</a>
+        <a href="11-dependencies.html" class="sidebar-link"><span class="link-num">11</span> Dependencies</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Operations</div>
+        <a href="12-security.html" class="sidebar-link"><span class="link-num">12</span> Security</a>
+        <a href="13-contribution.html" class="sidebar-link"><span class="link-num">13</span> Contribution</a>
+      </div>
+    </nav>
+    <main class="main-content">
+      <div class="content-area">
+
+        <div class="phase-badge"><span class="dot"></span>Phase 8/13 &mdash; Conventions</div>
+
+        <h1>Coding Conventions &amp; Style Patterns</h1>
+        <p>Every coding convention and style pattern enforced or observed in the <strong>copilot-sdk</strong> polyglot repository (<span class="lang-pill ts">TypeScript</span> <span class="lang-pill py">Python</span> <span class="lang-pill go">Go</span> <span class="lang-pill cs">C#</span>). Each rule is cited with <code>file:line</code> references drawn from the actual codebase.</p>
+
+        <nav class="toc">
+          <div class="toc-title">Table of Contents</div>
+          <ul class="toc-list">
+            <li><a href="#naming"><span class="toc-num">01</span> Naming Conventions</a></li>
+            <li><a href="#file-org"><span class="toc-num">02</span> File Organization</a></li>
+            <li><a href="#error-handling"><span class="toc-num">03</span> Error Handling Conventions</a></li>
+            <li><a href="#docs"><span class="toc-num">04</span> Documentation Style</a></li>
+            <li><a href="#type-system"><span class="toc-num">05</span> Type System Usage</a></li>
+            <li><a href="#async"><span class="toc-num">06</span> Async Patterns</a></li>
+            <li><a href="#imports"><span class="toc-num">07</span> Import/Export Patterns</a></li>
+            <li><a href="#codegen"><span class="toc-num">08</span> Code Generation Conventions</a></li>
+            <li><a href="#linting"><span class="toc-num">09</span> Linting &amp; Formatting Rules</a></li>
+            <li><a href="#cross-lang"><span class="toc-num">10</span> Cross-Language Consistency Rules</a></li>
+          </ul>
+        </nav>
+
+        <!-- 1. Naming Conventions -->
+        <h2 id="naming">1. Naming Conventions</h2>
+
+        <h3>1.1 TypeScript (Node.js)</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Element</th><th>Convention</th><th>Example</th><th>Citation</th></tr></thead>
+            <tbody>
+              <tr><td>Classes</td><td>PascalCase</td><td><code>CopilotClient</code>, <code>CopilotSession</code></td><td><span class="file-ref">client.ts:134</span>, <span class="file-ref">session.ts:59</span></td></tr>
+              <tr><td>Interfaces / Types</td><td>PascalCase</td><td><code>CopilotClientOptions</code>, <code>SessionConfig</code></td><td><span class="file-ref">types.ts:16</span>, <span class="file-ref">types.ts:121</span></td></tr>
+              <tr><td>Type aliases (unions)</td><td>PascalCase</td><td><code>SessionEvent</code>, <code>ToolResult</code></td><td><span class="file-ref">types.ts:11</span>, <span class="file-ref">types.ts:130</span></td></tr>
+              <tr><td>Methods</td><td>camelCase</td><td><code>createSession</code>, <code>sendAndWait</code></td><td><span class="file-ref">session.ts:120</span>, <span class="file-ref">session.ts:154</span></td></tr>
+              <tr><td>Private fields</td><td>camelCase (no prefix)</td><td><code>this.connection</code>, <code>this.sessions</code></td><td><span class="file-ref">client.ts:136</span></td></tr>
+              <tr><td>Internal methods</td><td><code>_</code> prefix</td><td><code>_dispatchEvent</code>, <code>_handleBroadcastEvent</code></td><td><span class="file-ref">session.ts:293</span>, <span class="file-ref">session.ts:325</span></td></tr>
+              <tr><td>Constants</td><td>UPPER_SNAKE_CASE</td><td><code>MIN_PROTOCOL_VERSION</code></td><td><span class="file-ref">client.ts:56</span></td></tr>
+              <tr><td>Files</td><td>kebab-case</td><td><code>client.ts</code>, <code>session-events.ts</code></td><td>directory listing</td></tr>
+              <tr><td>Unused variables</td><td><code>_</code> prefix</td><td><code>_error</code>, <code>_rpc</code></td><td><span class="file-ref">eslint.config.js:23-26</span></td></tr>
+              <tr><td>Generic type params</td><td>Single uppercase / PascalCase</td><td><code>&lt;T&gt;</code>, <code>&lt;K extends SessionEventType&gt;</code></td><td><span class="file-ref">session.ts:230</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>1.2 Python</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Element</th><th>Convention</th><th>Example</th><th>Citation</th></tr></thead>
+            <tbody>
+              <tr><td>Classes</td><td>PascalCase</td><td><code>CopilotClient</code>, <code>CopilotSession</code></td><td><span class="file-ref">client.py:78</span>, <span class="file-ref">session.py:46</span></td></tr>
+              <tr><td>Methods</td><td>snake_case</td><td><code>create_session</code>, <code>send_and_wait</code></td><td><span class="file-ref">session.py:118</span>, <span class="file-ref">session.py:153</span></td></tr>
+              <tr><td>Private methods</td><td>Leading <code>_</code></td><td><code>_dispatch_event</code>, <code>_register_tools</code></td><td><span class="file-ref">session.py:248</span>, <span class="file-ref">session.py:274</span></td></tr>
+              <tr><td>Private instance vars</td><td>Leading <code>_</code></td><td><code>self._client</code>, <code>self._event_handlers</code></td><td><span class="file-ref">session.py:87-88</span></td></tr>
+              <tr><td>Constants</td><td>UPPER_SNAKE_CASE</td><td><code>MIN_PROTOCOL_VERSION</code></td><td><span class="file-ref">client.py:55</span></td></tr>
+              <tr><td>Type aliases</td><td>PascalCase</td><td><code>ConnectionState</code>, <code>LogLevel</code></td><td><span class="file-ref">types.py:24</span></td></tr>
+              <tr><td>TypedDicts</td><td>PascalCase</td><td><code>CopilotClientOptions</code>, <code>MessageOptions</code></td><td><span class="file-ref">types.py:73</span></td></tr>
+              <tr><td>Dataclasses</td><td>PascalCase</td><td><code>ToolResult</code>, <code>ToolInvocation</code></td><td><span class="file-ref">types.py:122</span></td></tr>
+              <tr><td>Files</td><td>snake_case</td><td><code>client.py</code>, <code>session_events.py</code></td><td>directory listing</td></tr>
+              <tr><td>Module docstrings</td><td>Present on all modules</td><td>Triple-quoted at file top</td><td><span class="file-ref">client.py:1-12</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>1.3 Go</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Element</th><th>Convention</th><th>Example</th><th>Citation</th></tr></thead>
+            <tbody>
+              <tr><td>Exported types</td><td>PascalCase</td><td><code>Client</code>, <code>Session</code></td><td><span class="file-ref">client.go:73</span>, <span class="file-ref">session.go:51</span></td></tr>
+              <tr><td>Exported methods</td><td>PascalCase</td><td><code>Send</code>, <code>SendAndWait</code></td><td><span class="file-ref">session.go:113</span>, <span class="file-ref">session.go:160</span></td></tr>
+              <tr><td>Unexported helpers</td><td>camelCase</td><td><code>newSession</code>, <code>registerTools</code></td><td><span class="file-ref">session.go:80</span>, <span class="file-ref">session.go:265</span></td></tr>
+              <tr><td>Struct fields (exported)</td><td>PascalCase</td><td><code>SessionID</code>, <code>RPC</code></td><td><span class="file-ref">session.go:53</span></td></tr>
+              <tr><td>Struct fields (unexported)</td><td>camelCase</td><td><code>workspacePath</code>, <code>client</code></td><td><span class="file-ref">session.go:55-59</span></td></tr>
+              <tr><td>Constants</td><td>PascalCase prefixed</td><td><code>StateDisconnected</code>, <code>AssistantMessage</code></td><td><span class="file-ref">types.go:12-15</span></td></tr>
+              <tr><td>Enum-style types</td><td>PascalCase suffix</td><td><code>ConnectionState</code>, <code>SessionEventType</code></td><td><span class="file-ref">types.go:9</span></td></tr>
+              <tr><td>Files</td><td>snake_case</td><td><code>client.go</code>, <code>session.go</code></td><td>directory listing</td></tr>
+              <tr><td>Mutex fields</td><td>Short suffix</td><td><code>sessionsMux</code>, <code>toolHandlersM</code></td><td><span class="file-ref">client.go:82</span>, <span class="file-ref">session.go:60-64</span></td></tr>
+              <tr><td>Pointer helper fns</td><td>Single-word PascalCase</td><td><code>Bool</code>, <code>String</code>, <code>Float64</code></td><td><span class="file-ref">types.go:69-83</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>1.4 C# (.NET)</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Element</th><th>Convention</th><th>Example</th><th>Citation</th></tr></thead>
+            <tbody>
+              <tr><td>Classes</td><td>PascalCase</td><td><code>CopilotClient</code>, <code>CopilotSession</code></td><td><span class="file-ref">Client.cs:55</span>, <span class="file-ref">Session.cs:53</span></td></tr>
+              <tr><td>Public methods</td><td>PascalCase + <code>Async</code></td><td><code>SendAsync</code>, <code>SendAndWaitAsync</code></td><td><span class="file-ref">Session.cs:140</span></td></tr>
+              <tr><td>Public properties</td><td>PascalCase</td><td><code>SessionId</code>, <code>WorkspacePath</code></td><td><span class="file-ref">Session.cs:75-89</span></td></tr>
+              <tr><td>Private fields</td><td><code>_camelCase</code></td><td><code>_toolHandlers</code>, <code>_rpc</code></td><td><span class="file-ref">Session.cs:62-69</span></td></tr>
+              <tr><td>Constants</td><td>PascalCase</td><td><code>MinProtocolVersion</code></td><td><span class="file-ref">Client.cs:60</span></td></tr>
+              <tr><td>Enums</td><td>PascalCase members</td><td><code>ConnectionState.Disconnected</code></td><td><span class="file-ref">Types.cs:19-33</span></td></tr>
+              <tr><td>Internal methods</td><td>PascalCase</td><td><code>DispatchEvent</code>, <code>RegisterTools</code></td><td><span class="file-ref">Session.cs:275</span></td></tr>
+              <tr><td>Records</td><td>PascalCase</td><td><code>SendMessageRequest</code></td><td><span class="file-ref">Session.cs:754-765</span></td></tr>
+              <tr><td>Namespace</td><td>Dotted PascalCase</td><td><code>GitHub.Copilot.SDK</code></td><td><span class="file-ref">Session.cs:12</span></td></tr>
+              <tr><td>Files</td><td>PascalCase</td><td><code>Client.cs</code>, <code>Session.cs</code></td><td>directory listing</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Naming Convention Comparison Across SDKs</div>
+          <pre class="mermaid">
+flowchart LR
+  subgraph TS["TypeScript"]
+    direction TB
+    TS1["Classes: PascalCase"]
+    TS2["Methods: camelCase"]
+    TS3["Private: _prefix"]
+    TS4["Constants: UPPER_SNAKE"]
+    TS5["Files: kebab-case"]
+    TS1 --- TS2 --- TS3 --- TS4 --- TS5
+  end
+  subgraph PY["Python"]
+    direction TB
+    PY1["Classes: PascalCase"]
+    PY2["Methods: snake_case"]
+    PY3["Private: _prefix"]
+    PY4["Constants: UPPER_SNAKE"]
+    PY5["Files: snake_case"]
+    PY1 --- PY2 --- PY3 --- PY4 --- PY5
+  end
+  subgraph GO["Go"]
+    direction TB
+    GO1["Types: PascalCase"]
+    GO2["Methods: PascalCase"]
+    GO3["Private: camelCase"]
+    GO4["Constants: PascalCase"]
+    GO5["Files: snake_case"]
+    GO1 --- GO2 --- GO3 --- GO4 --- GO5
+  end
+  subgraph CS["C#"]
+    direction TB
+    CS1["Classes: PascalCase"]
+    CS2["Methods: PascalCase+Async"]
+    CS3["Private: _camelCase"]
+    CS4["Constants: PascalCase"]
+    CS5["Files: PascalCase"]
+    CS1 --- CS2 --- CS3 --- CS4 --- CS5
+  end
+          </pre>
+        </div>
+
+        <!-- 2. File Organization -->
+        <h2 id="file-org">2. File Organization</h2>
+
+        <h3>2.1 TypeScript Internal Structure</h3>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">TypeScript File Ordering</div>
+          <pre class="mermaid">
+flowchart TD
+  A["1. Copyright header #40;3 lines#41;"] --> B["2. Module JSDoc #40;@module tag#41;"]
+  B --> C["3. Imports #40;node: → third-party → local#41;"]
+  C --> D["4. Module-level constants"]
+  D --> E["5. Helper functions #40;private#41;"]
+  E --> F["6. Main export class #40;single per file#41;"]
+  F --> G["7. Type exports / re-exports"]
+          </pre>
+        </div>
+        <p><strong>Citation:</strong> <span class="file-ref">nodejs/src/client.ts:1-56</span>, <span class="file-ref">nodejs/src/session.ts:1-32</span></p>
+
+        <h3>2.2 Python Internal Structure</h3>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Python File Ordering</div>
+          <pre class="mermaid">
+flowchart TD
+  A["1. Module docstring"] --> B["2. Standard library imports"]
+  B --> C["3. Third-party imports"]
+  C --> D["4. Local imports"]
+  D --> E["5. Module-level constants"]
+  E --> F["6. Private helper functions"]
+  F --> G["7. Main class #40;single per file#41;"]
+          </pre>
+        </div>
+        <p><strong>Citation:</strong> <span class="file-ref">python/copilot/client.py:1-55</span>, <span class="file-ref">python/copilot/session.py:1-44</span></p>
+
+        <h3>2.3 Go Internal Structure</h3>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Go File Ordering</div>
+          <pre class="mermaid">
+flowchart TD
+  A["1. Package doc comment"] --> B["2. package declaration"]
+  B --> C["3. import #40;...#41; block"]
+  C --> D["4. Unexported types #40;helpers#41;"]
+  D --> E["5. Exported type + doc comment"]
+  E --> F["6. Constructor function"]
+  F --> G["7. Exported methods"]
+  G --> H["8. Unexported methods"]
+          </pre>
+        </div>
+        <p><strong>Citation:</strong> <span class="file-ref">go/session.go:1-89</span>, <span class="file-ref">go/client.go:1-52</span></p>
+
+        <h3>2.4 C# Internal Structure</h3>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">C# File Ordering</div>
+          <pre class="mermaid">
+flowchart TD
+  A["1. Copyright header"] --> B["2. Using directives"]
+  B --> C["3. Namespace declaration #40;file-scoped#41;"]
+  C --> D["4. XML doc summary"]
+  D --> E["5. Class declaration #40;sealed partial#41;"]
+  E --> F["6. Private fields → Properties → Constructor"]
+  F --> G["7. Public methods → Internal → Private"]
+  G --> H["8. Nested records/types #40;DTOs#41;"]
+          </pre>
+        </div>
+        <p><strong>Citation:</strong> <span class="file-ref">dotnet/src/Session.cs:1-100</span>, <span class="file-ref">dotnet/src/Session.cs:754-811</span></p>
+
+        <!-- 3. Error Handling -->
+        <h2 id="error-handling">3. Error Handling Conventions</h2>
+
+        <h3>3.1 TypeScript</h3>
+        <ul>
+          <li><strong>Throwing:</strong> <code>throw new Error("descriptive message")</code> for domain errors</li>
+          <li><strong>Catch-and-rethrow:</strong> Catch specific types (<code>ConnectionError</code>, <code>ResponseError</code>), rethrow unknown, swallow connection-lost</li>
+          <li><strong>Unused caught errors:</strong> Named <code>_error</code> per ESLint rule</li>
+          <li><strong>Timeout errors:</strong> Created inline with template literals</li>
+          <li><strong>Handler errors:</strong> Silently caught in event dispatchers</li>
+        </ul>
+        <p><strong>Citations:</strong> <span class="file-ref">session.ts:177-179</span>, <span class="file-ref">session.ts:303-306</span>, <span class="file-ref">session.ts:378-388</span></p>
+
+        <h3>3.2 Python</h3>
+        <ul>
+          <li><strong>Raising:</strong> <code>raise ValueError(...)</code> for validation, <code>raise RuntimeError(...)</code> for system failures</li>
+          <li><strong>Catch pattern:</strong> Broad <code>except Exception</code> with pylint disable, narrow catches for RPC</li>
+          <li><strong>Handler isolation:</strong> Exceptions caught and printed to stderr</li>
+          <li><strong>Deprecation:</strong> <code>warnings.warn("...", DeprecationWarning, stacklevel=2)</code></li>
+        </ul>
+        <p><strong>Citations:</strong> <span class="file-ref">client.py:142</span>, <span class="file-ref">session.py:269-272</span>, <span class="file-ref">session.py:680-686</span></p>
+
+        <h3>3.3 Go</h3>
+        <ul>
+          <li><strong>Error wrapping:</strong> <code>fmt.Errorf("failed to send message: %w", err)</code> &mdash; always uses <code>%w</code></li>
+          <li><strong>Panic for programmer errors:</strong> <code>panic("CLIUrl is mutually exclusive...")</code></li>
+          <li><strong>Recover in dispatchers:</strong> <code>defer func() { if r := recover(); r != nil { ... } }()</code></li>
+          <li><strong>Multi-return:</strong> All fallible public methods return <code>(value, error)</code></li>
+          <li><strong>Nil checks:</strong> Pointer fields checked before dereference</li>
+        </ul>
+        <p><strong>Citations:</strong> <span class="file-ref">session.go:123</span>, <span class="file-ref">client.go:141</span>, <span class="file-ref">session.go:454-462</span></p>
+
+        <h3>3.4 C#</h3>
+        <ul>
+          <li><strong>Exception types:</strong> <code>ArgumentException</code>, <code>InvalidOperationException</code>, <code>TimeoutException</code>, <code>ObjectDisposedException</code></li>
+          <li><strong>Null-coalescing throw:</strong> <code>?? throw new InvalidOperationException(...)</code></li>
+          <li><strong>Catch-and-swallow:</strong> Catches <code>IOException</code> / <code>ObjectDisposedException</code> for connection loss</li>
+          <li><strong>Pattern matching:</strong> <code>switch (evt) { case AssistantMessageEvent: ... }</code></li>
+        </ul>
+        <p><strong>Citations:</strong> <span class="file-ref">Client.cs:124</span>, <span class="file-ref">Session.cs:508</span>, <span class="file-ref">Session.cs:447-454</span></p>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Error Handling Strategy Comparison</div>
+          <pre class="mermaid">
+flowchart LR
+  subgraph TS["TypeScript"]
+    direction TB
+    TS1["throw new Error#40;#41;"]
+    TS2["catch + rethrow"]
+    TS3["Swallow in dispatchers"]
+    TS4["_error for unused"]
+    TS1 --- TS2 --- TS3 --- TS4
+  end
+  subgraph PY["Python"]
+    direction TB
+    PY1["raise ValueError/RuntimeError"]
+    PY2["except Exception #40;broad#41;"]
+    PY3["Print to stderr"]
+    PY4["warnings.warn#40;#41;"]
+    PY1 --- PY2 --- PY3 --- PY4
+  end
+  subgraph GO["Go"]
+    direction TB
+    GO1["fmt.Errorf#40;%w#41;"]
+    GO2["#40;value, error#41; return"]
+    GO3["defer recover#40;#41;"]
+    GO4["panic#40;#41; for config bugs"]
+    GO1 --- GO2 --- GO3 --- GO4
+  end
+  subgraph CS["C#"]
+    direction TB
+    CS1["Typed exceptions"]
+    CS2["?? throw pattern"]
+    CS3["Catch IOException"]
+    CS4["Pattern matching"]
+    CS1 --- CS2 --- CS3 --- CS4
+  end
+          </pre>
+        </div>
+
+        <!-- 4. Documentation Style -->
+        <h2 id="docs">4. Documentation Style</h2>
+
+        <h3>4.1 TypeScript &mdash; JSDoc</h3>
+        <ul>
+          <li><strong>Module-level:</strong> <code>/** @module client */</code> after copyright header</li>
+          <li><strong>Class-level:</strong> Multi-line <code>/** ... */</code> with <code>@example</code> blocks</li>
+          <li><strong>Method-level:</strong> <code>@param</code>, <code>@returns</code>, <code>@throws</code>, <code>@example</code></li>
+          <li><strong>Internal marker:</strong> <code>@internal</code></li>
+          <li><strong>Deprecation:</strong> <code>@deprecated Use {@link disconnect} instead.</code></li>
+          <li><strong>Cross-references:</strong> <code>{@link CopilotClient.createSession}</code></li>
+        </ul>
+
+        <h3>4.2 Python &mdash; Docstrings (Google style)</h3>
+        <ul>
+          <li><strong>Module-level:</strong> Triple-quoted at file top</li>
+          <li><strong>Class-level:</strong> Multi-line with <code>Attributes:</code> and <code>Example:</code> sections</li>
+          <li><strong>Method-level:</strong> Sections: summary, <code>Args:</code>, <code>Returns:</code>, <code>Raises:</code>, <code>Example:</code>, <code>Note:</code></li>
+          <li><strong>Deprecation:</strong> <code>.. deprecated::</code> reST directive</li>
+          <li><strong>Cross-references:</strong> Sphinx-style <code>:meth:</code> / <code>:class:</code></li>
+        </ul>
+
+        <h3>4.3 Go &mdash; Go Doc Comments</h3>
+        <ul>
+          <li><strong>Package-level:</strong> <code>// Package copilot provides a Go SDK for ...</code></li>
+          <li><strong>Type-level:</strong> <code>// Session represents a single conversation ...</code></li>
+          <li><strong>Method-level:</strong> <code>// Send sends a message ...</code> with indented code examples</li>
+          <li><strong>Cross-references:</strong> Go doc link syntax <code>[Client.CreateSession]</code></li>
+          <li><strong>Deprecated:</strong> <code>// Deprecated: Use [Session.Disconnect] instead.</code></li>
+        </ul>
+
+        <h3>4.4 C# &mdash; XML Documentation</h3>
+        <ul>
+          <li><code>&lt;summary&gt;</code> &mdash; Required on all public/internal members</li>
+          <li><code>&lt;remarks&gt;</code> &mdash; Multi-<code>&lt;para&gt;</code> blocks for extended descriptions</li>
+          <li><code>&lt;example&gt;&lt;code&gt;</code> &mdash; Inline code examples</li>
+          <li><code>&lt;param&gt;</code>, <code>&lt;returns&gt;</code>, <code>&lt;exception cref="..."&gt;</code></li>
+          <li><code>&lt;see cref="..."&gt;</code> &mdash; Cross-references</li>
+          <li><code>&lt;value&gt;</code> &mdash; Property documentation</li>
+        </ul>
+
+        <!-- 5. Type System Usage -->
+        <h2 id="type-system">5. Type System Usage</h2>
+
+        <h3>5.1 TypeScript</h3>
+        <ul>
+          <li><strong>Strict mode:</strong> <code>"strict": true</code> in tsconfig</li>
+          <li><strong>Discriminated unions:</strong> <code>SessionEvent</code> discriminated on <code>type</code> field</li>
+          <li><strong>Generics:</strong> <code>Tool&lt;TArgs&gt;</code>, <code>ToolHandler&lt;TArgs&gt;</code></li>
+          <li><strong><code>type</code> vs <code>interface</code>:</strong> <code>interface</code> for object shapes, <code>type</code> for unions</li>
+          <li><strong>Null handling:</strong> <code>| undefined</code> + strict null checks</li>
+          <li><strong><code>Record&lt;string, unknown&gt;</code></strong> preferred over <code>any</code></li>
+          <li><strong><code>unknown</code></strong> preferred over <code>any</code> for function args</li>
+        </ul>
+
+        <h3>5.2 Python</h3>
+        <ul>
+          <li><strong>Type annotations:</strong> Full hints with Python 3.11+ syntax (<code>str | None</code>)</li>
+          <li><strong><code>from __future__ import annotations</code></strong> for forward references</li>
+          <li><strong><code>TypedDict</code></strong> with <code>total=False</code> for optional fields</li>
+          <li><strong><code>@dataclass</code></strong> for value objects</li>
+          <li><strong><code>Literal</code></strong> for string union types</li>
+          <li><strong><code>Callable</code> + <code>Awaitable</code></strong> for sync/async flexibility</li>
+        </ul>
+
+        <h3>5.3 Go</h3>
+        <ul>
+          <li><strong>Pointer for optional:</strong> <code>*bool</code>, <code>*string</code></li>
+          <li><strong>Pointer helpers:</strong> <code>Bool(v bool) *bool</code></li>
+          <li><strong>JSON struct tags:</strong> <code>json:"fieldName,omitempty"</code></li>
+          <li><strong>Type aliases for enums:</strong> <code>type ConnectionState string</code></li>
+          <li><strong><code>any</code></strong> for untyped JSON, <strong><code>json.RawMessage</code></strong> for deferred parsing</li>
+        </ul>
+
+        <h3>5.4 C#</h3>
+        <ul>
+          <li><strong>Nullable reference types:</strong> <code>string?</code> (project-wide enabled)</li>
+          <li><strong><code>sealed partial class</code></strong> for source generation</li>
+          <li><strong>Records</strong> for internal DTOs</li>
+          <li><strong>Enums with JSON mapping:</strong> <code>[JsonStringEnumMemberName]</code></li>
+          <li><strong><code>IAsyncDisposable</code></strong> for cleanup</li>
+          <li><strong>Source-generated JSON:</strong> <code>[JsonSerializable]</code> for AOT</li>
+          <li><strong><code>volatile</code></strong> for thread-safe handler fields</li>
+        </ul>
+
+        <!-- 6. Async Patterns -->
+        <h2 id="async">6. Async Patterns</h2>
+
+        <h3>6.1 TypeScript &mdash; async/await + Promises</h3>
+        <ul>
+          <li>All I/O methods are <code>async</code> returning <code>Promise&lt;T&gt;</code></li>
+          <li><strong><code>sendAndWait</code>:</strong> <code>Promise.race([idlePromise, timeoutPromise])</code></li>
+          <li><strong>Timeout:</strong> <code>new Promise&lt;never&gt;((_, reject) =&gt; { setTimeout(...) })</code></li>
+          <li><strong>Cleanup:</strong> <code>finally</code> block clears timeout and unsubscribes</li>
+          <li><strong>Subscribe-before-send:</strong> Avoids race conditions</li>
+        </ul>
+
+        <h3>6.2 Python &mdash; asyncio</h3>
+        <ul>
+          <li>All I/O methods are <code>async def</code></li>
+          <li><strong><code>send_and_wait</code>:</strong> <code>asyncio.Event()</code> + <code>asyncio.wait_for()</code></li>
+          <li><strong>Fire-and-forget:</strong> <code>asyncio.ensure_future(...)</code></li>
+          <li><strong>Dual handlers:</strong> <code>inspect.isawaitable(result)</code> for sync/async</li>
+          <li><strong>Thread safety:</strong> <code>threading.Lock()</code> for handler sets</li>
+        </ul>
+
+        <h3>6.3 Go &mdash; Goroutines + Channels</h3>
+        <ul>
+          <li>Public methods accept <code>context.Context</code> first</li>
+          <li><strong><code>SendAndWait</code>:</strong> <code>context.WithTimeout</code>, buffered channels, <code>select</code></li>
+          <li><strong>Fire-and-forget:</strong> <code>go s.executeToolAndRespond(...)</code></li>
+          <li><strong>Synchronization:</strong> <code>sync.Mutex</code> / <code>sync.RWMutex</code> / <code>sync.atomic</code></li>
+          <li><strong>Default timeout:</strong> 60 seconds</li>
+        </ul>
+
+        <h3>6.4 C# &mdash; Task-based Async</h3>
+        <ul>
+          <li>All async methods: <code>MethodNameAsync</code>, return <code>Task&lt;T&gt;</code></li>
+          <li><strong>CancellationToken</strong> as last parameter with <code>default</code></li>
+          <li><strong><code>SendAndWaitAsync</code>:</strong> <code>TaskCompletionSource&lt;T&gt;</code></li>
+          <li><strong>Disposal:</strong> <code>IAsyncDisposable</code> + <code>Interlocked.Exchange</code></li>
+          <li><strong>Fire-and-forget:</strong> <code>async void</code> for broadcast events</li>
+          <li><strong>Concurrent collections:</strong> <code>ConcurrentDictionary</code></li>
+        </ul>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Async Pattern Comparison</div>
+          <pre class="mermaid">
+flowchart LR
+  subgraph TS["TypeScript"]
+    direction TB
+    TS1["async/await"]
+    TS2["Promise.race#40;#41;"]
+    TS3["setTimeout"]
+    TS4["finally cleanup"]
+    TS1 --- TS2 --- TS3 --- TS4
+  end
+  subgraph PY["Python"]
+    direction TB
+    PY1["async def / await"]
+    PY2["asyncio.Event#40;#41;"]
+    PY3["asyncio.wait_for#40;#41;"]
+    PY4["threading.Lock#40;#41;"]
+    PY1 --- PY2 --- PY3 --- PY4
+  end
+  subgraph GO["Go"]
+    direction TB
+    GO1["goroutines"]
+    GO2["channels + select"]
+    GO3["context.WithTimeout"]
+    GO4["sync.Mutex"]
+    GO1 --- GO2 --- GO3 --- GO4
+  end
+  subgraph CS["C#"]
+    direction TB
+    CS1["async Task#60;T#62;"]
+    CS2["TaskCompletionSource"]
+    CS3["CancellationToken"]
+    CS4["IAsyncDisposable"]
+    CS1 --- CS2 --- CS3 --- CS4
+  end
+          </pre>
+        </div>
+
+        <!-- 7. Import/Export Patterns -->
+        <h2 id="imports">7. Import/Export Patterns</h2>
+
+        <h3>7.1 TypeScript</h3>
+        <ul>
+          <li><strong>Barrel file:</strong> <code>nodejs/src/index.ts</code> re-exports all public API</li>
+          <li><strong>Named exports only</strong> &mdash; no default exports</li>
+          <li><strong><code>export type</code></strong> for type-only re-exports</li>
+          <li><strong>Import groups:</strong> (1) <code>node:</code>, (2) <code>vscode-jsonrpc</code>, (3) local <code>./generated/</code>, (4) local <code>./types.js</code></li>
+          <li><strong><code>.js</code> extensions</strong> on all local imports (ESM)</li>
+          <li><strong><code>import type</code></strong> when only types needed</li>
+        </ul>
+
+        <h3>7.2 Python</h3>
+        <ul>
+          <li><strong><code>__init__.py</code> barrel</strong> with explicit <code>__all__</code></li>
+          <li><strong>Import groups:</strong> (1) <code>from __future__</code>, (2) stdlib, (3) third-party, (4) relative</li>
+          <li><strong>Relative imports:</strong> <code>from .module import Name</code></li>
+          <li><strong><code>TYPE_CHECKING</code> guard</strong> for circular import avoidance</li>
+        </ul>
+
+        <h3>7.3 Go</h3>
+        <ul>
+          <li><strong>Single import block</strong> grouped: stdlib, blank, third-party, blank, internal</li>
+          <li><strong>Package = directory:</strong> <code>package copilot</code> / <code>package rpc</code></li>
+          <li><strong>Internal packages:</strong> <code>go/internal/jsonrpc2</code>, <code>go/internal/embeddedcli</code></li>
+          <li><strong>Exported via capitalization</strong> &mdash; no explicit export list</li>
+        </ul>
+
+        <h3>7.4 C#</h3>
+        <ul>
+          <li><strong>File-scoped namespaces:</strong> <code>namespace GitHub.Copilot.SDK;</code></li>
+          <li><strong>Using directives:</strong> System, Microsoft, third-party, project</li>
+          <li><strong><code>sealed partial class</code></strong> &mdash; sealed + partial</li>
+          <li><strong><code>internal</code> visibility</strong> for SDK internals</li>
+        </ul>
+
+        <!-- 8. Code Generation Conventions -->
+        <h2 id="codegen">8. Code Generation Conventions</h2>
+
+        <h3>8.1 Generated File Markers</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Language</th><th>Marker</th><th>Source</th><th>Citation</th></tr></thead>
+            <tbody>
+              <tr><td><span class="lang-pill ts">TS</span></td><td><code>/** AUTO-GENERATED FILE - DO NOT EDIT */</code></td><td><code>api.schema.json</code></td><td><span class="file-ref">generated/rpc.ts:1-4</span></td></tr>
+              <tr><td><span class="lang-pill py">Python</span></td><td><code>""" AUTO-GENERATED FILE - DO NOT EDIT """</code></td><td>Same</td><td><span class="file-ref">generated/rpc.py:1-4</span></td></tr>
+              <tr><td><span class="lang-pill go">Go</span></td><td><code>// AUTO-GENERATED FILE - DO NOT EDIT</code></td><td>Same</td><td><span class="file-ref">rpc/generated_rpc.go:1-2</span></td></tr>
+              <tr><td><span class="lang-pill cs">C#</span></td><td><code>// AUTO-GENERATED FILE - DO NOT EDIT</code></td><td>Same</td><td><span class="file-ref">Generated/Rpc.cs:5-6</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>8.2 Generated File Locations</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Language</th><th>RPC Types</th><th>Session Events</th></tr></thead>
+            <tbody>
+              <tr><td><span class="lang-pill ts">TS</span></td><td><span class="file-ref">nodejs/src/generated/rpc.ts</span></td><td><span class="file-ref">nodejs/src/generated/session-events.ts</span></td></tr>
+              <tr><td><span class="lang-pill py">Python</span></td><td><span class="file-ref">python/copilot/generated/rpc.py</span></td><td><span class="file-ref">python/copilot/generated/session_events.py</span></td></tr>
+              <tr><td><span class="lang-pill go">Go</span></td><td><span class="file-ref">go/rpc/generated_rpc.go</span></td><td><span class="file-ref">go/generated_session_events.go</span></td></tr>
+              <tr><td><span class="lang-pill cs">C#</span></td><td><span class="file-ref">dotnet/src/Generated/Rpc.cs</span></td><td><span class="file-ref">dotnet/src/Generated/SessionEvents.cs</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>8.3 Generated Code Exclusions</h3>
+        <ul>
+          <li><strong>ESLint:</strong> <code>**/generated/**</code> in ignores</li>
+          <li><strong>Ruff:</strong> <code>"generated"</code> excluded</li>
+          <li><strong>golangci-lint:</strong> <code>generated</code> path excluded</li>
+          <li><strong>Go formatting:</strong> <code>find . -name "*.go" -not -path "*/generated/*"</code></li>
+        </ul>
+
+        <h3>8.4 Generation Tooling</h3>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Code Generation Pipeline</div>
+          <pre class="mermaid">
+flowchart TD
+  A["JSON Schemas#60;br/#62;api.schema.json + session-events.schema.json"] --> B["generate-session-types.ts #40;quicktype#41;"]
+  B --> C["rpc.ts"]
+  B --> D["rpc.py"]
+  B --> E["generated_rpc.go"]
+  B --> F["Rpc.cs"]
+          </pre>
+        </div>
+
+        <!-- 9. Linting & Formatting -->
+        <h2 id="linting">9. Linting &amp; Formatting Rules</h2>
+
+        <h3>9.1 TypeScript (ESLint + Prettier)</h3>
+        <h4>ESLint</h4>
+        <ul>
+          <li>Parser: <code>@typescript-eslint/parser</code>, ECMAScript 2022, ESM</li>
+          <li><code>no-unused-vars</code>: <strong>error</strong> (ignores <code>_</code>-prefixed)</li>
+          <li><code>no-explicit-any</code>: <strong>warn</strong></li>
+          <li><code>no-console</code>: <strong>off</strong></li>
+          <li>Ignores: <code>dist/</code>, <code>node_modules/</code>, <code>*.config.ts</code>, <code>**/generated/**</code></li>
+        </ul>
+        <h4>Prettier Settings</h4>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Setting</th><th>Value</th></tr></thead>
+            <tbody>
+              <tr><td>Semicolons</td><td>yes</td></tr>
+              <tr><td>Trailing commas</td><td>ES5 style</td></tr>
+              <tr><td>Quotes</td><td>double</td></tr>
+              <tr><td>Print width</td><td>100</td></tr>
+              <tr><td>Tab width</td><td>4 spaces</td></tr>
+              <tr><td>Arrow parens</td><td>always</td></tr>
+              <tr><td>Line endings</td><td>LF only</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>9.2 Python (Ruff)</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Setting</th><th>Value</th></tr></thead>
+            <tbody>
+              <tr><td>Line length</td><td>100</td></tr>
+              <tr><td>Target version</td><td>py311</td></tr>
+              <tr><td>Selected rules</td><td>E, W, F, I, UP</td></tr>
+              <tr><td>Format</td><td>double quotes, spaces</td></tr>
+              <tr><td>Excludes</td><td>generated/</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>9.3 Go (golangci-lint + gofmt)</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Setting</th><th>Value</th></tr></thead>
+            <tbody>
+              <tr><td>Timeout</td><td>5 minutes</td></tr>
+              <tr><td>Enabled</td><td>govet, ineffassign, staticcheck</td></tr>
+              <tr><td>Disabled</td><td>errcheck (explicit)</td></tr>
+              <tr><td>Excluded</td><td>generated/</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>9.4 C# (dotnet format)</h3>
+        <ul>
+          <li>Formatting: <code>dotnet format</code></li>
+          <li>CI: <code>dotnet format --verify-no-changes</code></li>
+          <li>AOT: <code>&lt;IsAotCompatible&gt;true&lt;/IsAotCompatible&gt;</code></li>
+          <li>Docs: <code>&lt;GenerateDocumentationFile&gt;true&lt;/GenerateDocumentationFile&gt;</code></li>
+        </ul>
+
+        <!-- 10. Cross-Language Consistency -->
+        <h2 id="cross-lang">10. Cross-Language Consistency Rules</h2>
+
+        <h3>10.1 API Shape Parity</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Concept</th><th><span class="lang-pill ts">TS</span></th><th><span class="lang-pill py">Python</span></th><th><span class="lang-pill go">Go</span></th><th><span class="lang-pill cs">C#</span></th></tr></thead>
+            <tbody>
+              <tr><td>Client</td><td><code>CopilotClient</code></td><td><code>CopilotClient</code></td><td><code>Client</code></td><td><code>CopilotClient</code></td></tr>
+              <tr><td>Session</td><td><code>CopilotSession</code></td><td><code>CopilotSession</code></td><td><code>Session</code></td><td><code>CopilotSession</code></td></tr>
+              <tr><td>Create</td><td><code>createSession()</code></td><td><code>create_session()</code></td><td><code>CreateSession()</code></td><td><code>CreateSessionAsync()</code></td></tr>
+              <tr><td>Send</td><td><code>send()</code></td><td><code>send()</code></td><td><code>Send()</code></td><td><code>SendAsync()</code></td></tr>
+              <tr><td>Send+Wait</td><td><code>sendAndWait()</code></td><td><code>send_and_wait()</code></td><td><code>SendAndWait()</code></td><td><code>SendAndWaitAsync()</code></td></tr>
+              <tr><td>Subscribe</td><td><code>on()</code></td><td><code>on()</code></td><td><code>On()</code></td><td><code>On()</code></td></tr>
+              <tr><td>Messages</td><td><code>getMessages()</code></td><td><code>get_messages()</code></td><td><code>GetMessages()</code></td><td><code>GetMessagesAsync()</code></td></tr>
+              <tr><td>Disconnect</td><td><code>disconnect()</code></td><td><code>disconnect()</code></td><td><code>Disconnect()</code></td><td><code>DisposeAsync()</code></td></tr>
+              <tr><td>CLI URL</td><td><code>cliUrl</code></td><td><code>cli_url</code></td><td><code>CLIUrl</code></td><td><code>CliUrl</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>10.2 Shared Protocol Constants</h3>
+        <div class="callout info">
+          <div class="callout-title">MIN_PROTOCOL_VERSION = 2</div>
+          <p>All four SDKs define the same minimum protocol version (value: <code>2</code>), ensuring wire-level compatibility.</p>
+        </div>
+
+        <h3>10.3 Generated Types from Shared Schemas</h3>
+        <p>All SDKs generate RPC types from the same JSON schemas:</p>
+        <ul>
+          <li><code>api.schema.json</code> &rarr; rpc types in all 4 languages</li>
+          <li><code>session-events.schema.json</code> &rarr; event types in all 4 languages</li>
+        </ul>
+
+        <h3>10.4 Consistent Behavioral Patterns</h3>
+        <ol>
+          <li><strong>Event dispatch:</strong> All SDKs intercept <code>external_tool.requested</code> and <code>permission.requested</code> broadcast events</li>
+          <li><strong>Handler isolation:</strong> Errors don't propagate from handlers to dispatcher</li>
+          <li><strong>Unsubscribe pattern:</strong> <code>on()</code> returns cleanup (TS: <code>() =&gt; void</code>, Python: <code>Callable</code>, Go: <code>func()</code>, C#: <code>IDisposable</code>)</li>
+          <li><strong>Resource cleanup:</strong> All SDKs clear handlers on disconnect</li>
+          <li><strong>Deprecation:</strong> <code>destroy()</code> deprecated for <code>disconnect()</code> in TS, Python, Go</li>
+        </ol>
+
+        <h3>10.5 CLI URL Naming</h3>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">CLI URL Naming Per Language</div>
+          <pre class="mermaid">
+flowchart LR
+  A["Node: cliUrl"] --- B["Python: cli_url"] --- C["Go: CLIUrl"] --- D[".NET: CliUrl"]
+          </pre>
+        </div>
+
+        <h3>10.6 Monorepo Workflow</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Command</th><th>Action</th></tr></thead>
+            <tbody>
+              <tr><td><code>just format</code></td><td>Runs formatters for all four languages</td></tr>
+              <tr><td><code>just lint</code></td><td>Runs linters for all four languages</td></tr>
+              <tr><td><code>just test</code></td><td>Runs test suites for all four languages</td></tr>
+              <tr><td><code>just install</code></td><td>Installs dependencies for all four languages</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Summary -->
+        <h2 id="summary">Summary of Key Rules</h2>
+        <div class="callout info">
+          <div class="callout-title">Top 10 Convention Rules</div>
+          <ol>
+            <li><strong>Never edit generated files</strong> &mdash; look for <code>AUTO-GENERATED FILE - DO NOT EDIT</code></li>
+            <li><strong>Use language-idiomatic naming</strong> &mdash; camelCase (TS), snake_case (Py), PascalCase (Go/C#)</li>
+            <li><strong>Prefix unused variables with <code>_</code></strong> in TypeScript (ESLint enforced)</li>
+            <li><strong>100-character line limit</strong> in TS (Prettier) and Python (Ruff)</li>
+            <li><strong>Double quotes everywhere</strong> (TS Prettier, Python Ruff)</li>
+            <li><strong>4-space indentation</strong> in TypeScript; spaces everywhere</li>
+            <li><strong>All public methods must be documented</strong> with language-standard format</li>
+            <li><strong>Error handling must not crash dispatchers</strong> &mdash; catch/recover in all languages</li>
+            <li><strong>API parity across all four languages</strong> &mdash; same names, same behavior, shared schemas</li>
+            <li><strong><code>errcheck</code> is disabled in Go</strong> &mdash; explicit opt-out</li>
+          </ol>
+        </div>
+
+      </div>
+      <nav class="page-nav">
+        <a href="07-api-surface.html" class="page-nav-link prev">
+          <span class="page-nav-label">Previous</span>
+          <span class="page-nav-title">07 — API Surface</span>
+        </a>
+        <a href="09-testing.html" class="page-nav-link next">
+          <span class="page-nav-label">Next</span>
+          <span class="page-nav-title">09 — Testing</span>
+        </a>
+      </nav>
+    </main>
+  </div>
+
+  <button class="scroll-top" aria-label="Scroll to top">&uarr;</button>
+  <script src="app.js"></script>
+</body>
+</html>

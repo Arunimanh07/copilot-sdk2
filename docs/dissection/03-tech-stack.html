@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Tech Stack - copilot-sdk Dissection</title>
+    <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/styles/github-dark-dimmed.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/go.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/csharp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect rx=%2715%27 width=%27100%27 height=%27100%27 fill=%27%230F172A%27/%3E%3Ctext x=%2750%27 y=%2770%27 font-size=%2750%27 text-anchor=%27middle%27 fill=%27%2322C55E%27%3E%26lt;/%26gt;%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+    <button class="sidebar-toggle">Menu</button>
+    <div class="page-wrapper">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h1>copilot-sdk</h1>
+                <div class="subtitle">Dissection Documentation</div>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Foundation</div>
+                <a href="index.html" class="sidebar-link"><span class="link-num">00</span> Overview</a>
+                <a href="01-discovery.html" class="sidebar-link"><span class="link-num">01</span> Discovery</a>
+                <a href="02-structure.html" class="sidebar-link"><span class="link-num">02</span> Structure</a>
+                <a href="03-tech-stack.html" class="sidebar-link active"><span class="link-num">03</span> Tech Stack</a>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Architecture</div>
+                <a href="04-entry-points.html" class="sidebar-link"><span class="link-num">04</span> Entry Points</a>
+                <a href="05-architecture.html" class="sidebar-link"><span class="link-num">05</span> Architecture</a>
+                <a href="06-data-flow.html" class="sidebar-link"><span class="link-num">06</span> Data Flow</a>
+                <a href="07-api-surface.html" class="sidebar-link"><span class="link-num">07</span> API Surface</a>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Implementation</div>
+                <a href="08-conventions.html" class="sidebar-link"><span class="link-num">08</span> Conventions</a>
+                <a href="09-testing.html" class="sidebar-link"><span class="link-num">09</span> Testing</a>
+                <a href="10-build-deploy.html" class="sidebar-link"><span class="link-num">10</span> Build &amp; Deploy</a>
+                <a href="11-dependencies.html" class="sidebar-link"><span class="link-num">11</span> Dependencies</a>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Operations</div>
+                <a href="12-security.html" class="sidebar-link"><span class="link-num">12</span> Security</a>
+                <a href="13-contribution.html" class="sidebar-link"><span class="link-num">13</span> Contribution</a>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <div class="content-area">
+
+                <!-- Page Header -->
+                <span class="phase-badge">Phase 3 of 13</span>
+                <h1>Phase 3: Tech Stack</h1>
+
+                <div class="callout success">
+                    <strong>Tech Stack complete</strong> &mdash; 4 languages, 4 build systems, 4 test frameworks, unified codegen pipeline.
+                </div>
+
+                <!-- Table of Contents -->
+                <nav class="toc">
+                    <div class="toc-title">Contents</div>
+                    <ul class="toc-list">
+                        <li><a href="#languages-versions">1. Languages &amp; Versions</a></li>
+                        <li><a href="#runtime-dependencies">2. Runtime Dependencies</a></li>
+                        <li><a href="#dev-dependencies">3. Dev Dependencies</a></li>
+                        <li><a href="#build-tools">4. Build Tools &amp; Systems</a></li>
+                        <li><a href="#code-generation">5. Code Generation Pipeline</a></li>
+                        <li><a href="#cicd-workflows">6. CI/CD Workflows</a></li>
+                        <li><a href="#linting-formatting">7. Linting &amp; Formatting</a></li>
+                        <li><a href="#testing-frameworks">8. Testing Frameworks</a></li>
+                        <li><a href="#package-managers">9. Package Managers</a></li>
+                        <li><a href="#protocol-communication">10. Protocol &amp; Communication</a></li>
+                        <li><a href="#summary-matrix">Summary Matrix</a></li>
+                    </ul>
+                </nav>
+
+                <!-- 1. Languages & Versions -->
+                <h2 id="languages-versions">1. Languages &amp; Versions</h2>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="lang-pill ts">TypeScript</span>
+                        <div class="stat-value">ES2022</div>
+                        <div class="stat-label">Target, strict mode</div>
+                    </div>
+                    <div class="stat-card">
+                        <span class="lang-pill py">Python</span>
+                        <div class="stat-value">&gt;=3.11</div>
+                        <div class="stat-label">Classifiers through 3.14</div>
+                    </div>
+                    <div class="stat-card">
+                        <span class="lang-pill go">Go</span>
+                        <div class="stat-value">1.24</div>
+                        <div class="stat-label">Standard toolchain</div>
+                    </div>
+                    <div class="stat-card">
+                        <span class="lang-pill cs">C# 14</span>
+                        <div class="stat-value">.NET 8</div>
+                        <div class="stat-label">SDK 10, LangVersion 14</div>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Language</th>
+                                <th>Version Constraint</th>
+                                <th>Evidence</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="lang-pill ts">TypeScript</span></td>
+                                <td>ES2022 target, strict mode</td>
+                                <td><span class="file-ref">nodejs/tsconfig.json:3-4</span> &mdash; <code>"target": "ES2022", "module": "ES2022"</code></td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill ts">Node.js</span></td>
+                                <td><code>&gt;=20.0.0</code> (CI uses Node 22)</td>
+                                <td><span class="file-ref">nodejs/package.json:69</span> &mdash; <code>"node": "&gt;=20.0.0"</code></td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill py">Python</span></td>
+                                <td><code>&gt;=3.11</code> (classifiers through 3.14)</td>
+                                <td><span class="file-ref">python/pyproject.toml:10</span> &mdash; <code>requires-python = "&gt;=3.11"</code></td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill go">Go</span></td>
+                                <td>1.24</td>
+                                <td><span class="file-ref">go/go.mod:3</span> &mdash; <code>go 1.24</code></td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill cs">C#</span></td>
+                                <td>Language version 14 (.NET 8 TFM, .NET SDK 10)</td>
+                                <td><span class="file-ref">dotnet/Directory.Build.props:4-5</span> &mdash; <code>&lt;TargetFramework&gt;net8.0&lt;/TargetFramework&gt;</code> / <code>&lt;LangVersion&gt;14&lt;/LangVersion&gt;</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>Language Distribution</h3>
+                <div style="display:flex;flex-direction:column;gap:0.75rem;margin-bottom:2rem;">
+                    <div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:0.25rem;">
+                            <span><span class="lang-pill ts">TypeScript</span></span>
+                            <span style="color:#94A3B8;font-size:0.85rem;">Primary SDK + Codegen scripts</span>
+                        </div>
+                        <div class="progress-bar"><div class="progress-fill" style="width:35%;background:#3178C6;"></div></div>
+                    </div>
+                    <div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:0.25rem;">
+                            <span><span class="lang-pill py">Python</span></span>
+                            <span style="color:#94A3B8;font-size:0.85rem;">SDK + Async support</span>
+                        </div>
+                        <div class="progress-bar"><div class="progress-fill" style="width:25%;background:#3776AB;"></div></div>
+                    </div>
+                    <div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:0.25rem;">
+                            <span><span class="lang-pill go">Go</span></span>
+                            <span style="color:#94A3B8;font-size:0.85rem;">SDK + Stdlib approach</span>
+                        </div>
+                        <div class="progress-bar"><div class="progress-fill" style="width:20%;background:#00ADD8;"></div></div>
+                    </div>
+                    <div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:0.25rem;">
+                            <span><span class="lang-pill cs">C#</span></span>
+                            <span style="color:#94A3B8;font-size:0.85rem;">SDK + AOT compatible</span>
+                        </div>
+                        <div class="progress-bar"><div class="progress-fill" style="width:20%;background:#68217A;"></div></div>
+                    </div>
+                </div>
+
+                <!-- 2. Runtime Dependencies -->
+                <h2 id="runtime-dependencies">2. Runtime Dependencies (per SDK)</h2>
+
+                <h3 id="nodejs-runtime">2.1 Node.js SDK</h3>
+                <p>Source: <span class="file-ref">nodejs/package.json:46-49</span></p>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Package</th>
+                                <th>Version</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>@github/copilot</code></td>
+                                <td><code>^1.0.3-0</code></td>
+                                <td>GitHub Copilot CLI binary &mdash; the process the SDK drives over JSON-RPC</td>
+                            </tr>
+                            <tr>
+                                <td><code>vscode-jsonrpc</code></td>
+                                <td><code>^8.2.1</code></td>
+                                <td>JSON-RPC 2.0 protocol implementation for bidirectional stdio communication</td>
+                            </tr>
+                            <tr>
+                                <td><code>zod</code></td>
+                                <td><code>^4.3.6</code></td>
+                                <td>Runtime schema validation and type-safe parsing of JSON-RPC messages</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 id="python-runtime">2.2 Python SDK</h3>
+                <p>Source: <span class="file-ref">python/pyproject.toml:25-28</span></p>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Package</th>
+                                <th>Version</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>python-dateutil</code></td>
+                                <td><code>&gt;=2.9.0.post0</code></td>
+                                <td>Date/time parsing for protocol timestamps</td>
+                            </tr>
+                            <tr>
+                                <td><code>pydantic</code></td>
+                                <td><code>&gt;=2.0</code></td>
+                                <td>Data validation and settings management via dataclass-style models</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 id="go-runtime">2.3 Go SDK</h3>
+                <p>Source: <span class="file-ref">go/go.mod:5-10</span></p>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Package</th>
+                                <th>Version</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>github.com/google/jsonschema-go</code></td>
+                                <td><code>v0.4.2</code></td>
+                                <td>JSON Schema generation from Go types (for tool parameter schemas)</td>
+                            </tr>
+                            <tr>
+                                <td><code>github.com/klauspost/compress</code></td>
+                                <td><code>v1.18.3</code></td>
+                                <td>High-performance compression</td>
+                            </tr>
+                            <tr>
+                                <td><code>github.com/google/uuid</code></td>
+                                <td><code>v1.6.0</code></td>
+                                <td>UUID generation for request IDs and correlation tokens</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 id="dotnet-runtime">2.4 .NET SDK</h3>
+                <p>Source: <span class="file-ref">dotnet/src/GitHub.Copilot.SDK.csproj:33-38</span>, <span class="file-ref">dotnet/Directory.Packages.props:8-14</span></p>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Package</th>
+                                <th>Version</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>Microsoft.Extensions.AI.Abstractions</code></td>
+                                <td><code>10.2.0</code></td>
+                                <td>AI model abstractions (IChatClient, etc.)</td>
+                            </tr>
+                            <tr>
+                                <td><code>Microsoft.Extensions.Logging.Abstractions</code></td>
+                                <td><code>10.0.2</code></td>
+                                <td>Logging abstractions</td>
+                            </tr>
+                            <tr>
+                                <td><code>StreamJsonRpc</code></td>
+                                <td><code>2.24.84</code></td>
+                                <td>Microsoft's JSON-RPC 2.0 over streams (stdio)</td>
+                            </tr>
+                            <tr>
+                                <td><code>System.Text.Json</code></td>
+                                <td><code>10.0.2</code></td>
+                                <td>High-performance JSON serialization</td>
+                            </tr>
+                            <tr>
+                                <td><code>Microsoft.SourceLink.GitHub</code></td>
+                                <td><code>10.0.102</code></td>
+                                <td>Source file links in PDB symbols</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 3. Dev Dependencies -->
+                <h2 id="dev-dependencies">3. Dev Dependencies (per SDK)</h2>
+
+                <h3 id="nodejs-dev">3.1 Node.js SDK</h3>
+                <p>Source: <span class="file-ref">nodejs/package.json:51-67</span></p>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Package</th>
+                                <th>Version</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>esbuild</code></td>
+                                <td><code>^0.27.2</code></td>
+                                <td>Ultra-fast JS/TS bundler</td>
+                            </tr>
+                            <tr>
+                                <td><code>eslint</code></td>
+                                <td><code>^9.0.0</code></td>
+                                <td>Linting</td>
+                            </tr>
+                            <tr>
+                                <td><code>@typescript-eslint/*</code></td>
+                                <td><code>^8.54.0</code></td>
+                                <td>TypeScript ESLint rules/parser</td>
+                            </tr>
+                            <tr>
+                                <td><code>prettier</code></td>
+                                <td><code>^3.8.1</code></td>
+                                <td>Code formatter</td>
+                            </tr>
+                            <tr>
+                                <td><code>vitest</code></td>
+                                <td><code>^4.0.18</code></td>
+                                <td>Test framework</td>
+                            </tr>
+                            <tr>
+                                <td><code>typescript</code></td>
+                                <td><code>^5.0.0</code></td>
+                                <td>Compiler</td>
+                            </tr>
+                            <tr>
+                                <td><code>tsx</code></td>
+                                <td><code>^4.20.6</code></td>
+                                <td>TypeScript execution engine</td>
+                            </tr>
+                            <tr>
+                                <td><code>json-schema-to-typescript</code></td>
+                                <td><code>^15.0.4</code></td>
+                                <td>Codegen: JSON Schema &rarr; TS interfaces</td>
+                            </tr>
+                            <tr>
+                                <td><code>quicktype-core</code></td>
+                                <td><code>^23.2.6</code></td>
+                                <td>Multi-language type generation</td>
+                            </tr>
+                            <tr>
+                                <td><code>rimraf</code></td>
+                                <td><code>^6.1.2</code></td>
+                                <td>Cross-platform rm -rf</td>
+                            </tr>
+                            <tr>
+                                <td><code>semver</code></td>
+                                <td><code>^7.7.3</code></td>
+                                <td>Version management</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 id="python-dev">3.2 Python SDK</h3>
+                <p>Source: <span class="file-ref">python/pyproject.toml:34-42</span></p>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Package</th>
+                                <th>Version</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>ruff</code></td>
+                                <td><code>&gt;=0.1.0</code></td>
+                                <td>Fast linter + formatter</td>
+                            </tr>
+                            <tr>
+                                <td><code>ty</code></td>
+                                <td><code>&gt;=0.0.2</code></td>
+                                <td>Type checking</td>
+                            </tr>
+                            <tr>
+                                <td><code>pytest</code></td>
+                                <td><code>&gt;=7.0.0</code></td>
+                                <td>Test framework</td>
+                            </tr>
+                            <tr>
+                                <td><code>pytest-asyncio</code></td>
+                                <td><code>&gt;=0.21.0</code></td>
+                                <td>Async test support</td>
+                            </tr>
+                            <tr>
+                                <td><code>pytest-timeout</code></td>
+                                <td><code>&gt;=2.0.0</code></td>
+                                <td>Test timeouts</td>
+                            </tr>
+                            <tr>
+                                <td><code>httpx</code></td>
+                                <td><code>&gt;=0.24.0</code></td>
+                                <td>Async HTTP client (test infra)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 id="dotnet-dev">3.3 .NET SDK (Test Project)</h3>
+                <p>Source: <span class="file-ref">dotnet/test/GitHub.Copilot.SDK.Test.csproj:17-29</span></p>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Package</th>
+                                <th>Version</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>xunit</code></td>
+                                <td><code>2.9.3</code></td>
+                                <td>Test framework</td>
+                            </tr>
+                            <tr>
+                                <td><code>xunit.runner.visualstudio</code></td>
+                                <td><code>3.1.5</code></td>
+                                <td>Test runner adapter</td>
+                            </tr>
+                            <tr>
+                                <td><code>Microsoft.NET.Test.Sdk</code></td>
+                                <td><code>18.3.0</code></td>
+                                <td>Test SDK</td>
+                            </tr>
+                            <tr>
+                                <td><code>coverlet.collector</code></td>
+                                <td><code>6.0.4</code></td>
+                                <td>Code coverage</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 4. Build Tools & Systems -->
+                <h2 id="build-tools">4. Build Tools &amp; Systems</h2>
+
+                <h3 id="task-runner">4.1 Monorepo Task Runner &mdash; <code>just</code></h3>
+                <p>Source: <span class="file-ref">justfile:1-230</span></p>
+                <p><code>just</code> is the top-level task runner with unified recipes:</p>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Recipe</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>just format</code></td>
+                                <td>gofmt, ruff format, prettier, dotnet format</td>
+                            </tr>
+                            <tr>
+                                <td><code>just lint</code></td>
+                                <td>golangci-lint, ruff check + ty check, eslint + tsc --noEmit, dotnet format --verify-no-changes</td>
+                            </tr>
+                            <tr>
+                                <td><code>just test</code></td>
+                                <td>go test, pytest, vitest, dotnet test</td>
+                            </tr>
+                            <tr>
+                                <td><code>just install</code></td>
+                                <td>npm ci, uv pip install, go mod download, dotnet restore</td>
+                            </tr>
+                            <tr>
+                                <td><code>just scenario-build</code></td>
+                                <td>Compiles all cross-language scenario samples</td>
+                            </tr>
+                            <tr>
+                                <td><code>just validate-docs</code></td>
+                                <td>Extracts and validates documentation code examples</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 id="nodejs-build">4.2 Node.js Build: esbuild + tsc</h3>
+                <p>Source: <span class="file-ref">nodejs/esbuild-copilotsdk-nodejs.ts:1-19</span></p>
+                <ol>
+                    <li><strong>esbuild</strong> bundles <code>src/**/*.ts</code> &rarr; ESM JavaScript (ES2022, Node.js)</li>
+                    <li><strong>tsc</strong> generates <code>.d.ts</code> declaration files only (<code>emitDeclarationOnly: true</code>)</li>
+                </ol>
+
+                <h3 id="dotnet-build">4.3 .NET Build: MSBuild/dotnet CLI</h3>
+                <ul>
+                    <li>.NET SDK <code>10.0.100</code> with <code>"rollForward": "major"</code> (<span class="file-ref">dotnet/global.json:3-4</span>)</li>
+                    <li>Target: <code>net8.0</code>, AOT-compatible (<code>&lt;IsAotCompatible&gt;true&lt;/IsAotCompatible&gt;</code>)</li>
+                    <li>Central package management enabled</li>
+                    <li>Custom MSBuild target extracts Copilot CLI version from <span class="file-ref">nodejs/package-lock.json</span></li>
+                </ul>
+
+                <h3 id="python-build">4.4 Python Build: setuptools + wheel</h3>
+                <ul>
+                    <li><code>setuptools &gt;=45</code> + <code>wheel</code> + <code>setuptools_scm &gt;=6.2</code> (<span class="file-ref">python/pyproject.toml:2</span>)</li>
+                    <li>Platform wheels built by <span class="file-ref">scripts/build-wheels.mjs</span></li>
+                </ul>
+
+                <h3 id="go-build">4.5 Go Build: standard toolchain</h3>
+                <ul>
+                    <li><code>go build</code>, <code>go mod</code> (Go 1.24)</li>
+                </ul>
+
+                <!-- 5. Code Generation Pipeline -->
+                <h2 id="code-generation">5. Code Generation Pipeline</h2>
+                <p>Source: <span class="file-ref">scripts/codegen/package.json:1-18</span></p>
+
+                <div class="callout info">
+                    Generates typed protocol bindings for <strong>all four SDKs</strong> from shared JSON Schema.
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tool</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>json-schema-to-typescript</code></td>
+                                <td>JSON Schema &rarr; TypeScript interfaces</td>
+                            </tr>
+                            <tr>
+                                <td><code>quicktype-core</code></td>
+                                <td>Multi-language type generation (C#, Python, Go)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Scripts execution order:</p>
+                <pre data-lang="bash"><code class="language-bash">tsx typescript.ts &amp;&amp; tsx csharp.ts &amp;&amp; tsx python.ts &amp;&amp; tsx go.ts</code></pre>
+
+                <h3>Generated Output Locations</h3>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>SDK</th>
+                                <th>Output Path</th>
+                                <th>Files</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="lang-pill ts">Node.js</span></td>
+                                <td><code>nodejs/src/generated/</code></td>
+                                <td>rpc.ts, session-events.ts</td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill py">Python</span></td>
+                                <td><code>python/copilot/generated/</code></td>
+                                <td>rpc.py, session_events.py</td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill go">Go</span></td>
+                                <td><code>go/generated_*.go</code> and <code>go/rpc/</code></td>
+                                <td>generated_*.go, rpc/*</td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill cs">.NET</span></td>
+                                <td><code>dotnet/src/Generated/</code></td>
+                                <td>Rpc.cs, SessionEvents.cs</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="callout warning">
+                    <strong>CI verification:</strong> <span class="file-ref">codegen-check.yml</span> re-runs codegen and checks <code>git status --porcelain</code> to ensure generated files are always up-to-date.
+                </div>
+
+                <!-- 6. CI/CD Workflows -->
+                <h2 id="cicd-workflows">6. CI/CD Workflows</h2>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Workflow</th>
+                                <th>Purpose</th>
+                                <th>Trigger</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>nodejs-sdk-tests.yml</code></td>
+                                <td>Lint + typecheck + test Node.js SDK (Linux/macOS/Windows)</td>
+                                <td>push, PR, merge_group</td>
+                            </tr>
+                            <tr>
+                                <td><code>python-sdk-tests.yml</code></td>
+                                <td>Lint + type check + test Python SDK (3 OSes)</td>
+                                <td>push, PR, merge_group</td>
+                            </tr>
+                            <tr>
+                                <td><code>go-sdk-tests.yml</code></td>
+                                <td>fmt + golangci-lint + test Go SDK (3 OSes)</td>
+                                <td>push, PR, merge_group</td>
+                            </tr>
+                            <tr>
+                                <td><code>dotnet-sdk-tests.yml</code></td>
+                                <td>format + build + test .NET SDK (3 OSes)</td>
+                                <td>push, PR, merge_group</td>
+                            </tr>
+                            <tr>
+                                <td><code>codegen-check.yml</code></td>
+                                <td>Verify generated files up-to-date</td>
+                                <td>push, PR</td>
+                            </tr>
+                            <tr>
+                                <td><code>scenario-builds.yml</code></td>
+                                <td>Compile-check all scenario samples</td>
+                                <td>push, PR, merge_group</td>
+                            </tr>
+                            <tr>
+                                <td><code>publish.yml</code></td>
+                                <td>Multi-SDK publish (npm, NuGet, PyPI) + GitHub Release</td>
+                                <td>manual</td>
+                            </tr>
+                            <tr>
+                                <td><code>docs-validation.yml</code></td>
+                                <td>Validate docs code examples</td>
+                                <td>PR</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 7. Linting & Formatting -->
+                <h2 id="linting-formatting">7. Linting &amp; Formatting</h2>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>SDK</th>
+                                <th>Linter</th>
+                                <th>Formatter</th>
+                                <th>Config</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="lang-pill ts">Node.js</span></td>
+                                <td>ESLint 9 (flat config)</td>
+                                <td>Prettier 3.x</td>
+                                <td><span class="file-ref">nodejs/eslint.config.js</span>, <span class="file-ref">.prettierrc.json</span></td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill py">Python</span></td>
+                                <td>Ruff (E/W/F/I/UP rules)</td>
+                                <td>Ruff formatter</td>
+                                <td><span class="file-ref">python/pyproject.toml:50-69</span></td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill go">Go</span></td>
+                                <td>golangci-lint (govet, ineffassign, staticcheck)</td>
+                                <td>gofmt</td>
+                                <td><span class="file-ref">go/.golangci.yml</span></td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill cs">.NET</span></td>
+                                <td>dotnet format (AnalysisLevel 10.0-minimum)</td>
+                                <td>dotnet format</td>
+                                <td><span class="file-ref">dotnet/Directory.Build.props:8</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 8. Testing Frameworks -->
+                <h2 id="testing-frameworks">8. Testing Frameworks</h2>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>SDK</th>
+                                <th>Framework</th>
+                                <th>Config</th>
+                                <th>Key Settings</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="lang-pill ts">Node.js</span></td>
+                                <td>Vitest 4.x</td>
+                                <td><span class="file-ref">nodejs/vitest.config.ts</span></td>
+                                <td>30s timeout, forks pool, globals</td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill py">Python</span></td>
+                                <td>pytest 7+</td>
+                                <td><span class="file-ref">python/pyproject.toml:81-86</span></td>
+                                <td>async mode auto, pytest-timeout</td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill go">Go</span></td>
+                                <td><code>go test</code> (stdlib)</td>
+                                <td><span class="file-ref">go/test.sh</span></td>
+                                <td><code>-race</code> flag enabled</td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill cs">.NET</span></td>
+                                <td>xUnit 2.9</td>
+                                <td><span class="file-ref">dotnet/test/GitHub.Copilot.SDK.Test.csproj</span></td>
+                                <td>coverlet for coverage</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 9. Package Managers -->
+                <h2 id="package-managers">9. Package Managers</h2>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Ecosystem</th>
+                                <th>Manager</th>
+                                <th>Lock File</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="lang-pill ts">Node.js</span></td>
+                                <td>npm</td>
+                                <td><code>package-lock.json</code></td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill py">Python</span></td>
+                                <td>uv (Astral)</td>
+                                <td><code>uv.lock</code></td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill go">Go</span></td>
+                                <td>Go Modules</td>
+                                <td><code>go.sum</code></td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill cs">.NET</span></td>
+                                <td>NuGet (central)</td>
+                                <td><code>Directory.Packages.props</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 10. Protocol & Communication -->
+                <h2 id="protocol-communication">10. Protocol &amp; Communication</h2>
+                <p>JSON-RPC 2.0 over stdio to the Copilot CLI process:</p>
+
+                <div class="mermaid-wrapper">
+                    <div class="diagram-title">IPC Communication Architecture</div>
+                    <pre class="mermaid">
+flowchart LR
+    subgraph SDK["SDK Process"]
+        direction TB
+        Node["Node.js"]
+        Py["Python"]
+        Go["Go"]
+        Net[".NET"]
+    end
+    subgraph CLI["Copilot CLI Process"]
+        Binary["@github/copilot\nCLI binary\n(AI backend)"]
+    end
+    SDK -->|"stdin (JSON-RPC 2.0)"| CLI
+    CLI -->|"stdout (responses)"| SDK
+    CLI -->|"stderr (diagnostics)"| SDK
+                    </pre>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>SDK</th>
+                                <th>JSON-RPC Implementation</th>
+                                <th>Schema Validation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="lang-pill ts">Node.js</span></td>
+                                <td><code>vscode-jsonrpc ^8.2.1</code></td>
+                                <td><code>zod ^4.3.6</code></td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill py">Python</span></td>
+                                <td>Custom (pydantic-based)</td>
+                                <td><code>pydantic &gt;=2.0</code></td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill go">Go</span></td>
+                                <td>Custom (stdlib <code>encoding/json</code>)</td>
+                                <td><code>jsonschema-go v0.4.2</code></td>
+                            </tr>
+                            <tr>
+                                <td><span class="lang-pill cs">.NET</span></td>
+                                <td><code>StreamJsonRpc 2.24.84</code></td>
+                                <td><code>System.Text.Json 10.0.2</code> (AOT source-gen)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Summary Matrix -->
+                <h2 id="summary-matrix">Summary Matrix</h2>
+
+                <div class="mermaid-wrapper">
+                    <div class="diagram-title">Summary Matrix</div>
+                    <pre class="mermaid">
+flowchart LR
+    subgraph TS["&lt;b&gt;Node.js&lt;/b&gt;"]
+        direction TB
+        TS1["Language: TypeScript #40;ES2022#41;&lt;br/&gt;Build: esbuild + tsc&lt;br/&gt;Test: Vitest 4.x&lt;br/&gt;Lint: ESLint 9 + Prettier 3&lt;br/&gt;JSON-RPC: vscode-jsonrpc&lt;br/&gt;Registry: npm&lt;br/&gt;Pkg Mgr: npm"]
+    end
+    subgraph PY["&lt;b&gt;Python&lt;/b&gt;"]
+        direction TB
+        PY1["Language: Python 3.11+&lt;br/&gt;Build: setuptools&lt;br/&gt;Test: pytest 7+&lt;br/&gt;Lint: Ruff + ty&lt;br/&gt;JSON-RPC: custom / pydantic&lt;br/&gt;Registry: PyPI&lt;br/&gt;Pkg Mgr: uv"]
+    end
+    subgraph GO["&lt;b&gt;Go&lt;/b&gt;"]
+        direction TB
+        GO1["Language: Go 1.24&lt;br/&gt;Build: go build&lt;br/&gt;Test: go test -race&lt;br/&gt;Lint: golangci-lint&lt;br/&gt;JSON-RPC: custom / stdlib&lt;br/&gt;Registry: Go modules&lt;br/&gt;Pkg Mgr: go mod"]
+    end
+    subgraph NET["&lt;b&gt;.NET&lt;/b&gt;"]
+        direction TB
+        NET1["Language: C# 14 / .NET 8&lt;br/&gt;Build: MSBuild&lt;br/&gt;Test: xUnit 2.9&lt;br/&gt;Lint: dotnet format&lt;br/&gt;JSON-RPC: StreamJsonRpc&lt;br/&gt;Registry: NuGet&lt;br/&gt;Pkg Mgr: NuGet #40;central#41;"]
+    end
+                    </pre>
+                </div>
+
+            </div>
+            <nav class="page-nav">
+              <a href="02-structure.html" class="page-nav-link prev">
+                <span class="page-nav-label">Previous</span>
+                <span class="page-nav-title">02 — Structure</span>
+              </a>
+              <a href="04-entry-points.html" class="page-nav-link next">
+                <span class="page-nav-label">Next</span>
+                <span class="page-nav-title">04 — Entry Points</span>
+              </a>
+            </nav>
+        </main>
+    </div>
+
+    <button class="scroll-top" aria-label="Scroll to top">&#8593;</button>
+    <script src="app.js"></script>
+</body>
+</html>

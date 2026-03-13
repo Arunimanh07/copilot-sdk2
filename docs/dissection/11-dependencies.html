@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dependencies - copilot-sdk Dissection</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/styles/github-dark-dimmed.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/go.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/csharp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect rx=%2715%27 width=%27100%27 height=%27100%27 fill=%27%230F172A%27/%3E%3Ctext x=%2750%27 y=%2770%27 font-size=%2750%27 text-anchor=%27middle%27 fill=%27%2322C55E%27%3E%26lt;/%26gt;%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <button class="sidebar-toggle">Menu</button>
+  <div class="page-wrapper">
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <h1>copilot-sdk</h1>
+        <div class="subtitle">Dissection Documentation</div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Foundation</div>
+        <a href="index.html" class="sidebar-link"><span class="link-num">00</span> Overview</a>
+        <a href="01-discovery.html" class="sidebar-link"><span class="link-num">01</span> Discovery</a>
+        <a href="02-structure.html" class="sidebar-link"><span class="link-num">02</span> Structure</a>
+        <a href="03-tech-stack.html" class="sidebar-link"><span class="link-num">03</span> Tech Stack</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Architecture</div>
+        <a href="04-entry-points.html" class="sidebar-link"><span class="link-num">04</span> Entry Points</a>
+        <a href="05-architecture.html" class="sidebar-link"><span class="link-num">05</span> Architecture</a>
+        <a href="06-data-flow.html" class="sidebar-link"><span class="link-num">06</span> Data Flow</a>
+        <a href="07-api-surface.html" class="sidebar-link"><span class="link-num">07</span> API Surface</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Implementation</div>
+        <a href="08-conventions.html" class="sidebar-link"><span class="link-num">08</span> Conventions</a>
+        <a href="09-testing.html" class="sidebar-link"><span class="link-num">09</span> Testing</a>
+        <a href="10-build-deploy.html" class="sidebar-link"><span class="link-num">10</span> Build &amp; Deploy</a>
+        <a href="11-dependencies.html" class="sidebar-link active"><span class="link-num">11</span> Dependencies</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Operations</div>
+        <a href="12-security.html" class="sidebar-link"><span class="link-num">12</span> Security</a>
+        <a href="13-contribution.html" class="sidebar-link"><span class="link-num">13</span> Contribution</a>
+      </div>
+    </nav>
+    <main class="main-content">
+      <div class="content-area">
+
+        <div class="phase-badge"><span class="dot"></span>Phase 11/13 &mdash; Dependencies</div>
+
+        <h1>Phase 11: Dependencies Analysis</h1>
+        <p>Complete dependency audit of the <code>copilot-sdk</code> multi-language monorepo. Every runtime, dev, and cross-cutting dependency is catalogued with version constraints, purpose, and risk posture.</p>
+
+        <!-- Table of Contents -->
+        <nav class="toc">
+          <div class="toc-title">Table of Contents</div>
+          <ol class="toc-list">
+            <li><a href="#runtime-dependencies"><span class="toc-num">01</span> Runtime Dependencies Per SDK</a></li>
+            <li><a href="#dev-dependencies"><span class="toc-num">02</span> Dev Dependencies Per SDK</a></li>
+            <li><a href="#shared-dependencies"><span class="toc-num">03</span> Shared / Cross-cutting Dependencies</a></li>
+            <li><a href="#dependency-tree-depth"><span class="toc-num">04</span> Dependency Tree Depth</a></li>
+            <li><a href="#key-dependency-analysis"><span class="toc-num">05</span> Key Dependency Analysis</a></li>
+            <li><a href="#version-constraints"><span class="toc-num">06</span> Version Constraints</a></li>
+            <li><a href="#dependency-update-strategy"><span class="toc-num">07</span> Dependency Update Strategy</a></li>
+            <li><a href="#internal-dependencies"><span class="toc-num">08</span> Internal Dependencies</a></li>
+            <li><a href="#platform-requirements"><span class="toc-num">09</span> Platform Requirements</a></li>
+            <li><a href="#potential-risks"><span class="toc-num">10</span> Potential Risks</a></li>
+            <li><a href="#appendix"><span class="toc-num">A</span> Complete Dependency Count Summary</a></li>
+          </ol>
+        </nav>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 1: Runtime Dependencies Per SDK -->
+        <!-- ============================================================ -->
+        <h2 id="runtime-dependencies">1. Runtime Dependencies Per SDK</h2>
+
+        <h3>1.1 Node.js SDK <span class="lang-pill ts">TypeScript</span></h3>
+        <p>Source: <code>nodejs/package.json</code></p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Dependency</th>
+                <th>Version</th>
+                <th>Purpose</th>
+                <th>Risk</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>@github/copilot</code></td>
+                <td><code>^1.0.3-0</code></td>
+                <td><strong>Core Copilot CLI binary</strong> -- bundles the platform-specific native Copilot CLI that the SDK spawns and communicates with over JSON-RPC. Provides <code>sdk/index.js</code> entry point and JSON Schema files used by codegen.</td>
+                <td><strong>HIGH</strong> -- first-party GitHub package; single source of truth for the CLI binary. A breaking change here breaks the entire Node.js SDK. Pre-release version (<code>-0</code> suffix) indicates this is a pre-release channel.</td>
+              </tr>
+              <tr>
+                <td><code>vscode-jsonrpc</code></td>
+                <td><code>^8.2.1</code></td>
+                <td>JSON-RPC 2.0 protocol implementation from the VS Code project (Microsoft). Provides <code>createMessageConnection</code>, <code>StreamMessageReader</code>, <code>StreamMessageWriter</code>, <code>ResponseError</code>, and <code>ConnectionError</code>.</td>
+                <td><strong>LOW</strong> -- mature, well-maintained Microsoft project with wide adoption via VS Code/LSP.</td>
+              </tr>
+              <tr>
+                <td><code>zod</code></td>
+                <td><code>^4.3.6</code></td>
+                <td>Schema validation and type inference library. Used for tool parameter schemas -- the SDK accepts Zod schemas and calls <code>.toJSONSchema()</code> to serialize them for the CLI.</td>
+                <td><strong>LOW</strong> -- extremely popular community library. Note: v4.x is a major version jump from the widely-used v3.x line; the SDK uses the <code>toJSONSchema()</code> API introduced in Zod 4.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">nodejs/package.json:46-50</span></p>
+        </div>
+
+        <h3>1.2 Python SDK <span class="lang-pill py">Python</span></h3>
+        <p>Source: <code>python/pyproject.toml</code></p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Dependency</th>
+                <th>Version</th>
+                <th>Purpose</th>
+                <th>Risk</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>python-dateutil</code></td>
+                <td><code>&gt;=2.9.0.post0</code></td>
+                <td>Date/time parsing and manipulation utilities. Used for handling timestamp fields in the protocol.</td>
+                <td><strong>LOW</strong> -- extremely mature, widely used Python library.</td>
+              </tr>
+              <tr>
+                <td><code>pydantic</code></td>
+                <td><code>&gt;=2.0</code></td>
+                <td>Data validation and settings management using Python type annotations. Provides the model layer for typed RPC messages and session events.</td>
+                <td><strong>LOW</strong> -- very popular, well-maintained. The <code>&gt;=2.0</code> floor ensures the v2 rewrite is used (not legacy v1).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">python/pyproject.toml:25-28</span></p>
+        </div>
+
+        <h3>1.3 Go SDK <span class="lang-pill go">Go</span></h3>
+        <p>Source: <code>go/go.mod</code></p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Dependency</th>
+                <th>Version</th>
+                <th>Purpose</th>
+                <th>Risk</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>github.com/google/jsonschema-go</code></td>
+                <td><code>v0.4.2</code></td>
+                <td>JSON Schema generation from Go structs. Used to produce JSON Schema definitions for tool parameters.</td>
+                <td><strong>MEDIUM</strong> -- Google-authored but relatively niche; fewer users compared to major Google libraries.</td>
+              </tr>
+              <tr>
+                <td><code>github.com/klauspost/compress</code></td>
+                <td><code>v1.18.3</code></td>
+                <td>High-performance compression library. Likely used for compressed transport or payload handling.</td>
+                <td><strong>LOW</strong> -- extremely well-maintained, high-adoption compression library by a prolific maintainer.</td>
+              </tr>
+              <tr>
+                <td><code>github.com/google/uuid</code></td>
+                <td><code>v1.6.0</code></td>
+                <td>UUID generation. Used for session IDs and request correlation.</td>
+                <td><strong>LOW</strong> -- Google-maintained, widely used, stable API.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">go/go.mod:1-11</span></p>
+        </div>
+
+        <p><strong>Indirect Go dependencies</strong> (from <code>go/go.sum</code>):</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Dependency</th>
+                <th>Version</th>
+                <th>Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>github.com/google/go-cmp</code></td>
+                <td><code>v0.7.0</code></td>
+                <td>Deep equality comparison -- likely a transitive dependency of <code>jsonschema-go</code> for testing.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">go/go.sum:1-2</span></p>
+        </div>
+
+        <h3>1.4 .NET SDK <span class="lang-pill cs">.NET</span></h3>
+        <p>Source: <code>dotnet/src/GitHub.Copilot.SDK.csproj</code> + <code>dotnet/Directory.Packages.props</code></p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Dependency</th>
+                <th>Version</th>
+                <th>Purpose</th>
+                <th>Risk</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>Microsoft.Extensions.AI.Abstractions</code></td>
+                <td><code>10.2.0</code></td>
+                <td>Microsoft AI abstractions for .NET (chat client, embeddings). Provides standardized interfaces for AI integration.</td>
+                <td><strong>LOW</strong> -- first-party Microsoft package, part of the Extensions ecosystem.</td>
+              </tr>
+              <tr>
+                <td><code>Microsoft.Extensions.Logging.Abstractions</code></td>
+                <td><code>10.0.2</code></td>
+                <td>Logging abstraction layer. Allows consumers to plug in any logging provider.</td>
+                <td><strong>LOW</strong> -- core Microsoft infrastructure package.</td>
+              </tr>
+              <tr>
+                <td><code>StreamJsonRpc</code></td>
+                <td><code>2.24.84</code></td>
+                <td>JSON-RPC 2.0 implementation for .NET from Microsoft. The .NET equivalent of <code>vscode-jsonrpc</code>. Marked <code>PrivateAssets="compile"</code> meaning it is embedded/internalized, not exposed as a transitive dependency.</td>
+                <td><strong>LOW</strong> -- Microsoft-maintained, used extensively in Visual Studio.</td>
+              </tr>
+              <tr>
+                <td><code>System.Text.Json</code></td>
+                <td><code>10.0.2</code></td>
+                <td>JSON serialization/deserialization. Part of the .NET runtime but pinned explicitly for consistency and AOT compatibility.</td>
+                <td><strong>LOW</strong> -- first-party .NET runtime library.</td>
+              </tr>
+              <tr>
+                <td><code>Microsoft.SourceLink.GitHub</code></td>
+                <td><code>10.0.102</code></td>
+                <td>Source Link support for NuGet debugging. Marked <code>PrivateAssets="all"</code> -- build-time only, not shipped.</td>
+                <td><strong>LOW</strong> -- build infrastructure only.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">dotnet/src/GitHub.Copilot.SDK.csproj:32-38</span>, <span class="file-ref">dotnet/Directory.Packages.props:7-14</span></p>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 2: Dev Dependencies Per SDK -->
+        <!-- ============================================================ -->
+        <h2 id="dev-dependencies">2. Dev Dependencies Per SDK</h2>
+
+        <h3>2.1 Node.js SDK <span class="lang-pill ts">TypeScript</span></h3>
+        <p>Source: <code>nodejs/package.json</code></p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Dependency</th>
+                <th>Version</th>
+                <th>Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>@types/node</code></td>
+                <td><code>^25.2.0</code></td>
+                <td>TypeScript type definitions for Node.js APIs</td>
+              </tr>
+              <tr>
+                <td><code>@typescript-eslint/eslint-plugin</code></td>
+                <td><code>^8.54.0</code></td>
+                <td>TypeScript-aware ESLint rules</td>
+              </tr>
+              <tr>
+                <td><code>@typescript-eslint/parser</code></td>
+                <td><code>^8.54.0</code></td>
+                <td>TypeScript parser for ESLint</td>
+              </tr>
+              <tr>
+                <td><code>esbuild</code></td>
+                <td><code>^0.27.2</code></td>
+                <td>Fast JavaScript/TypeScript bundler used for SDK build</td>
+              </tr>
+              <tr>
+                <td><code>eslint</code></td>
+                <td><code>^9.0.0</code></td>
+                <td>JavaScript/TypeScript linter</td>
+              </tr>
+              <tr>
+                <td><code>glob</code></td>
+                <td><code>^13.0.1</code></td>
+                <td>File pattern matching (used in build scripts)</td>
+              </tr>
+              <tr>
+                <td><code>json-schema</code></td>
+                <td><code>^0.4.0</code></td>
+                <td>JSON Schema type definitions and utilities</td>
+              </tr>
+              <tr>
+                <td><code>json-schema-to-typescript</code></td>
+                <td><code>^15.0.4</code></td>
+                <td>Generates TypeScript interfaces from JSON Schema</td>
+              </tr>
+              <tr>
+                <td><code>prettier</code></td>
+                <td><code>^3.8.1</code></td>
+                <td>Code formatter</td>
+              </tr>
+              <tr>
+                <td><code>quicktype-core</code></td>
+                <td><code>^23.2.6</code></td>
+                <td>Multi-language type generation from JSON Schema</td>
+              </tr>
+              <tr>
+                <td><code>rimraf</code></td>
+                <td><code>^6.1.2</code></td>
+                <td>Cross-platform <code>rm -rf</code> for clean scripts</td>
+              </tr>
+              <tr>
+                <td><code>semver</code></td>
+                <td><code>^7.7.3</code></td>
+                <td>Semantic versioning parsing (used in version scripts)</td>
+              </tr>
+              <tr>
+                <td><code>tsx</code></td>
+                <td><code>^4.20.6</code></td>
+                <td>TypeScript execution engine (runs <code>.ts</code> files directly)</td>
+              </tr>
+              <tr>
+                <td><code>typescript</code></td>
+                <td><code>^5.0.0</code></td>
+                <td>TypeScript compiler for type checking</td>
+              </tr>
+              <tr>
+                <td><code>vitest</code></td>
+                <td><code>^4.0.18</code></td>
+                <td>Test framework (Vite-native)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">nodejs/package.json:51-67</span></p>
+        </div>
+
+        <h3>2.2 Python SDK <span class="lang-pill py">Python</span></h3>
+        <p>Source: <code>python/pyproject.toml</code></p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Dependency</th>
+                <th>Version</th>
+                <th>Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>ruff</code></td>
+                <td><code>&gt;=0.1.0</code></td>
+                <td>Fast Python linter and formatter (replaces flake8, isort, black)</td>
+              </tr>
+              <tr>
+                <td><code>ty</code></td>
+                <td><code>&gt;=0.0.2</code></td>
+                <td>Type checker for Python</td>
+              </tr>
+              <tr>
+                <td><code>pytest</code></td>
+                <td><code>&gt;=7.0.0</code></td>
+                <td>Test framework</td>
+              </tr>
+              <tr>
+                <td><code>pytest-asyncio</code></td>
+                <td><code>&gt;=0.21.0</code></td>
+                <td>Async test support for pytest</td>
+              </tr>
+              <tr>
+                <td><code>pytest-timeout</code></td>
+                <td><code>&gt;=2.0.0</code></td>
+                <td>Test timeout enforcement</td>
+              </tr>
+              <tr>
+                <td><code>httpx</code></td>
+                <td><code>&gt;=0.24.0</code></td>
+                <td>HTTP client (likely used for integration tests against CLI server)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">python/pyproject.toml:34-42</span></p>
+        </div>
+
+        <h3>2.3 Go SDK <span class="lang-pill go">Go</span></h3>
+        <p>No explicit dev dependencies in <code>go.mod</code>. Go uses the standard <code>go test</code> toolchain. The <code>google/go-cmp</code> in <code>go.sum</code> is an indirect dependency.</p>
+
+        <h3>2.4 .NET SDK <span class="lang-pill cs">.NET</span></h3>
+        <p>Source: <code>dotnet/test/GitHub.Copilot.SDK.Test.csproj</code> + <code>dotnet/Directory.Packages.props</code></p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Dependency</th>
+                <th>Version</th>
+                <th>Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>Microsoft.NET.Test.Sdk</code></td>
+                <td><code>18.3.0</code></td>
+                <td>Test platform infrastructure</td>
+              </tr>
+              <tr>
+                <td><code>xunit</code></td>
+                <td><code>2.9.3</code></td>
+                <td>Unit testing framework</td>
+              </tr>
+              <tr>
+                <td><code>xunit.runner.visualstudio</code></td>
+                <td><code>3.1.5</code></td>
+                <td>Visual Studio test runner adapter for xunit</td>
+              </tr>
+              <tr>
+                <td><code>coverlet.collector</code></td>
+                <td><code>6.0.4</code></td>
+                <td>Code coverage collection</td>
+              </tr>
+              <tr>
+                <td><code>StreamJsonRpc</code></td>
+                <td><code>2.24.84</code></td>
+                <td>Also referenced in test project for direct JSON-RPC testing</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">dotnet/test/GitHub.Copilot.SDK.Test.csproj:17-29</span>, <span class="file-ref">dotnet/Directory.Packages.props:8-16</span></p>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 3: Shared / Cross-cutting Dependencies -->
+        <!-- ============================================================ -->
+        <h2 id="shared-dependencies">3. Shared / Cross-cutting Dependencies</h2>
+
+        <h3>3.1 Code Generation Toolchain</h3>
+        <p>Source: <code>scripts/codegen/package.json</code></p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Dependency</th>
+                <th>Version</th>
+                <th>Purpose</th>
+                <th>Shared By</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>json-schema</code></td>
+                <td><code>^0.4.0</code></td>
+                <td>JSON Schema type definitions</td>
+                <td>Also in Node.js SDK devDependencies</td>
+              </tr>
+              <tr>
+                <td><code>json-schema-to-typescript</code></td>
+                <td><code>^15.0.4</code></td>
+                <td>TypeScript interface generation</td>
+                <td>Also in Node.js SDK devDependencies</td>
+              </tr>
+              <tr>
+                <td><code>quicktype-core</code></td>
+                <td><code>^23.2.6</code></td>
+                <td>Multi-language code generation</td>
+                <td>Also in Node.js SDK devDependencies</td>
+              </tr>
+              <tr>
+                <td><code>tsx</code></td>
+                <td><code>^4.20.6</code></td>
+                <td>TypeScript execution</td>
+                <td>Also in Node.js SDK and test harness</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">scripts/codegen/package.json:12-17</span></p>
+        </div>
+
+        <h3>3.2 Test Harness</h3>
+        <p>Source: <code>test/harness/package.json</code></p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Dependency</th>
+                <th>Version</th>
+                <th>Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>@github/copilot</code></td>
+                <td><code>^0.0.421</code></td>
+                <td>Copilot CLI (older pre-release version than SDK -- see risk analysis)</td>
+              </tr>
+              <tr>
+                <td><code>@modelcontextprotocol/sdk</code></td>
+                <td><code>^1.26.0</code></td>
+                <td>MCP (Model Context Protocol) SDK for test server</td>
+              </tr>
+              <tr>
+                <td><code>@types/node</code></td>
+                <td><code>^25.3.3</code></td>
+                <td>Node.js type definitions</td>
+              </tr>
+              <tr>
+                <td><code>openai</code></td>
+                <td><code>^6.17.0</code></td>
+                <td>OpenAI client library for testing AI interactions</td>
+              </tr>
+              <tr>
+                <td><code>tsx</code></td>
+                <td><code>^4.21.0</code></td>
+                <td>TypeScript execution</td>
+              </tr>
+              <tr>
+                <td><code>typescript</code></td>
+                <td><code>^5.9.3</code></td>
+                <td>TypeScript compiler</td>
+              </tr>
+              <tr>
+                <td><code>vitest</code></td>
+                <td><code>^4.0.18</code></td>
+                <td>Test framework</td>
+              </tr>
+              <tr>
+                <td><code>yaml</code></td>
+                <td><code>^2.8.2</code></td>
+                <td>YAML parsing</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">test/harness/package.json:13-22</span></p>
+        </div>
+
+        <h3>3.3 Cross-SDK Dependency Matrix</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Concept</th>
+                <th><span class="lang-pill ts">Node.js</span></th>
+                <th><span class="lang-pill py">Python</span></th>
+                <th><span class="lang-pill go">Go</span></th>
+                <th><span class="lang-pill cs">.NET</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>JSON-RPC</strong></td>
+                <td><code>vscode-jsonrpc</code></td>
+                <td>Custom impl</td>
+                <td>Custom impl</td>
+                <td><code>StreamJsonRpc</code></td>
+              </tr>
+              <tr>
+                <td><strong>Schema validation</strong></td>
+                <td><code>zod</code> (runtime)</td>
+                <td><code>pydantic</code></td>
+                <td><code>jsonschema-go</code></td>
+                <td><code>System.Text.Json</code></td>
+              </tr>
+              <tr>
+                <td><strong>UUID generation</strong></td>
+                <td><code>node:crypto</code> (built-in)</td>
+                <td>stdlib</td>
+                <td><code>google/uuid</code></td>
+                <td>stdlib</td>
+              </tr>
+              <tr>
+                <td><strong>JSON serialization</strong></td>
+                <td>built-in</td>
+                <td>built-in</td>
+                <td>built-in</td>
+                <td><code>System.Text.Json</code></td>
+              </tr>
+              <tr>
+                <td><strong>Compression</strong></td>
+                <td>N/A</td>
+                <td>N/A</td>
+                <td><code>klauspost/compress</code></td>
+                <td>N/A</td>
+              </tr>
+              <tr>
+                <td><strong>Date handling</strong></td>
+                <td>built-in</td>
+                <td><code>python-dateutil</code></td>
+                <td>built-in</td>
+                <td>built-in</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 4: Dependency Tree Depth -->
+        <!-- ============================================================ -->
+        <h2 id="dependency-tree-depth">4. Dependency Tree Depth</h2>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Dependency Tree Depth</div>
+          <pre class="mermaid">
+flowchart LR
+  A["&lt;b&gt;3&lt;/b&gt;&lt;br/&gt;Node.js Runtime Deps"] ~~~ B["&lt;b&gt;2&lt;/b&gt;&lt;br/&gt;Python Runtime Deps"] ~~~ C["&lt;b&gt;3&lt;/b&gt;&lt;br/&gt;Go Direct Deps"] ~~~ D["&lt;b&gt;5&lt;/b&gt;&lt;br/&gt;.NET Package Refs"]
+          </pre>
+        </div>
+
+        <h3>4.1 Node.js SDK -- Moderate Depth</h3>
+        <p>The dependency tree has two layers of concern:</p>
+        <ul>
+          <li><strong>Shallow direct deps</strong>: The SDK declares only 3 runtime dependencies. The code itself (<code>nodejs/src/</code>) imports only from <code>vscode-jsonrpc/node.js</code> and <code>@github/copilot</code> at runtime. <code>zod</code> is not imported in source -- it is a peer-like dependency consumed by SDK users for tool definitions.</li>
+          <li><strong>Deep transitive tree via <code>@github/copilot</code></strong>: This package bundles platform-specific native binaries via 6 optional dependencies (<code>@github/copilot-darwin-arm64</code>, <code>@github/copilot-darwin-x64</code>, <code>@github/copilot-linux-arm64</code>, <code>@github/copilot-linux-x64</code>, <code>@github/copilot-win32-arm64</code>, <code>@github/copilot-win32-x64</code>). These are leaf packages with no further transitive dependencies.</li>
+          <li><strong>Dev dependency depth</strong>: <code>eslint</code>, <code>vitest</code>, and <code>quicktype-core</code> each bring large transitive trees, but these are not shipped.</li>
+        </ul>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">nodejs/package-lock.json:664-679</span> (copilot platform binaries)</p>
+        </div>
+
+        <h3>4.2 Python SDK -- Very Shallow</h3>
+        <p>Only 2 runtime dependencies. <code>pydantic</code> has its own dependency tree (<code>pydantic-core</code>, <code>typing-extensions</code>, <code>annotated-types</code>), but this is standard and well-understood.</p>
+
+        <h3>4.3 Go SDK -- Very Shallow</h3>
+        <p>Only 3 direct dependencies with 1 indirect (<code>go-cmp</code>). The <code>go.sum</code> file is only 8 lines, confirming a remarkably flat dependency graph.</p>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">go/go.sum:1-8</span> (complete file -- only 4 modules with their hashes)</p>
+        </div>
+
+        <h3>4.4 .NET SDK -- Shallow</h3>
+        <p>5 package references, all from Microsoft. The <code>PrivateAssets="compile"</code> on <code>StreamJsonRpc</code> means it is internalized at build time, reducing the transitive surface for consumers.</p>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 5: Key Dependency Analysis -->
+        <!-- ============================================================ -->
+        <h2 id="key-dependency-analysis">5. Key Dependency Analysis</h2>
+
+        <h3>5.1 <code>@github/copilot</code> -- The Copilot CLI Binary Package</h3>
+
+        <p><strong>What it is</strong>: A first-party GitHub npm package that bundles the Copilot CLI as platform-specific native binaries distributed through optional dependencies. It follows the same pattern as <code>esbuild</code>, <code>turbo</code>, and other native-binary npm packages.</p>
+
+        <p><strong>What it provides</strong>:</p>
+        <ul>
+          <li><strong>Native CLI binary</strong> via platform packages (<code>@github/copilot-{os}-{arch}</code>), loaded through <code>npm-loader.js</code></li>
+          <li><strong>JavaScript entry point</strong> (<code>index.js</code>) that the SDK resolves and spawns as a Node.js child process</li>
+          <li><strong>SDK integration point</strong> (<code>sdk/index.js</code>) used by <code>CopilotClient.getBundledCliPath()</code> to locate the CLI</li>
+          <li><strong>JSON Schema definitions</strong> (<code>schemas/api.schema.json</code>, <code>schemas/session-events.schema.json</code>) consumed by the codegen toolchain to generate typed RPC bindings for all four SDKs</li>
+        </ul>
+
+        <p><strong>How the Node.js SDK uses it</strong> (from <span class="file-ref">nodejs/src/client.ts:88-99</span>):</p>
+        <pre data-lang="typescript"><code class="language-typescript">function getBundledCliPath(): string {
+    const sdkUrl = import.meta.resolve("@github/copilot/sdk");
+    const sdkPath = fileURLToPath(sdkUrl);
+    return join(dirname(dirname(sdkPath)), "index.js");
+}</code></pre>
+
+        <p><strong>How codegen uses it</strong> (from <span class="file-ref">scripts/codegen/utils.ts:29-46</span>):</p>
+        <pre data-lang="typescript"><code class="language-typescript">// Resolves schemas from the installed @github/copilot package
+const schemaPath = path.join(
+    REPO_ROOT,
+    "nodejs/node_modules/@github/copilot/schemas/session-events.schema.json"
+);</code></pre>
+
+        <div class="callout warning">
+          <div class="callout-title">Version Discrepancy</div>
+          <p>The SDK declares <code>^1.0.3-0</code> (<span class="file-ref">nodejs/package.json:47</span>) while the test harness declares <code>^0.0.421</code> (<span class="file-ref">test/harness/package.json:14</span>). The harness uses an older pre-1.0 version -- this is a notable divergence that may cause test results to differ from SDK behavior. The lock file resolves the SDK copy to <code>1.0.3-0</code> (<span class="file-ref">nodejs/package-lock.json:665</span>).</p>
+        </div>
+
+        <h3>5.2 <code>vscode-jsonrpc</code> -- JSON-RPC Protocol Layer</h3>
+
+        <p><strong>What it is</strong>: Microsoft's JSON-RPC 2.0 implementation, originally built for the Language Server Protocol (LSP) in VS Code. Published under the <code>vscode-languageserver</code> family of packages.</p>
+
+        <p><strong>What the SDK uses from it</strong> (from <span class="file-ref">nodejs/src/client.ts:20-25</span> and <span class="file-ref">nodejs/src/session.ts:10-11</span>):</p>
+        <ul>
+          <li><code>createMessageConnection</code> -- creates a bidirectional JSON-RPC connection over streams</li>
+          <li><code>StreamMessageReader</code> / <code>StreamMessageWriter</code> -- stream-based message framing (stdio or TCP)</li>
+          <li><code>MessageConnection</code> -- the connection type for sending requests/notifications</li>
+          <li><code>ResponseError</code> / <code>ConnectionError</code> -- typed error classes for RPC failures</li>
+        </ul>
+
+        <p><strong>Why it matters</strong>: This is the core transport abstraction. The entire Node.js SDK communicates with the Copilot CLI through this library. The <code>^8.2.1</code> version constraint pins to the v8.x line which is the current stable release. The .NET SDK uses the equivalent Microsoft library <code>StreamJsonRpc</code> (same team, same protocol, different runtime).</p>
+
+        <h3>5.3 <code>zod</code> -- Schema Validation (Tool Parameters)</h3>
+
+        <p><strong>What it is</strong>: Zod is a TypeScript-first schema declaration and validation library. Version 4.x introduces <code>toJSONSchema()</code> as a native method.</p>
+
+        <p><strong>How the SDK uses it</strong>: Zod is NOT directly imported in the SDK source code. Instead, the SDK defines a <code>ZodSchema</code> interface (<span class="file-ref">nodejs/src/types.ts:148-151</span>) that any object with a <code>toJSONSchema()</code> method satisfies:</p>
+
+        <pre data-lang="typescript"><code class="language-typescript">export interface ZodSchema&lt;T = unknown&gt; {
+    _output: T;
+    toJSONSchema(): Record&lt;string, unknown&gt;;
+}</code></pre>
+
+        <p>The SDK checks for this interface at runtime (<span class="file-ref">nodejs/src/client.ts:61-68</span>):</p>
+        <pre data-lang="typescript"><code class="language-typescript">function isZodSchema(value: unknown): value is { toJSONSchema(): Record&lt;string, unknown&gt; } {
+    return (
+        value != null &amp;&amp;
+        typeof value === "object" &amp;&amp;
+        "toJSONSchema" in value &amp;&amp;
+        typeof (value as { toJSONSchema: unknown }).toJSONSchema === "function"
+    );
+}</code></pre>
+
+        <div class="callout info">
+          <div class="callout-title">Design Pattern</div>
+          <p>This is a duck-typing / structural typing approach. The SDK does not <code>import</code> from <code>zod</code> -- it accepts any schema-like object. Zod is a runtime dependency because the <code>defineTool</code> helper and examples (e.g., <span class="file-ref">nodejs/examples/basic-example.ts:5</span>, <span class="file-ref">nodejs/test/e2e/tools.test.ts:8</span>) use it for schema definitions. Users are expected to pair <code>zod</code> with the SDK for tool parameter type inference.</p>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 6: Version Constraints -->
+        <!-- ============================================================ -->
+        <h2 id="version-constraints">6. Version Constraints</h2>
+
+        <h3>6.1 Strategy by Ecosystem</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Ecosystem</th>
+                <th>Strategy</th>
+                <th>Example</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>npm (Node.js SDK)</strong></td>
+                <td>Caret ranges (<code>^</code>)</td>
+                <td><code>^8.2.1</code></td>
+                <td>Allows minor/patch updates within major version</td>
+              </tr>
+              <tr>
+                <td><strong>npm (codegen)</strong></td>
+                <td>Caret ranges (<code>^</code>)</td>
+                <td><code>^15.0.4</code></td>
+                <td>Same strategy</td>
+              </tr>
+              <tr>
+                <td><strong>pip (Python)</strong></td>
+                <td>Minimum floor (<code>&gt;=</code>)</td>
+                <td><code>&gt;=2.0</code></td>
+                <td>Very permissive -- allows any version above floor</td>
+              </tr>
+              <tr>
+                <td><strong>Go modules</strong></td>
+                <td>Exact versions</td>
+                <td><code>v0.4.2</code></td>
+                <td>Go modules pin exact versions in <code>go.sum</code></td>
+              </tr>
+              <tr>
+                <td><strong>NuGet (.NET)</strong></td>
+                <td>Exact versions via central management</td>
+                <td><code>10.2.0</code></td>
+                <td><code>Directory.Packages.props</code> pins exact versions centrally</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>6.2 Notable Version Constraint Decisions</h3>
+
+        <h4>Pre-release pinning on <code>@github/copilot</code></h4>
+        <p><code>^1.0.3-0</code> in <span class="file-ref">nodejs/package.json:47</span> -- the <code>-0</code> suffix indicates a pre-release tag. The caret range with a pre-release means npm will only resolve to <code>&gt;=1.0.3-0 &lt;2.0.0</code> for pre-release versions of <code>1.0.3</code>, and any stable <code>&gt;=1.0.3</code>.</p>
+
+        <h4>.NET Central Package Management</h4>
+        <p><span class="file-ref">dotnet/Directory.Packages.props:4</span> sets <code>ManagePackageVersionsCentrally=true</code>, meaning individual <code>.csproj</code> files cannot specify versions -- they are all controlled from this single file. This ensures version consistency across <code>src</code> and <code>test</code> projects.</p>
+
+        <h4>Python's permissive floors</h4>
+        <p><code>pydantic&gt;=2.0</code> (<span class="file-ref">python/pyproject.toml:27</span>) allows any Pydantic 2.x release. This is intentionally broad to avoid conflicts with user applications that may pin specific Pydantic versions.</p>
+
+        <h4>Node.js engine constraint</h4>
+        <p><code>"node": "&gt;=20.0.0"</code> (<span class="file-ref">nodejs/package.json:69</span>) -- enforces a minimum Node.js 20 requirement. This corresponds to Node.js 20 LTS.</p>
+
+        <h3>6.3 Pinned vs Range Summary</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>SDK</th>
+                <th>Pinned (Exact)</th>
+                <th>Range</th>
+                <th>Pre-release</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="lang-pill ts">Node.js</span></td>
+                <td>0</td>
+                <td>16 (all caret)</td>
+                <td>1 (<code>@github/copilot</code>)</td>
+              </tr>
+              <tr>
+                <td><span class="lang-pill py">Python</span></td>
+                <td>0</td>
+                <td>8 (all minimum floor)</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td><span class="lang-pill go">Go</span></td>
+                <td>3 (all exact via go.sum)</td>
+                <td>0</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td><span class="lang-pill cs">.NET</span></td>
+                <td>9 (all exact via central mgmt)</td>
+                <td>0</td>
+                <td>0</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 7: Dependency Update Strategy -->
+        <!-- ============================================================ -->
+        <h2 id="dependency-update-strategy">7. Dependency Update Strategy</h2>
+
+        <h3>7.1 Dependabot Configuration</h3>
+        <p>Source: <code>/.github/dependabot.yaml</code></p>
+        <p>The repository uses Dependabot v2 with <strong>weekly</strong> updates and a <strong>multi-ecosystem group</strong> strategy.</p>
+
+        <pre data-lang="yaml"><code class="language-yaml">multi-ecosystem-groups:
+  all:
+    schedule:
+      interval: 'weekly'</code></pre>
+
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">/.github/dependabot.yaml:2-5</span></p>
+        </div>
+
+        <p><strong>Monitored ecosystems</strong>:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Ecosystem</th>
+                <th>Directory</th>
+                <th>Group</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>GitHub Actions</td>
+                <td><code>/</code></td>
+                <td><code>all</code></td>
+              </tr>
+              <tr>
+                <td>Dev Containers</td>
+                <td><code>/</code></td>
+                <td><code>all</code></td>
+              </tr>
+              <tr>
+                <td>npm (SDK)</td>
+                <td><code>/nodejs</code></td>
+                <td><code>all</code></td>
+              </tr>
+              <tr>
+                <td>npm (harness)</td>
+                <td><code>/test/harness</code></td>
+                <td><code>all</code></td>
+              </tr>
+              <tr>
+                <td>pip</td>
+                <td><code>/python</code></td>
+                <td><code>all</code></td>
+              </tr>
+              <tr>
+                <td>Go modules</td>
+                <td><code>/go</code></td>
+                <td><code>all</code></td>
+              </tr>
+              <tr>
+                <td>NuGet</td>
+                <td><code>/dotnet</code></td>
+                <td><code>all</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">/.github/dependabot.yaml:6-38</span></p>
+        </div>
+
+        <h3>7.2 Update Flow Analysis</h3>
+
+        <p><strong>Grouped PRs</strong>: The <code>multi-ecosystem-group: all</code> with <code>patterns: ['*']</code> means Dependabot will attempt to group ALL dependency updates across ALL ecosystems into a single weekly PR. This reduces PR noise but means a failure in one ecosystem can block updates in others.</p>
+
+        <div class="callout warning">
+          <div class="callout-title">Notable Gaps</div>
+          <ul>
+            <li>The <code>scripts/codegen/</code> npm package is NOT monitored by Dependabot. Its dependencies (<code>json-schema</code>, <code>json-schema-to-typescript</code>, <code>quicktype-core</code>, <code>tsx</code>) will not receive automated update PRs.</li>
+            <li>The <code>nodejs/samples/</code> directory is not monitored either.</li>
+          </ul>
+        </div>
+
+        <h3>7.3 NuGet Source Configuration</h3>
+        <pre data-lang="xml"><code class="language-xml">&lt;packageSources&gt;
+    &lt;clear /&gt;
+    &lt;add key="nuget.org" value="https://api.nuget.org/v3/index.json" /&gt;
+&lt;/packageSources&gt;
+&lt;packageSourceMapping&gt;
+    &lt;packageSource key="nuget.org"&gt;
+        &lt;package pattern="*" /&gt;
+    &lt;/packageSource&gt;
+&lt;/packageSourceMapping&gt;</code></pre>
+
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">dotnet/nuget.config:1-12</span></p>
+        </div>
+
+        <div class="callout success">
+          <div class="callout-title">Security Best Practice</div>
+          <p>The NuGet config clears all default sources and explicitly adds only <code>nuget.org</code> with a source mapping that requires ALL packages to come from <code>nuget.org</code>. This prevents dependency confusion attacks via private feed injection.</p>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 8: Internal Dependencies -->
+        <!-- ============================================================ -->
+        <h2 id="internal-dependencies">8. Internal Dependencies</h2>
+
+        <h3>8.1 Codegen Pipeline</h3>
+        <p>The code generation toolchain is the central connective tissue of the monorepo. It lives at <code>scripts/codegen/</code> and generates typed bindings for all four SDKs from the JSON Schema files bundled inside <code>@github/copilot</code>.</p>
+
+        <p><strong>Dependency chain</strong>:</p>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Codegen Pipeline -- Dependency Chain</div>
+          <pre class="mermaid">
+flowchart TD
+  A["@github/copilot\n(npm package)"] --> S1["schemas/api.schema.json"]
+  A --> S2["schemas/session-events.schema.json"]
+  S1 --> B["scripts/codegen/\n(Node.js toolchain)"]
+  S2 --> B
+  B --> C["typescript.ts\nnodejs/src/generated/rpc.ts"]
+  B --> D["csharp.ts\ndotnet/src/Generated/"]
+  B --> E["python.ts\npython/copilot/generated/"]
+  B --> F["go.ts\ngo/generated/"]
+          </pre>
+        </div>
+
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">scripts/codegen/package.json:6-10</span> (generate scripts), <span class="file-ref">scripts/codegen/utils.ts:29-46</span> (schema resolution)</p>
+        </div>
+
+        <div class="callout warning">
+          <div class="callout-title">Key Insight</div>
+          <p>The codegen reads schemas from <code>nodejs/node_modules/@github/copilot/schemas/</code> (<span class="file-ref">scripts/codegen/utils.ts:32</span>). This means:</p>
+          <ol>
+            <li><code>npm install</code> in the <code>nodejs/</code> directory must run before codegen can execute.</li>
+            <li>All four SDKs' generated code depends on the version of <code>@github/copilot</code> installed in the Node.js project.</li>
+            <li>There is a hidden build-order dependency: <code>npm install (nodejs/)</code> &rarr; <code>codegen</code> &rarr; <code>build (any SDK)</code>.</li>
+          </ol>
+        </div>
+
+        <h3>8.2 .NET SDK's Cross-Ecosystem Dependency</h3>
+        <p>The .NET build extracts the Copilot CLI version from the Node.js lockfile:</p>
+
+        <pre data-lang="xml"><code class="language-xml">&lt;Exec Command="node -e &amp;quot;console.log(require('./nodejs/package-lock.json')
+    .packages['node_modules/@github/copilot'].version)&amp;quot;"
+    WorkingDirectory="$(MSBuildThisFileDirectory)../.." /&gt;</code></pre>
+
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">dotnet/src/GitHub.Copilot.SDK.csproj:42-44</span></p>
+        </div>
+
+        <p>This means the .NET SDK build requires:</p>
+        <ul>
+          <li>Node.js to be installed on the build machine</li>
+          <li>The <code>nodejs/package-lock.json</code> to exist and contain the resolved <code>@github/copilot</code> version</li>
+          <li>This version is written to a <code>.props</code> file and shipped in the NuGet package</li>
+        </ul>
+
+        <h3>8.3 Test Harness</h3>
+        <p>The test harness at <code>test/harness/</code> is an independent Node.js project with its own <code>package.json</code>. It is NOT published and serves as cross-SDK integration test infrastructure.</p>
+        <ul>
+          <li>Uses its own copy of <code>@github/copilot</code> (version <code>^0.0.421</code> -- significantly older than the SDK's <code>^1.0.3-0</code>)</li>
+          <li>Brings in <code>@modelcontextprotocol/sdk</code> and <code>openai</code> for testing MCP and AI interactions</li>
+          <li>Shares <code>vitest</code> and <code>tsx</code> with the main Node.js SDK</li>
+        </ul>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">test/harness/package.json:4</span> ("Not to be published")</p>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 9: Platform Requirements -->
+        <!-- ============================================================ -->
+        <h2 id="platform-requirements">9. Platform Requirements</h2>
+
+        <h3>9.1 Minimum Versions</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Platform</th>
+                <th>Required Version</th>
+                <th>Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="lang-pill ts">Node.js</span></td>
+                <td><code>&gt;=20.0.0</code></td>
+                <td><span class="file-ref">nodejs/package.json:69</span></td>
+              </tr>
+              <tr>
+                <td><span class="lang-pill py">Python</span></td>
+                <td><code>&gt;=3.11</code></td>
+                <td><span class="file-ref">python/pyproject.toml:10</span></td>
+              </tr>
+              <tr>
+                <td><span class="lang-pill go">Go</span></td>
+                <td><code>1.24</code></td>
+                <td><span class="file-ref">go/go.mod:3</span></td>
+              </tr>
+              <tr>
+                <td><span class="lang-pill cs">.NET</span></td>
+                <td><code>net8.0</code> (with C# 14 / <code>LangVersion 14</code>)</td>
+                <td><span class="file-ref">dotnet/Directory.Build.props:4-5</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>9.2 Supported Python Versions</h3>
+        <p>Explicitly classified for Python 3.11, 3.12, 3.13, and 3.14.</p>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">python/pyproject.toml:19-23</span></p>
+        </div>
+
+        <h3>9.3 .NET Build Requirements</h3>
+        <ul>
+          <li><strong>AOT Compatible</strong>: <code>IsAotCompatible=true</code> (<span class="file-ref">dotnet/src/GitHub.Copilot.SDK.csproj:16</span>)</li>
+          <li><strong>Nullable reference types</strong>: enabled (<span class="file-ref">dotnet/Directory.Build.props:7</span>)</li>
+          <li><strong>Warnings as errors</strong>: enabled (<span class="file-ref">dotnet/Directory.Build.props:9</span>)</li>
+          <li><strong>Reflection-free JSON</strong>: Test project disables reflection-based serialization to validate NativeAOT compatibility (<span class="file-ref">dotnet/test/GitHub.Copilot.SDK.Test.csproj:14</span>)</li>
+        </ul>
+
+        <h3>9.4 Node.js SDK Module System</h3>
+        <p>The Node.js SDK is an ESM-only package (<code>"type": "module"</code> at <span class="file-ref">nodejs/package.json:22</span>). It provides dual exports:</p>
+        <ul>
+          <li><code>.</code> (main): <code>./dist/index.js</code> with types at <code>./dist/index.d.ts</code></li>
+          <li><code>./extension</code>: <code>./dist/extension.js</code> with types at <code>./dist/extension.d.ts</code></li>
+        </ul>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">nodejs/package.json:11-19</span></p>
+        </div>
+
+        <h3>9.5 Copilot CLI Platform Binaries</h3>
+        <p>The <code>@github/copilot</code> package supports 6 platform targets via optional dependencies:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Package</th>
+                <th>OS</th>
+                <th>Architecture</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>@github/copilot-darwin-arm64</code></td>
+                <td>macOS</td>
+                <td>ARM64 (Apple Silicon)</td>
+              </tr>
+              <tr>
+                <td><code>@github/copilot-darwin-x64</code></td>
+                <td>macOS</td>
+                <td>x86_64</td>
+              </tr>
+              <tr>
+                <td><code>@github/copilot-linux-arm64</code></td>
+                <td>Linux</td>
+                <td>ARM64</td>
+              </tr>
+              <tr>
+                <td><code>@github/copilot-linux-x64</code></td>
+                <td>Linux</td>
+                <td>x86_64</td>
+              </tr>
+              <tr>
+                <td><code>@github/copilot-win32-arm64</code></td>
+                <td>Windows</td>
+                <td>ARM64</td>
+              </tr>
+              <tr>
+                <td><code>@github/copilot-win32-x64</code></td>
+                <td>Windows</td>
+                <td>x86_64</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout info">
+          <div class="callout-title">Source</div>
+          <p><span class="file-ref">nodejs/package-lock.json:672-678</span></p>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 10: Potential Risks -->
+        <!-- ============================================================ -->
+        <h2 id="potential-risks">10. Potential Risks</h2>
+
+        <h3>10.1 Version Divergence: <code>@github/copilot</code> Between SDK and Harness</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Location</th>
+                <th>Version Constraint</th>
+                <th>Resolved</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="file-ref">nodejs/package.json:47</span></td>
+                <td><code>^1.0.3-0</code></td>
+                <td><code>1.0.3-0</code></td>
+              </tr>
+              <tr>
+                <td><span class="file-ref">test/harness/package.json:14</span></td>
+                <td><code>^0.0.421</code></td>
+                <td><code>0.0.421</code> range</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout error">
+          <div class="callout-title">Risk: Version Divergence</div>
+          <p>The test harness uses a <code>0.0.x</code> pre-1.0 version while the SDK uses <code>1.0.x</code>. This means integration tests may exercise a different CLI version than what ships with the SDK. If the test harness is testing cross-SDK protocol behavior, there is a risk that tests pass against a CLI version that has different behavior from what SDK consumers will encounter.</p>
+        </div>
+
+        <h3>10.2 Pre-release Dependency on Core Package</h3>
+        <div class="callout warning">
+          <div class="callout-title">Pre-release Risk</div>
+          <p><code>@github/copilot</code> at version <code>1.0.3-0</code> is a pre-release (<code>-0</code> suffix per semver). The SDK itself at <code>0.1.8</code> is also pre-1.0. Both packages are in active development with no stability guarantees. Any consumer building on this SDK should expect breaking changes.</p>
+        </div>
+
+        <h3>10.3 Codegen Not Monitored by Dependabot</h3>
+        <div class="callout warning">
+          <div class="callout-title">Dependabot Gap</div>
+          <p>The <code>scripts/codegen/package.json</code> directory is absent from the Dependabot configuration (<span class="file-ref">/.github/dependabot.yaml</span>). Dependencies like <code>quicktype-core</code>, <code>json-schema-to-typescript</code>, and <code>json-schema</code> will NOT receive automated update PRs.</p>
+          <p>Similarly, <code>nodejs/samples/</code> is not monitored.</p>
+        </div>
+
+        <h3>10.4 Zod v4 -- Bleeding Edge</h3>
+        <div class="callout warning">
+          <div class="callout-title">Ecosystem Compatibility</div>
+          <p>The SDK depends on <code>zod ^4.3.6</code>. Zod 4 is a very recent major release. Most of the npm ecosystem still uses Zod 3.x. Users who have existing Zod 3.x schemas will need to migrate or maintain two versions. The <code>toJSONSchema()</code> method the SDK relies on is a Zod 4 API.</p>
+        </div>
+
+        <h3>10.5 Cross-Ecosystem Build Dependency</h3>
+        <div class="callout error">
+          <div class="callout-title">Fragile Coupling</div>
+          <p>The .NET SDK build invokes <code>node</code> to read the Node.js lockfile (<span class="file-ref">dotnet/src/GitHub.Copilot.SDK.csproj:42</span>). This creates:</p>
+          <ul>
+            <li>A hard dependency on Node.js being installed for .NET builds</li>
+            <li>A dependency on the Node.js lockfile being up to date</li>
+            <li>A fragile coupling between the Node.js and .NET build pipelines</li>
+          </ul>
+          <p>If <code>nodejs/package-lock.json</code> does not exist or does not contain the expected path, the .NET build will fail with error: <code>"CopilotCliVersion could not be read from nodejs/package-lock.json"</code> (<span class="file-ref">dotnet/src/GitHub.Copilot.SDK.csproj:45</span>).</p>
+        </div>
+
+        <h3>10.6 Single-Maintainer Risk Assessment</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Dependency</th>
+                <th>Maintainer(s)</th>
+                <th>Risk</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>@github/copilot</code></td>
+                <td>GitHub (internal)</td>
+                <td>Corporate single-source; no community fork possible</td>
+              </tr>
+              <tr>
+                <td><code>vscode-jsonrpc</code></td>
+                <td>Microsoft</td>
+                <td>Low risk -- large org, many contributors</td>
+              </tr>
+              <tr>
+                <td><code>zod</code></td>
+                <td>Colin McDonnell (primary) + community</td>
+                <td><strong>Medium</strong> -- popular but primarily single-author project</td>
+              </tr>
+              <tr>
+                <td><code>pydantic</code></td>
+                <td>Samuel Colvin + team</td>
+                <td>Low risk -- well-funded, growing team</td>
+              </tr>
+              <tr>
+                <td><code>klauspost/compress</code></td>
+                <td>Klaus Post (primary)</td>
+                <td><strong>Medium</strong> -- prolific but single primary maintainer</td>
+              </tr>
+              <tr>
+                <td><code>google/jsonschema-go</code></td>
+                <td>Google</td>
+                <td>Low risk -- corporate backed</td>
+              </tr>
+              <tr>
+                <td><code>quicktype-core</code></td>
+                <td>quicktype contributors</td>
+                <td><strong>Medium</strong> -- niche tool, sporadic updates</td>
+              </tr>
+              <tr>
+                <td><code>StreamJsonRpc</code></td>
+                <td>Microsoft</td>
+                <td>Low risk -- used in Visual Studio</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>10.7 Python Version Floor Permissiveness</h3>
+        <p><code>pydantic&gt;=2.0</code> allows installing Pydantic 2.0.0 through the latest. Early Pydantic 2.x releases had breaking changes and bugs. A tighter floor (e.g., <code>&gt;=2.7</code>) would be safer.</p>
+        <p>Similarly, <code>python-dateutil&gt;=2.9.0.post0</code> is very specific for the floor (a post-release version), which is appropriate.</p>
+
+        <h3>10.8 No Lock File for Python</h3>
+        <div class="callout info">
+          <div class="callout-title">Note</div>
+          <p>The Python SDK uses <code>pyproject.toml</code> with no <code>requirements.txt</code> lock file or <code>poetry.lock</code> / <code>pdm.lock</code>. Reproducible builds depend on the downstream consumer's lock file. This is standard for libraries but worth noting.</p>
+        </div>
+
+        <h3>10.9 Go Version Requirement</h3>
+        <p>Go 1.24 (<span class="file-ref">go/go.mod:3</span>) is quite recent. Users on older Go versions (1.22, 1.23) will be unable to use the SDK.</p>
+
+        <!-- ============================================================ -->
+        <!-- APPENDIX -->
+        <!-- ============================================================ -->
+        <h2 id="appendix">Appendix: Complete Dependency Count Summary</h2>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Complete Dependency Count Summary</div>
+          <pre class="mermaid">
+flowchart LR
+  A["&lt;b&gt;~49&lt;/b&gt;&lt;br/&gt;Total Unique Dependencies"] ~~~ B["&lt;b&gt;13&lt;/b&gt;&lt;br/&gt;Runtime Dependencies"] ~~~ C["&lt;b&gt;25&lt;/b&gt;&lt;br/&gt;Dev Dependencies"] ~~~ D["&lt;b&gt;11&lt;/b&gt;&lt;br/&gt;Shared / Tooling"]
+          </pre>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>SDK</th>
+                <th>Runtime Deps</th>
+                <th>Dev Deps</th>
+                <th>Total Direct</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="lang-pill ts">Node.js</span></td>
+                <td>3</td>
+                <td>15</td>
+                <td>18</td>
+              </tr>
+              <tr>
+                <td><span class="lang-pill py">Python</span></td>
+                <td>2</td>
+                <td>6</td>
+                <td>8</td>
+              </tr>
+              <tr>
+                <td><span class="lang-pill go">Go</span></td>
+                <td>3</td>
+                <td>0</td>
+                <td>3</td>
+              </tr>
+              <tr>
+                <td><span class="lang-pill cs">.NET</span></td>
+                <td>5</td>
+                <td>4 (test only)</td>
+                <td>9</td>
+              </tr>
+              <tr>
+                <td>Codegen tool</td>
+                <td>4</td>
+                <td>0</td>
+                <td>4</td>
+              </tr>
+              <tr>
+                <td>Test harness</td>
+                <td>0</td>
+                <td>7</td>
+                <td>7</td>
+              </tr>
+              <tr style="font-weight:700;">
+                <td>Total unique</td>
+                <td></td>
+                <td></td>
+                <td>~49</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>The repository maintains a lean dependency footprint across all four SDKs, with the heaviest dependency surface being in the Node.js SDK and its associated build tooling.</p>
+
+      </div>
+      <nav class="page-nav">
+        <a href="10-build-deploy.html" class="page-nav-link prev">
+          <span class="page-nav-label">Previous</span>
+          <span class="page-nav-title">10 — Build &amp; Deploy</span>
+        </a>
+        <a href="12-security.html" class="page-nav-link next">
+          <span class="page-nav-label">Next</span>
+          <span class="page-nav-title">12 — Security Surface</span>
+        </a>
+      </nav>
+    </main>
+  </div>
+
+  <button class="scroll-top" aria-label="Scroll to top">&#8593;</button>
+  <script src="app.js"></script>
+</body>
+</html>

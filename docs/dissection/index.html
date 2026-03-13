@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overview - copilot-sdk Dissection</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/styles/github-dark-dimmed.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/go.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/csharp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect rx=%2715%27 width=%27100%27 height=%27100%27 fill=%27%230F172A%27/%3E%3Ctext x=%2750%27 y=%2770%27 font-size=%2750%27 text-anchor=%27middle%27 fill=%27%2322C55E%27%3E%26lt;/%26gt;%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <button class="sidebar-toggle">Menu</button>
+  <div class="page-wrapper">
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <h1>copilot-sdk</h1>
+        <div class="subtitle">Dissection Documentation</div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Foundation</div>
+        <a href="index.html" class="sidebar-link active"><span class="link-num">00</span> Overview</a>
+        <a href="01-discovery.html" class="sidebar-link"><span class="link-num">01</span> Discovery</a>
+        <a href="02-structure.html" class="sidebar-link"><span class="link-num">02</span> Structure</a>
+        <a href="03-tech-stack.html" class="sidebar-link"><span class="link-num">03</span> Tech Stack</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Architecture</div>
+        <a href="04-entry-points.html" class="sidebar-link"><span class="link-num">04</span> Entry Points</a>
+        <a href="05-architecture.html" class="sidebar-link"><span class="link-num">05</span> Architecture</a>
+        <a href="06-data-flow.html" class="sidebar-link"><span class="link-num">06</span> Data Flow</a>
+        <a href="07-api-surface.html" class="sidebar-link"><span class="link-num">07</span> API Surface</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Implementation</div>
+        <a href="08-conventions.html" class="sidebar-link"><span class="link-num">08</span> Conventions</a>
+        <a href="09-testing.html" class="sidebar-link"><span class="link-num">09</span> Testing</a>
+        <a href="10-build-deploy.html" class="sidebar-link"><span class="link-num">10</span> Build &amp; Deploy</a>
+        <a href="11-dependencies.html" class="sidebar-link"><span class="link-num">11</span> Dependencies</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Operations</div>
+        <a href="12-security.html" class="sidebar-link"><span class="link-num">12</span> Security</a>
+        <a href="13-contribution.html" class="sidebar-link"><span class="link-num">13</span> Contribution</a>
+      </div>
+    </nav>
+    <main class="main-content">
+      <div class="content-area">
+
+        <!-- Hero Section -->
+        <h1>copilot-sdk Dissection</h1>
+        <p class="hero-subtitle">Complete reverse-engineering documentation of the <strong>GitHub Copilot CLI SDK</strong> (<span class="file-ref">copilot-sdk</span>) &mdash; a polyglot repository providing programmable SDKs in <span class="lang-pill ts">TypeScript</span>, <span class="lang-pill py">Python</span>, <span class="lang-pill go">Go</span>, and <span class="lang-pill cs">C#</span> for embedding Copilot's agentic workflows into applications.</p>
+
+        <!-- Quick Facts Stats Grid -->
+        <h2 id="quick-facts">Quick Facts</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value">297</div>
+            <div class="stat-label">Source Files</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">4</div>
+            <div class="stat-label">SDK Languages</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">v3</div>
+            <div class="stat-label">Protocol Version</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">MIT</div>
+            <div class="stat-label">License</div>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Project</strong></td>
+                <td><span class="file-ref">copilot-sdk</span> (GitHub Copilot CLI SDKs)</td>
+              </tr>
+              <tr>
+                <td><strong>Repository</strong></td>
+                <td><span class="file-ref">github.com/github/copilot-sdk</span></td>
+              </tr>
+              <tr>
+                <td><strong>Languages</strong></td>
+                <td>
+                  <span class="lang-pill ts">TypeScript</span> 29% &middot;
+                  <span class="lang-pill go">Go</span> 25% &middot;
+                  <span class="lang-pill py">Python</span> 23% &middot;
+                  <span class="lang-pill cs">C#</span> 21%
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Architecture</strong></td>
+                <td>Contract-First Polyglot SDK &mdash; JSON-RPC 2.0 over stdio/TCP to Copilot CLI</td>
+              </tr>
+              <tr>
+                <td><strong>Status</strong></td>
+                <td>Technical Preview</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Language Distribution Bars -->
+        <h3>Language Distribution</h3>
+        <div style="margin-bottom:2rem;">
+          <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.5rem;">
+            <span class="lang-pill ts" style="min-width:100px;text-align:center;">TypeScript</span>
+            <div class="progress-bar" style="flex:1;">
+              <div class="progress-fill" style="width:29%;background:var(--color-ts)"></div>
+            </div>
+            <span style="color:var(--color-text-muted);font-size:0.85rem;min-width:3rem;">29%</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.5rem;">
+            <span class="lang-pill go" style="min-width:100px;text-align:center;">Go</span>
+            <div class="progress-bar" style="flex:1;">
+              <div class="progress-fill" style="width:25%;background:var(--color-go)"></div>
+            </div>
+            <span style="color:var(--color-text-muted);font-size:0.85rem;min-width:3rem;">25%</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.5rem;">
+            <span class="lang-pill py" style="min-width:100px;text-align:center;">Python</span>
+            <div class="progress-bar" style="flex:1;">
+              <div class="progress-fill" style="width:23%;background:var(--color-py)"></div>
+            </div>
+            <span style="color:var(--color-text-muted);font-size:0.85rem;min-width:3rem;">23%</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.5rem;">
+            <span class="lang-pill cs" style="min-width:100px;text-align:center;">C#</span>
+            <div class="progress-bar" style="flex:1;">
+              <div class="progress-fill" style="width:21%;background:var(--color-cs)"></div>
+            </div>
+            <span style="color:var(--color-text-muted);font-size:0.85rem;min-width:3rem;">21%</span>
+          </div>
+        </div>
+
+        <!-- Architecture At A Glance -->
+        <h2 id="architecture">Architecture At A Glance</h2>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Architecture At A Glance</div>
+          <pre class="mermaid">
+flowchart TD
+  A["Your Application"] --> B["SDK Client\nCopilotClient"]
+  B --> C["Session(s)\nTools, Hooks, Permissions, MCP Servers"]
+  C <-->|"JSON-RPC 2.0\n(stdio / TCP)"| D["Copilot CLI\nServer Process"]
+  D --> E["LLM Inference\nTool Orchestration, Conversation State"]
+          </pre>
+        </div>
+
+        <div class="callout info" style="margin-top:2rem;">
+          <div class="callout-title">Key Pattern</div>
+          <p>The SDK is a <em>thin typed facade</em> over JSON-RPC. All AI logic lives in the CLI process. The SDK manages:</p>
+          <ul>
+            <li>Process lifecycle (spawn, connect, restart)</li>
+            <li>Session lifecycle (create, send, events, disconnect)</li>
+            <li>Callback dispatch (tools, permissions, hooks)</li>
+            <li>Type-safe API via schema-driven code generation</li>
+          </ul>
+        </div>
+
+        <!-- Document Index -->
+        <h2 id="documents">Documents</h2>
+
+        <h3>Foundation &mdash; What's here?</h3>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Foundation Documents</div>
+          <pre class="mermaid">
+flowchart LR
+  A["01 Discovery\nFile counts, language breakdown,\nproject identity, sampling strategy"] --> B["02 Structure\nDirectory tree, module map,\nSDK mirror pattern, dependency graph"]
+  B --> C["03 Tech Stack\nLanguages, frameworks,\nbuild tools, package managers, CI/CD"]
+          </pre>
+        </div>
+
+        <h3>Core Architecture &mdash; How does it work?</h3>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Core Architecture Documents</div>
+          <pre class="mermaid">
+flowchart LR
+  A["04 Entry Points\nPackage exports, client init,\nsession creation, bootstrap"] --> B["05 Architecture\nDesign patterns, state machines,\nevent system"]
+  B --> C["06 Data Flow\nMessage flow, JSON-RPC protocol,\nstreaming events, tool flows"]
+  C --> D["07 API Surface\nPublic API per SDK,\ntype system, cross-language comparison"]
+          </pre>
+        </div>
+
+        <h3>Implementation Details &mdash; How is it built?</h3>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Implementation Documents</div>
+          <pre class="mermaid">
+flowchart LR
+  A["08 Conventions\nNaming, file organization,\nerror handling, async patterns"] --> B["09 Testing\nTest frameworks, E2E harness,\nreplay proxy, scenario system"]
+  B --> C["10 Build &amp; Deploy\njustfile orchestration, codegen,\nCLI bundling, CI/CD, publishing"]
+  C --> D["11 Dependencies\nRuntime/dev deps per SDK,\nversion constraints, analysis"]
+          </pre>
+        </div>
+
+        <h3>Security &amp; Contribution &mdash; How do I work with it?</h3>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Operations Documents</div>
+          <pre class="mermaid">
+flowchart LR
+  A["12 Security Surface\nAuth model, token handling,\npermissions, process security, BYOK"] --> B["13 Contribution Guide\nDev setup, adding features,\nwriting tests, extending with tools"]
+          </pre>
+        </div>
+
+        <!-- Reading Guides -->
+        <h2 id="for-ai-agents">For AI Agents</h2>
+        <div class="callout info">
+          <div class="callout-title">AI Agent Reading Order</div>
+          <p>If you're an AI agent working with this codebase, start with:</p>
+          <ol>
+            <li><strong><a href="02-structure.html" style="color:var(--color-link);">Structure</a></strong> &mdash; understand the 4-SDK mirror pattern</li>
+            <li><strong><a href="05-architecture.html" style="color:var(--color-link);">Architecture</a></strong> &mdash; understand the Client/Session/RPC layers</li>
+            <li><strong><a href="07-api-surface.html" style="color:var(--color-link);">API Surface</a></strong> &mdash; cross-language API reference</li>
+            <li><strong><a href="13-contribution.html" style="color:var(--color-link);">Contribution Guide</a></strong> Section 12 &mdash; AI-specific guidance from <span class="file-ref">.github/copilot-instructions.md</span></li>
+          </ol>
+        </div>
+
+        <div class="callout warning">
+          <div class="callout-title">Critical Rule</div>
+          <p>Any feature change must be implemented in <strong>ALL four SDKs</strong> (<span class="lang-pill ts">TypeScript</span>, <span class="lang-pill py">Python</span>, <span class="lang-pill go">Go</span>, <span class="lang-pill cs">C#</span>) with matching tests and codegen updates.</p>
+        </div>
+
+        <h2 id="for-humans">For Humans</h2>
+        <div class="callout success">
+          <div class="callout-title">Human Reading Order</div>
+          <p>If you're learning this codebase, recommended reading order:</p>
+          <ol>
+            <li><strong><a href="01-discovery.html" style="color:var(--color-link);">Discovery</a></strong> &mdash; "What am I looking at?"</li>
+            <li><strong><a href="04-entry-points.html" style="color:var(--color-link);">Entry Points</a></strong> &mdash; "How do I use it?" (includes sample code)</li>
+            <li><strong><a href="06-data-flow.html" style="color:var(--color-link);">Data Flow</a></strong> &mdash; "How does a message flow end-to-end?"</li>
+            <li><strong><a href="05-architecture.html" style="color:var(--color-link);">Architecture</a></strong> &mdash; "What patterns does it use?"</li>
+            <li><strong><a href="10-build-deploy.html" style="color:var(--color-link);">Build &amp; Deploy</a></strong> &mdash; "How do I build and test it?"</li>
+          </ol>
+        </div>
+
+        <!-- Footer -->
+        <div style="margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--color-border-subtle);color:var(--color-text-dim);font-size:0.85rem;">
+          <p><em>Generated by the Dissector Agent &mdash; 13-phase codebase reverse-engineering system</em></p>
+          <p>Codebase path: <span class="file-ref">C:\Users\tahaa\.copilot\repos\copilot-sdk</span></p>
+          <p>Analysis date: 2026-03-12</p>
+        </div>
+
+      </div>
+      <nav class="page-nav">
+        <a href="01-discovery.html" class="page-nav-link next">
+          <span class="page-nav-label">Next</span>
+          <span class="page-nav-title">01 — Discovery</span>
+        </a>
+      </nav>
+    </main>
+  </div>
+  <button class="scroll-top" aria-label="Scroll to top">&#8593;</button>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contribution Guide - copilot-sdk Dissection</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/styles/github-dark-dimmed.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/go.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/csharp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect rx=%2715%27 width=%27100%27 height=%27100%27 fill=%27%230F172A%27/%3E%3Ctext x=%2750%27 y=%2770%27 font-size=%2750%27 text-anchor=%27middle%27 fill=%27%2322C55E%27%3E%26lt;/%26gt;%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <button class="sidebar-toggle">Menu</button>
+  <div class="page-wrapper">
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <h1>copilot-sdk</h1>
+        <div class="subtitle">Dissection Documentation</div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Foundation</div>
+        <a href="index.html" class="sidebar-link"><span class="link-num">00</span> Overview</a>
+        <a href="01-discovery.html" class="sidebar-link"><span class="link-num">01</span> Discovery</a>
+        <a href="02-structure.html" class="sidebar-link"><span class="link-num">02</span> Structure</a>
+        <a href="03-tech-stack.html" class="sidebar-link"><span class="link-num">03</span> Tech Stack</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Architecture</div>
+        <a href="04-entry-points.html" class="sidebar-link"><span class="link-num">04</span> Entry Points</a>
+        <a href="05-architecture.html" class="sidebar-link"><span class="link-num">05</span> Architecture</a>
+        <a href="06-data-flow.html" class="sidebar-link"><span class="link-num">06</span> Data Flow</a>
+        <a href="07-api-surface.html" class="sidebar-link"><span class="link-num">07</span> API Surface</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Implementation</div>
+        <a href="08-conventions.html" class="sidebar-link"><span class="link-num">08</span> Conventions</a>
+        <a href="09-testing.html" class="sidebar-link"><span class="link-num">09</span> Testing</a>
+        <a href="10-build-deploy.html" class="sidebar-link"><span class="link-num">10</span> Build &amp; Deploy</a>
+        <a href="11-dependencies.html" class="sidebar-link"><span class="link-num">11</span> Dependencies</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Operations</div>
+        <a href="12-security.html" class="sidebar-link"><span class="link-num">12</span> Security</a>
+        <a href="13-contribution.html" class="sidebar-link active"><span class="link-num">13</span> Contribution</a>
+      </div>
+    </nav>
+    <main class="main-content">
+      <div class="content-area">
+
+        <div class="phase-badge"><span class="dot"></span>Phase 13/13 &mdash; Contribution Guide</div>
+
+        <h1>Contribution &amp; Extension Guide</h1>
+        <p>Comprehensive reference for contributors, extension authors, and AI agents working with the <strong>copilot-sdk</strong> mono-repo.</p>
+
+        <nav class="toc">
+          <div class="toc-title">Table of Contents</div>
+          <ul class="toc-list">
+            <li><a href="#getting-started"><span class="toc-num">01</span> Getting Started as a Contributor</a></li>
+            <li><a href="#dev-workflow"><span class="toc-num">02</span> Development Workflow</a></li>
+            <li><a href="#codegen"><span class="toc-num">03</span> Code Generation Workflow</a></li>
+            <li><a href="#new-rpc"><span class="toc-num">04</span> Adding a New RPC Method</a></li>
+            <li><a href="#new-feature"><span class="toc-num">05</span> Adding a New Feature</a></li>
+            <li><a href="#tests"><span class="toc-num">06</span> Writing Tests</a></li>
+            <li><a href="#agents"><span class="toc-num">07</span> Creating Custom Agents</a></li>
+            <li><a href="#skills"><span class="toc-num">08</span> Extending with Skills</a></li>
+            <li><a href="#mcp"><span class="toc-num">09</span> Extending with MCP Servers</a></li>
+            <li><a href="#hooks"><span class="toc-num">10</span> Extending with Hooks</a></li>
+            <li><a href="#fork"><span class="toc-num">11</span> Fork Guide</a></li>
+            <li><a href="#ai-agent"><span class="toc-num">12</span> AI Agent Guide</a></li>
+          </ul>
+        </nav>
+
+        <!-- 1. Getting Started -->
+        <h2 id="getting-started">1. Getting Started as a Contributor</h2>
+
+        <h3>1.1 Repository Architecture</h3>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">SDK Architecture</div>
+          <pre class="mermaid">
+flowchart TD
+  A["Your Application"] -->|"JSON-RPC"| B["SDK Client"]
+  B -->|"JSON-RPC"| C["Copilot CLI\n(server mode)"]
+          </pre>
+        </div>
+
+        <pre data-lang="text"><code class="language-plaintext">copilot-sdk/
+  nodejs/          # Node.js / TypeScript SDK
+  python/          # Python SDK
+  go/              # Go SDK
+  dotnet/          # .NET SDK
+  scripts/codegen/ # Cross-language type generation
+  test/            # Shared test infrastructure
+    harness/       # Replaying CAPI proxy for E2E
+    snapshots/     # YAML snapshot exchanges
+    scenarios/     # E2E scenario tests (all languages)
+  docs/            # Cross-language documentation
+  justfile         # Task runner recipes</code></pre>
+
+        <h3>1.2 Prerequisites</h3>
+        <div class="callout info">
+          <div class="callout-title">Recommended: Install just command runner</div>
+          <p>The <code>just</code> task runner provides unified commands across all SDKs.</p>
+        </div>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Prerequisites per Language</div>
+          <pre class="mermaid">
+flowchart LR
+  subgraph TS["Node.js / TypeScript"]
+    TS1["Node.js v18+"]
+    TS2["cd nodejs && npm ci"]
+  end
+  subgraph PY["Python"]
+    PY1["Python 3.8+ and uv"]
+    PY2["cd python && uv pip install -e .[dev]"]
+  end
+  subgraph GO["Go"]
+    GO1["Go 1.24+ and golangci-lint"]
+    GO2["cd go && go mod download"]
+  end
+  subgraph CS["C# / .NET"]
+    CS1[".NET 8.0+ and Node.js v18+"]
+    CS2["cd dotnet && dotnet restore"]
+  end
+          </pre>
+        </div>
+
+        <h3>1.3 One-Command Setup</h3>
+        <pre data-lang="bash"><code class="language-bash">just install</code></pre>
+        <p>This installs all dependencies for all four SDKs plus the test harness.</p>
+
+        <h3>1.4 Dev Container</h3>
+        <p>A devcontainer at <span class="file-ref">.devcontainer/devcontainer.json</span> provides a fully-configured environment with Copilot CLI, GitHub CLI, Go, Node.js, uv, just, and .NET.</p>
+
+        <h3>1.5 VS Code Settings</h3>
+        <p>The repo provides VS Code settings with Prettier (default formatter), Ruff (Python), Go extension, format on save, trailing whitespace trimming, and 4-space tabs.</p>
+
+        <h3>1.6 Code Ownership</h3>
+        <p>The entire repository is owned by <code>@github/copilot-sdk</code> (<span class="file-ref">.github/CODEOWNERS:1</span>).</p>
+
+        <!-- 2. Development Workflow -->
+        <h2 id="dev-workflow">2. Development Workflow</h2>
+
+        <h3>2.1 The just Task Runner</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Command</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>just test</code></td><td>Run tests for all 4 languages</td></tr>
+              <tr><td><code>just lint</code></td><td>Lint all 4 languages</td></tr>
+              <tr><td><code>just format</code></td><td>Format all 4 languages</td></tr>
+              <tr><td><code>just install</code></td><td>Install all dependencies</td></tr>
+              <tr><td><code>just playground</code></td><td>Start the SDK playground</td></tr>
+              <tr><td><code>just validate-docs</code></td><td>Validate documentation code examples</td></tr>
+              <tr><td><code>just scenario-build</code></td><td>Build all E2E scenario samples</td></tr>
+              <tr><td><code>just scenario-verify</code></td><td>Run full E2E scenario verification</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>2.2 Per-Language Commands</h3>
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="cmd-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="cmd-py">Python</button>
+            <button class="tab-btn" data-tab="cmd-go">Go</button>
+            <button class="tab-btn" data-tab="cmd-cs">C#</button>
+          </div>
+          <div class="tab-panel active" id="cmd-ts">
+            <pre data-lang="bash"><code class="language-bash"># Format
+cd nodejs &amp;&amp; npm run format
+# Lint
+cd nodejs &amp;&amp; npm run format:check &amp;&amp; npm run lint &amp;&amp; npm run typecheck
+# Test (Vitest)
+cd nodejs &amp;&amp; npm test</code></pre>
+          </div>
+          <div class="tab-panel" id="cmd-py">
+            <pre data-lang="bash"><code class="language-bash"># Format
+cd python &amp;&amp; uv run ruff format .
+# Lint
+cd python &amp;&amp; uv run ruff check . &amp;&amp; uv run ty check copilot
+# Test
+cd python &amp;&amp; uv run pytest</code></pre>
+          </div>
+          <div class="tab-panel" id="cmd-go">
+            <pre data-lang="bash"><code class="language-bash"># Format (excludes generated code)
+cd go &amp;&amp; find . -name "*.go" -not -path "*/generated/*" -exec gofmt -w {} +
+# Lint
+cd go &amp;&amp; golangci-lint run ./...
+# Test
+cd go &amp;&amp; go test ./...</code></pre>
+          </div>
+          <div class="tab-panel" id="cmd-cs">
+            <pre data-lang="bash"><code class="language-bash"># Format
+cd dotnet &amp;&amp; dotnet format src/GitHub.Copilot.SDK.csproj
+# Lint
+cd dotnet &amp;&amp; dotnet format src/GitHub.Copilot.SDK.csproj --verify-no-changes
+# Test
+cd dotnet &amp;&amp; dotnet test test/GitHub.Copilot.SDK.Test.csproj</code></pre>
+          </div>
+        </div>
+
+        <h3>2.3 Submitting a Pull Request</h3>
+        <ol>
+          <li>Fork and clone the repository</li>
+          <li>Install dependencies for the SDK(s) you are modifying</li>
+          <li>Make sure tests pass on your machine</li>
+          <li>Make sure linting passes</li>
+          <li>Create a new branch: <code>git checkout -b my-branch-name</code></li>
+          <li>Make your change, add tests, verify tests/linter pass</li>
+          <li>Push to your fork and submit a pull request</li>
+          <li>Wait for review</li>
+        </ol>
+
+        <h3>2.4 What Contributions Are Welcome</h3>
+        <ul>
+          <li>Fixing bugs in the existing feature set</li>
+          <li>Making the SDKs more idiomatic for each language</li>
+          <li>Improving documentation</li>
+          <li>New features (post an issue or start a discussion first)</li>
+        </ul>
+        <div class="callout warning">
+          <div class="callout-title">Not Currently Accepted</div>
+          <p>New language SDKs are not accepted in the repo &mdash; maintainers encourage external community projects instead.</p>
+        </div>
+
+        <!-- 3. Code Generation Workflow -->
+        <h2 id="codegen">3. Code Generation Workflow</h2>
+
+        <h3>3.1 Overview</h3>
+        <p>Type generation is centralized in <span class="file-ref">scripts/codegen/</span>. The system reads JSON schemas from the <code>@github/copilot</code> package and generates typed code for all four languages.</p>
+
+        <h3>3.2 Code Generation Scripts</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Script</th><th>Output</th><th>Command</th></tr></thead>
+            <tbody>
+              <tr><td><span class="file-ref">typescript.ts</span></td><td>nodejs/src/generated/</td><td><code>npm run generate:ts</code></td></tr>
+              <tr><td><span class="file-ref">python.ts</span></td><td>python generated types</td><td><code>npm run generate:python</code></td></tr>
+              <tr><td><span class="file-ref">go.ts</span></td><td>go generated types</td><td><code>npm run generate:go</code></td></tr>
+              <tr><td><span class="file-ref">csharp.ts</span></td><td>dotnet generated types</td><td><code>npm run generate:csharp</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <pre data-lang="bash"><code class="language-bash">cd scripts/codegen &amp;&amp; npm run generate</code></pre>
+
+        <h3>3.3 Generation Pipeline</h3>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Code Generation Pipeline</div>
+          <pre class="mermaid">
+flowchart TD
+    A["JSON-RPC Schema\n(rpc-schema.json)"] --> B["Code Generator\n(just codegen)"]
+    B --> C["TypeScript\ngenerated types"]
+    B --> D["Python\ngenerated types"]
+    B --> E["Go\ngenerated types"]
+    B --> F["C#\ngenerated types"]
+          </pre>
+        </div>
+
+        <h3>3.5 Generated File Locations</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Language</th><th>Session Events</th><th>RPC Types</th></tr></thead>
+            <tbody>
+              <tr><td><span class="lang-pill ts">TS</span></td><td><span class="file-ref">nodejs/src/generated/session-events.ts</span></td><td><span class="file-ref">nodejs/src/generated/rpc.ts</span></td></tr>
+              <tr><td><span class="lang-pill py">Python</span></td><td><span class="file-ref">python/copilot/generated/</span></td><td><span class="file-ref">python/copilot/generated/</span></td></tr>
+              <tr><td><span class="lang-pill go">Go</span></td><td><span class="file-ref">go/generated_session_events.go</span></td><td><span class="file-ref">go/rpc/</span></td></tr>
+              <tr><td><span class="lang-pill cs">C#</span></td><td><span class="file-ref">dotnet/src/ (generated)</span></td><td><span class="file-ref">dotnet/src/ (generated)</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout warning">
+          <div class="callout-title">Never Hand-Edit Generated Files</div>
+          <p>Generated files include <code>AUTO-GENERATED FILE - DO NOT EDIT</code> banners.</p>
+        </div>
+
+        <!-- 4. Adding a New RPC Method -->
+        <h2 id="new-rpc">4. Adding a New RPC Method</h2>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Adding a New RPC Method</div>
+          <pre class="mermaid">
+flowchart TD
+    A["Update rpc-schema.json"] --> B["Run just codegen"]
+    B --> C["Review generated diffs"]
+    C --> D["Implement handler in each SDK"]
+    D --> E["Add unit tests per SDK"]
+    E --> F["Add E2E scenario test"]
+    F --> G["Update CLI if needed"]
+          </pre>
+        </div>
+
+        <!-- 5. Adding a New Feature -->
+        <h2 id="new-feature">5. Adding a New Feature</h2>
+
+        <h3>5.1 SDK Source Code Locations</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Language</th><th>Source</th><th>Unit Tests</th><th>E2E Tests</th></tr></thead>
+            <tbody>
+              <tr><td><span class="lang-pill ts">TS</span></td><td><span class="file-ref">nodejs/src/</span></td><td><span class="file-ref">nodejs/test/</span></td><td><span class="file-ref">nodejs/test/e2e/</span></td></tr>
+              <tr><td><span class="lang-pill py">Python</span></td><td><span class="file-ref">python/copilot/</span></td><td><span class="file-ref">python/test_*.py</span></td><td><span class="file-ref">python/e2e/</span></td></tr>
+              <tr><td><span class="lang-pill go">Go</span></td><td><span class="file-ref">go/</span></td><td><span class="file-ref">go/*_test.go</span></td><td>go/ (inline)</td></tr>
+              <tr><td><span class="lang-pill cs">C#</span></td><td><span class="file-ref">dotnet/src/</span></td><td><span class="file-ref">dotnet/test/</span></td><td><span class="file-ref">dotnet/test/</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>5.3 Feature Implementation Checklist</h3>
+        <ol>
+          <li><strong>Design the API surface</strong> in each language idiomatically</li>
+          <li><strong>Implement in all 4 SDKs</strong> &mdash; changes must be synchronized</li>
+          <li><strong>Write unit tests</strong> for each SDK</li>
+          <li><strong>Write E2E scenario tests</strong></li>
+          <li><strong>Add snapshot data</strong> if new CAPI exchanges are needed</li>
+          <li><strong>Write documentation</strong> in <code>docs/features/</code></li>
+          <li><strong>Validate docs</strong> with <code>just validate-docs</code></li>
+        </ol>
+
+        <!-- 6. Writing Tests -->
+        <h2 id="tests">6. Writing Tests</h2>
+
+        <h3>6.1 Unit Tests</h3>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Unit Test Frameworks</div>
+          <pre class="mermaid">
+flowchart LR
+  subgraph TS["Node.js - Vitest"]
+    TS1["nodejs/test/"]
+    TS2["npm test"]
+  end
+  subgraph PY["Python - pytest"]
+    PY1["python/test_*.py"]
+    PY2["uv run pytest"]
+  end
+  subgraph GO["Go"]
+    GO1["go/*_test.go"]
+    GO2["go test ./..."]
+  end
+  subgraph CS[".NET"]
+    CS1["dotnet/test/"]
+    CS2["dotnet test"]
+  end
+          </pre>
+        </div>
+
+        <h3>6.2 E2E Tests and the Replay Proxy</h3>
+        <p>E2E tests run against a <strong>replaying CAPI proxy</strong> located in <span class="file-ref">test/harness/</span>:</p>
+        <ul>
+          <li><span class="file-ref">server.ts</span> &mdash; The replay proxy server</li>
+          <li><span class="file-ref">replayingCapiProxy.ts</span> &mdash; Replays recorded CAPI exchanges</li>
+          <li><span class="file-ref">capturingHttpProxy.ts</span> &mdash; Captures live exchanges for recording</li>
+          <li><span class="file-ref">test-mcp-server.mjs</span> &mdash; Mock MCP server for tests</li>
+        </ul>
+        <p><strong>Snapshot data</strong> in <span class="file-ref">test/snapshots/</span>: YAML files with recorded request/response exchanges, organized by feature area.</p>
+
+        <h3>6.3 Scenario Tests</h3>
+        <pre data-lang="text"><code class="language-plaintext">scenarios/
+  auth/        # Authentication flows
+  bundling/    # Deployment architectures
+  callbacks/   # Lifecycle hooks, permissions
+  modes/       # Preset modes (CLI, filesystem)
+  prompts/     # Prompt configuration
+  sessions/    # Session management
+  tools/       # Tool capabilities
+  transport/   # Wire protocols</code></pre>
+
+        <h3>6.4 Adding a New Test Scenario</h3>
+        <ol>
+          <li>Create subdirectory under the appropriate category in <code>test/scenarios/</code></li>
+          <li>Add implementations in <code>typescript/</code>, <code>python/</code>, <code>go/</code>, <code>csharp/</code></li>
+          <li>Add a <code>verify.sh</code> script</li>
+          <li>Update snapshot YAML files if needed</li>
+          <li>Run <code>just scenario-build</code> to verify</li>
+        </ol>
+
+        <!-- 7. Custom Agents -->
+        <h2 id="agents">7. Creating Custom Agents</h2>
+        <p>Custom agents have their own system prompt, tool restrictions, and optional MCP servers. The runtime automatically delegates based on intent matching.</p>
+
+        <h3>7.1 Defining Custom Agents</h3>
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="agent-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="agent-py">Python</button>
+            <button class="tab-btn" data-tab="agent-go">Go</button>
+          </div>
+          <div class="tab-panel active" id="agent-ts">
+            <pre data-lang="typescript"><code class="language-typescript">const session = await client.createSession({
+    model: "gpt-4.1",
+    customAgents: [
+        {
+            name: "researcher",
+            displayName: "Research Agent",
+            description: "Explores codebases using read-only tools",
+            tools: ["grep", "glob", "view"],
+            prompt: "You are a research assistant.",
+        },
+        {
+            name: "editor",
+            displayName: "Editor Agent",
+            tools: ["view", "edit", "bash"],
+            prompt: "You are a code editor.",
+        },
+    ],
+    onPermissionRequest: async () =&gt; ({ kind: "approved" }),
+});</code></pre>
+          </div>
+          <div class="tab-panel" id="agent-py">
+            <pre data-lang="python"><code class="language-python">session = await client.create_session({
+    "model": "gpt-4.1",
+    "custom_agents": [
+        {
+            "name": "researcher",
+            "display_name": "Research Agent",
+            "tools": ["grep", "glob", "view"],
+            "prompt": "You are a research assistant.",
+        },
+    ],
+    "on_permission_request": lambda req, inv: PermissionRequestResult(kind="approved"),
+})</code></pre>
+          </div>
+          <div class="tab-panel" id="agent-go">
+            <pre data-lang="go"><code class="language-go">session, _ := client.CreateSession(ctx, &amp;copilot.SessionConfig{
+    Model: "gpt-4.1",
+    CustomAgents: []copilot.CustomAgentConfig{
+        {
+            Name:        "researcher",
+            DisplayName: "Research Agent",
+            Tools:       []string{"grep", "glob", "view"},
+            Prompt:      "You are a research assistant.",
+        },
+    },
+})</code></pre>
+          </div>
+        </div>
+
+        <h3>7.2 Configuration Reference</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Property</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>name</code></td><td><code>string</code></td><td>Yes</td><td>Unique identifier</td></tr>
+              <tr><td><code>displayName</code></td><td><code>string</code></td><td>No</td><td>Human-readable name</td></tr>
+              <tr><td><code>description</code></td><td><code>string</code></td><td>No</td><td>Helps runtime select the agent</td></tr>
+              <tr><td><code>tools</code></td><td><code>string[] | null</code></td><td>No</td><td>Tool names. <code>null</code> = all</td></tr>
+              <tr><td><code>prompt</code></td><td><code>string</code></td><td>Yes</td><td>System prompt</td></tr>
+              <tr><td><code>mcpServers</code></td><td><code>object</code></td><td>No</td><td>Per-agent MCP configs</td></tr>
+              <tr><td><code>infer</code></td><td><code>boolean</code></td><td>No</td><td>Auto-select (default: true)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>7.4 Sub-Agent Events</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Event</th><th>Emitted When</th></tr></thead>
+            <tbody>
+              <tr><td><code>subagent.selected</code></td><td>Runtime selects an agent</td></tr>
+              <tr><td><code>subagent.started</code></td><td>Sub-agent begins execution</td></tr>
+              <tr><td><code>subagent.completed</code></td><td>Sub-agent finishes</td></tr>
+              <tr><td><code>subagent.failed</code></td><td>Sub-agent encounters an error</td></tr>
+              <tr><td><code>subagent.deselected</code></td><td>Runtime switches away</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 8. Skills -->
+        <h2 id="skills">8. Extending with Skills</h2>
+        <p>Skills are reusable prompt modules loaded from directories containing <code>SKILL.md</code> files.</p>
+
+        <h3>8.2 SKILL.md Format</h3>
+        <pre data-lang="markdown"><code class="language-markdown">---
+name: code-review
+description: Specialized code review capabilities
+---
+
+# Code Review Guidelines
+When reviewing code, always check for:
+1. Security vulnerabilities
+2. Performance issues
+3. Code style
+4. Test coverage</code></pre>
+
+        <h3>8.3 Loading Skills</h3>
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="skill-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="skill-py">Python</button>
+          </div>
+          <div class="tab-panel active" id="skill-ts">
+            <pre data-lang="typescript"><code class="language-typescript">const session = await client.createSession({
+    skillDirectories: ["./skills/code-review", "./skills/documentation"],
+});</code></pre>
+          </div>
+          <div class="tab-panel" id="skill-py">
+            <pre data-lang="python"><code class="language-python">session = await client.create_session({
+    "skill_directories": ["./skills/code-review", "./skills/documentation"],
+})</code></pre>
+          </div>
+        </div>
+
+        <h3>8.5 Configuration Fields Per Language</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Language</th><th>Load Field</th><th>Disable Field</th></tr></thead>
+            <tbody>
+              <tr><td><span class="lang-pill ts">TS</span></td><td><code>skillDirectories</code></td><td><code>disabledSkills</code></td></tr>
+              <tr><td><span class="lang-pill py">Python</span></td><td><code>skill_directories</code></td><td><code>disabled_skills</code></td></tr>
+              <tr><td><span class="lang-pill go">Go</span></td><td><code>SkillDirectories</code></td><td><code>DisabledSkills</code></td></tr>
+              <tr><td><span class="lang-pill cs">C#</span></td><td><code>SkillDirectories</code></td><td><code>DisabledSkills</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 9. MCP Servers -->
+        <h2 id="mcp">9. Extending with MCP Servers</h2>
+        <p>MCP (Model Context Protocol) servers provide pre-built tools that Copilot can invoke during conversations.</p>
+
+        <h3>9.1 Server Types</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Type</th><th>Description</th><th>Use Case</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Local/Stdio</strong></td><td>Subprocess via stdin/stdout</td><td>Local tools, file access</td></tr>
+              <tr><td><strong>HTTP/SSE</strong></td><td>Remote server via HTTP</td><td>Shared services, cloud tools</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>9.2 Configuration</h3>
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="mcp-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="mcp-py">Python</button>
+            <button class="tab-btn" data-tab="mcp-go">Go</button>
+          </div>
+          <div class="tab-panel active" id="mcp-ts">
+            <pre data-lang="typescript"><code class="language-typescript">const session = await client.createSession({
+    mcpServers: {
+        "my-local-server": {
+            type: "local",
+            command: "node",
+            args: ["./mcp-server.js"],
+            env: { DEBUG: "true" },
+            tools: ["*"],
+            timeout: 30000,
+        },
+    },
+});</code></pre>
+          </div>
+          <div class="tab-panel" id="mcp-py">
+            <pre data-lang="python"><code class="language-python">session = await client.create_session({
+    "mcp_servers": {
+        "my-local-server": {
+            "type": "local",
+            "command": "python",
+            "args": ["./mcp_server.py"],
+            "tools": ["*"],
+        },
+    },
+})</code></pre>
+          </div>
+          <div class="tab-panel" id="mcp-go">
+            <pre data-lang="go"><code class="language-go">session, _ := client.CreateSession(ctx, &amp;copilot.SessionConfig{
+    MCPServers: map[string]copilot.MCPServerConfig{
+        "my-local-server": {
+            "type":    "local",
+            "command": "node",
+            "args":    []string{"./mcp-server.js"},
+            "tools":   []string{"*"},
+        },
+    },
+})</code></pre>
+          </div>
+        </div>
+
+        <h3>9.3 Local Server Options</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Property</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>type</code></td><td><code>"local"</code></td><td>No</td><td>Server type</td></tr>
+              <tr><td><code>command</code></td><td><code>string</code></td><td>Yes</td><td>Command to execute</td></tr>
+              <tr><td><code>args</code></td><td><code>string[]</code></td><td>Yes</td><td>Command arguments</td></tr>
+              <tr><td><code>env</code></td><td><code>object</code></td><td>No</td><td>Environment variables</td></tr>
+              <tr><td><code>tools</code></td><td><code>string[]</code></td><td>No</td><td>Tools to enable</td></tr>
+              <tr><td><code>timeout</code></td><td><code>number</code></td><td>No</td><td>Timeout in ms</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 10. Hooks -->
+        <h2 id="hooks">10. Extending with Hooks</h2>
+        <p>Hooks let you plug custom logic into every stage of a Copilot session.</p>
+
+        <h3>10.1 Available Hooks</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Hook</th><th>When It Fires</th><th>What You Can Do</th></tr></thead>
+            <tbody>
+              <tr><td><code>onSessionStart</code></td><td>Session begins</td><td>Inject context, load preferences</td></tr>
+              <tr><td><code>onUserPromptSubmitted</code></td><td>User sends message</td><td>Rewrite prompts, add context</td></tr>
+              <tr><td><code>onPreToolUse</code></td><td>Before tool executes</td><td>Allow / deny / modify the call</td></tr>
+              <tr><td><code>onPostToolUse</code></td><td>After tool returns</td><td>Transform results, redact secrets</td></tr>
+              <tr><td><code>onSessionEnd</code></td><td>Session ends</td><td>Clean up, record metrics</td></tr>
+              <tr><td><code>onErrorOccurred</code></td><td>Error is raised</td><td>Custom logging, retry logic</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>10.3 Hook Input/Output Reference</h3>
+        <ul>
+          <li><strong>onUserPromptSubmitted:</strong> Input: <code>{ prompt, timestamp, cwd }</code>. Output: <code>{ modifiedPrompt?, additionalContext? }</code></li>
+          <li><strong>onPreToolUse:</strong> Input: <code>{ toolName, toolArgs }</code>. Output: <code>{ permissionDecision?, modifiedArgs? }</code></li>
+          <li><strong>onPostToolUse:</strong> Input: <code>{ toolName, toolResult }</code>. Output: <code>{ modifiedResult? }</code></li>
+          <li><strong>onSessionStart:</strong> Input: <code>{ source, initialPrompt? }</code>. Output: <code>{ additionalContext? }</code></li>
+          <li><strong>onSessionEnd:</strong> Input: <code>{ reason, finalMessage? }</code>. Output: <code>{ sessionSummary? }</code></li>
+        </ul>
+
+        <h3>10.5 Best Practices</h3>
+        <div class="callout info">
+          <div class="callout-title">Hook Best Practices</div>
+          <ol>
+            <li><strong>Keep hooks fast</strong> &mdash; they run inline and delay the conversation</li>
+            <li><strong>Return null when unchanged</strong> &mdash; tells SDK to use defaults</li>
+            <li><strong>Be explicit with permission decisions</strong></li>
+            <li><strong>Don't swallow critical errors</strong> &mdash; always log or alert</li>
+            <li><strong>Use additionalContext over modifiedPrompt</strong> &mdash; preserves user intent</li>
+            <li><strong>Scope state by session ID</strong></li>
+          </ol>
+        </div>
+
+        <!-- 11. Fork Guide -->
+        <h2 id="fork">11. Fork Guide</h2>
+        <ol>
+          <li>Fork at <code>github.com/github/copilot-sdk/fork</code></li>
+          <li>Clone: <code>git clone https://github.com/YOUR-USERNAME/copilot-sdk.git</code></li>
+          <li>Install: <code>just install</code></li>
+          <li>Verify: <code>just test</code></li>
+        </ol>
+
+        <h3>11.3 Keeping Your Fork Updated</h3>
+        <pre data-lang="bash"><code class="language-bash">git remote add upstream https://github.com/github/copilot-sdk.git
+git fetch upstream
+git merge upstream/main
+cd scripts/codegen &amp;&amp; npm run generate  # if schema changed
+just test</code></pre>
+
+        <h3>11.4 Building Extensions (Without Forking)</h3>
+        <p>For most customization, you do <strong>not</strong> need to fork. The SDK provides extension points:</p>
+        <ul>
+          <li><strong>Custom Tools:</strong> <code>defineTool()</code> / <code>@define_tool</code> / <code>DefineTool()</code> / <code>AIFunctionFactory.Create()</code></li>
+          <li><strong>Custom Agents:</strong> <code>customAgents</code> in session config</li>
+          <li><strong>Skills:</strong> <code>skillDirectories</code> for prompt modules</li>
+          <li><strong>MCP Servers:</strong> <code>mcpServers</code> for external tools</li>
+          <li><strong>Hooks:</strong> <code>hooks</code> for lifecycle interception</li>
+          <li><strong>CLI Extensions:</strong> <code>.github/extensions/</code> for <code>.mjs</code> extensions</li>
+        </ul>
+
+        <!-- 12. AI Agent Guide -->
+        <h2 id="ai-agent">12. AI Agent Guide</h2>
+        <p>How an AI coding agent should approach modifying this codebase.</p>
+
+        <h3>12.1 Files to Read First</h3>
+        <ol>
+          <li><span class="file-ref">README.md</span> &mdash; Architecture and quick start</li>
+          <li>Language entry points: <span class="file-ref">nodejs/src/client.ts</span>, <span class="file-ref">python/README.md</span>, <span class="file-ref">go/README.md</span></li>
+          <li>Test harness: <span class="file-ref">test/harness/*</span></li>
+          <li>Schemas and codegen: <span class="file-ref">scripts/codegen/</span></li>
+          <li>Session snapshots: <span class="file-ref">test/snapshots/</span></li>
+        </ol>
+
+        <h3>12.2 Where to Add New Code</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>What</th><th>Location</th></tr></thead>
+            <tbody>
+              <tr><td>SDK source</td><td><code>nodejs/src</code>, <code>python/copilot</code>, <code>go</code>, <code>dotnet/src</code></td></tr>
+              <tr><td>Unit tests</td><td><code>nodejs/test</code>, <code>python/*</code>, <code>go/*</code>, <code>dotnet/test</code></td></tr>
+              <tr><td>E2E tests</td><td><code>*/e2e/</code> folders using shared replay proxy</td></tr>
+              <tr><td>Generated types</td><td>Run <code>cd scripts/codegen &amp;&amp; npm run generate</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>12.5 Cross-Language Change Checklist</h3>
+        <div class="callout success">
+          <div class="callout-title">AI Agent Change Checklist</div>
+          <ol>
+            <li>Check if change affects all four SDKs</li>
+            <li>Run code generation if schema changed</li>
+            <li>Add tests in all affected languages</li>
+            <li>Update snapshot data if new CAPI exchanges</li>
+            <li>Run <code>just lint</code> before committing</li>
+            <li>Run <code>just test</code> to verify</li>
+            <li>Validate docs: <code>just validate-docs</code></li>
+            <li>Never edit files with <code>AUTO-GENERATED</code> banners</li>
+          </ol>
+        </div>
+
+        <h3>12.8 Extension Authoring</h3>
+        <ol>
+          <li><strong>Scaffold:</strong> <code>extensions_manage({ operation: "scaffold", name: "my-extension" })</code></li>
+          <li><strong>Edit:</strong> Modify <code>extension.mjs</code> (must be ES module, must call <code>joinSession()</code>)</li>
+          <li><strong>Reload:</strong> <code>extensions_reload({})</code></li>
+          <li><strong>Verify:</strong> <code>extensions_manage({ operation: "list" })</code></li>
+        </ol>
+        <div class="callout warning">
+          <div class="callout-title">Extension Gotchas</div>
+          <ul>
+            <li><code>stdout</code> is reserved for JSON-RPC &mdash; use <code>session.log()</code> instead</li>
+            <li>Tool name collisions across extensions are fatal</li>
+            <li>Do not call <code>session.send()</code> from <code>onUserPromptSubmitted</code></li>
+            <li>Extensions reload on <code>/clear</code> &mdash; in-memory state is lost</li>
+            <li>Only <code>.mjs</code> is supported (not TypeScript)</li>
+          </ul>
+        </div>
+
+        <!-- Appendix -->
+        <h2>Appendix: Quick Reference Card</h2>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Quick Reference Card</div>
+          <pre class="mermaid">
+flowchart LR
+  A["&lt;b&gt;just install&lt;/b&gt;&lt;br/&gt;Install Everything"] ~~~ B["&lt;b&gt;npm run generate&lt;/b&gt;&lt;br/&gt;Regenerate All Types"] ~~~ C["&lt;b&gt;just format &amp;&amp; lint &amp;&amp; test&lt;/b&gt;&lt;br/&gt;Full CI Check"]
+          </pre>
+        </div>
+
+        <h3>Key File Locations</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Purpose</th><th>Path</th></tr></thead>
+            <tbody>
+              <tr><td>Root README</td><td><span class="file-ref">README.md</span></td></tr>
+              <tr><td>Contributing guide</td><td><span class="file-ref">CONTRIBUTING.md</span></td></tr>
+              <tr><td>Task runner</td><td><span class="file-ref">justfile</span></td></tr>
+              <tr><td>AI agent instructions</td><td><span class="file-ref">.github/copilot-instructions.md</span></td></tr>
+              <tr><td>Node.js SDK source</td><td><span class="file-ref">nodejs/src/</span></td></tr>
+              <tr><td>Python SDK source</td><td><span class="file-ref">python/copilot/</span></td></tr>
+              <tr><td>Go SDK source</td><td><span class="file-ref">go/</span></td></tr>
+              <tr><td>.NET SDK source</td><td><span class="file-ref">dotnet/src/</span></td></tr>
+              <tr><td>Code generators</td><td><span class="file-ref">scripts/codegen/</span></td></tr>
+              <tr><td>Test harness</td><td><span class="file-ref">test/harness/</span></td></tr>
+              <tr><td>E2E snapshots</td><td><span class="file-ref">test/snapshots/</span></td></tr>
+              <tr><td>E2E scenarios</td><td><span class="file-ref">test/scenarios/</span></td></tr>
+              <tr><td>Feature docs</td><td><span class="file-ref">docs/features/</span></td></tr>
+              <tr><td>Protocol version</td><td><span class="file-ref">sdk-protocol-version.json</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+      <nav class="page-nav">
+        <a href="12-security.html" class="page-nav-link prev">
+          <span class="page-nav-label">Previous</span>
+          <span class="page-nav-title">12 — Security Surface</span>
+        </a>
+      </nav>
+    </main>
+  </div>
+
+  <button class="scroll-top" aria-label="Scroll to top">&uarr;</button>
+  <script src="app.js"></script>
+</body>
+</html>

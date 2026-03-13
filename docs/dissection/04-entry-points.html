@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entry Points - copilot-sdk Dissection</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/styles/github-dark-dimmed.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/go.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/csharp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect rx=%2715%27 width=%27100%27 height=%27100%27 fill=%27%230F172A%27/%3E%3Ctext x=%2750%27 y=%2770%27 font-size=%2750%27 text-anchor=%27middle%27 fill=%27%2322C55E%27%3E%26lt;/%26gt;%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <button class="sidebar-toggle">Menu</button>
+  <div class="page-wrapper">
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <h1>copilot-sdk</h1>
+        <div class="subtitle">Dissection Documentation</div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Foundation</div>
+        <a href="index.html" class="sidebar-link"><span class="link-num">00</span> Overview</a>
+        <a href="01-discovery.html" class="sidebar-link"><span class="link-num">01</span> Discovery</a>
+        <a href="02-structure.html" class="sidebar-link"><span class="link-num">02</span> Structure</a>
+        <a href="03-tech-stack.html" class="sidebar-link"><span class="link-num">03</span> Tech Stack</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Architecture</div>
+        <a href="04-entry-points.html" class="sidebar-link active"><span class="link-num">04</span> Entry Points</a>
+        <a href="05-architecture.html" class="sidebar-link"><span class="link-num">05</span> Architecture</a>
+        <a href="06-data-flow.html" class="sidebar-link"><span class="link-num">06</span> Data Flow</a>
+        <a href="07-api-surface.html" class="sidebar-link"><span class="link-num">07</span> API Surface</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Implementation</div>
+        <a href="08-conventions.html" class="sidebar-link"><span class="link-num">08</span> Conventions</a>
+        <a href="09-testing.html" class="sidebar-link"><span class="link-num">09</span> Testing</a>
+        <a href="10-build-deploy.html" class="sidebar-link"><span class="link-num">10</span> Build &amp; Deploy</a>
+        <a href="11-dependencies.html" class="sidebar-link"><span class="link-num">11</span> Dependencies</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Operations</div>
+        <a href="12-security.html" class="sidebar-link"><span class="link-num">12</span> Security</a>
+        <a href="13-contribution.html" class="sidebar-link"><span class="link-num">13</span> Contribution</a>
+      </div>
+    </nav>
+    <main class="main-content">
+      <div class="content-area">
+
+        <div class="phase-badge"><span class="dot"></span>Phase 4/13 &mdash; Entry Points</div>
+
+        <h1>Phase 4: Entry Points</h1>
+        <p>Every public entry point across the four Copilot CLI SDKs (TypeScript/Node.js, Python, Go, C#) &mdash; covering package exports, client initialization, session creation, extension points, sample applications, CLI integration, and the bootstrap sequence.</p>
+
+        <!-- Table of Contents -->
+        <nav class="toc">
+          <h3>Table of Contents</h3>
+          <ol>
+            <li><a href="#package-entry-points">Package Entry Points</a></li>
+            <li><a href="#client-initialization">Client Initialization</a></li>
+            <li><a href="#session-creation">Session Creation</a></li>
+            <li><a href="#extension-points">Extension Points</a>
+              <ol>
+                <li><a href="#custom-tools">Custom Tools</a></li>
+                <li><a href="#permission-handlers">Permission Handlers</a></li>
+                <li><a href="#session-hooks">Session Hooks</a></li>
+                <li><a href="#mcp-server-registration">MCP Server Registration</a></li>
+                <li><a href="#custom-agents">Custom Agents</a></li>
+                <li><a href="#skills">Skills</a></li>
+                <li><a href="#user-input-handler">User Input Handler</a></li>
+                <li><a href="#system-message-config">System Message Configuration</a></li>
+                <li><a href="#byok-provider">BYOK Provider Configuration</a></li>
+                <li><a href="#extension-entry-point">Extension Entry Point (TS only)</a></li>
+              </ol>
+            </li>
+            <li><a href="#sample-applications">Sample Applications</a></li>
+            <li><a href="#cli-integration">CLI Integration</a></li>
+            <li><a href="#bootstrap-sequence">Bootstrap Sequence</a></li>
+            <li><a href="#cross-sdk-api">Appendix: Cross-SDK API Correspondence</a></li>
+          </ol>
+        </nav>
+
+        <!-- ================================================================ -->
+        <!-- 1. Package Entry Points -->
+        <!-- ================================================================ -->
+        <h2 id="package-entry-points">1. Package Entry Points</h2>
+
+        <!-- 1.1 TypeScript -->
+        <h3>1.1 TypeScript / Node.js</h3>
+        <p><span class="file-ref">nodejs/src/index.ts</span></p>
+        <p>The npm package <code>@github/copilot-sdk</code> re-exports everything through a single barrel file. There are two module entry points: the main package and the <code>/extension</code> sub-path.</p>
+
+        <h4>Main export (<code>@github/copilot-sdk</code>)</h4>
+        <pre data-lang="typescript"><code class="language-typescript">// nodejs/src/index.ts:11-55
+export { CopilotClient } from "./client.js";
+export { CopilotSession, type AssistantMessageEvent } from "./session.js";
+export { defineTool, approveAll } from "./types.js";
+export type {
+    ConnectionState,
+    CopilotClientOptions,
+    CustomAgentConfig,
+    ForegroundSessionInfo,
+    GetAuthStatusResponse,
+    GetStatusResponse,
+    InfiniteSessionConfig,
+    MCPLocalServerConfig,
+    MCPRemoteServerConfig,
+    MCPServerConfig,
+    MessageOptions,
+    ModelBilling,
+    ModelCapabilities,
+    ModelInfo,
+    ModelPolicy,
+    PermissionHandler,
+    PermissionRequest,
+    PermissionRequestResult,
+    ResumeSessionConfig,
+    SessionConfig,
+    SessionEvent,
+    SessionEventHandler,
+    SessionEventPayload,
+    SessionEventType,
+    SessionLifecycleEvent,
+    SessionLifecycleEventType,
+    SessionLifecycleHandler,
+    SessionContext,
+    SessionListFilter,
+    SessionMetadata,
+    SystemMessageAppendConfig,
+    SystemMessageConfig,
+    SystemMessageReplaceConfig,
+    Tool,
+    ToolHandler,
+    ToolInvocation,
+    ToolResultObject,
+    TypedSessionEventHandler,
+    TypedSessionLifecycleHandler,
+    ZodSchema,
+} from "./types.js";</code></pre>
+
+        <h4>Extension sub-path (<code>@github/copilot-sdk/extension</code>)</h4>
+        <pre data-lang="typescript"><code class="language-typescript">// nodejs/src/extension.ts:26-39
+export async function joinSession(config: ResumeSessionConfig): Promise&lt;CopilotSession&gt;</code></pre>
+
+        <!-- 1.2 Python -->
+        <h3>1.2 Python</h3>
+        <p><span class="file-ref">python/copilot/__init__.py</span></p>
+        <p>The <code>copilot</code> package exports via <code>__init__.py</code> with an explicit <code>__all__</code> list:</p>
+        <pre data-lang="python"><code class="language-python"># python/copilot/__init__.py:1-77
+from .client import CopilotClient
+from .session import CopilotSession
+from .tools import define_tool
+from .types import (
+    AzureProviderOptions, ConnectionState, CustomAgentConfig,
+    GetAuthStatusResponse, GetStatusResponse, MCPLocalServerConfig,
+    MCPRemoteServerConfig, MCPServerConfig, MessageOptions,
+    ModelBilling, ModelCapabilities, ModelInfo, ModelPolicy,
+    PermissionHandler, PermissionRequest, PermissionRequestResult,
+    PingResponse, ProviderConfig, ResumeSessionConfig, SessionConfig,
+    SessionContext, SessionEvent, SessionListFilter, SessionMetadata,
+    StopError, Tool, ToolHandler, ToolInvocation, ToolResult,
+)
+
+__version__ = "0.1.0"</code></pre>
+
+        <!-- 1.3 Go -->
+        <h3>1.3 Go</h3>
+        <p><span class="file-ref">go/client.go</span> (package <code>copilot</code>)</p>
+        <p>Go uses the standard Go package model. All exported identifiers in the <code>copilot</code> package are public. Key exports:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Symbol</th><th>File</th><th>Line</th></tr></thead>
+            <tbody>
+              <tr><td><code>Client</code> (struct)</td><td><span class="file-ref">go/client.go</span></td><td>73</td></tr>
+              <tr><td><code>NewClient</code> (constructor)</td><td><span class="file-ref">go/client.go</span></td><td>119</td></tr>
+              <tr><td><code>Session</code> (struct)</td><td><span class="file-ref">go/session.go</span></td><td>51</td></tr>
+              <tr><td><code>ClientOptions</code></td><td><span class="file-ref">go/types.go</span></td><td>19</td></tr>
+              <tr><td><code>SessionConfig</code></td><td><span class="file-ref">go/types.go</span></td><td>349</td></tr>
+              <tr><td><code>ResumeSessionConfig</code></td><td><span class="file-ref">go/types.go</span></td><td>443</td></tr>
+              <tr><td><code>PermissionHandler</code> (var)</td><td><span class="file-ref">go/permissions.go</span></td><td>4</td></tr>
+              <tr><td><code>Tool</code></td><td><span class="file-ref">go/types.go</span></td><td>412</td></tr>
+              <tr><td><code>ToolHandler</code></td><td><span class="file-ref">go/types.go</span></td><td>430</td></tr>
+              <tr><td><code>SessionEvent</code></td><td colspan="2"><em>implicitly from event types</em></td></tr>
+              <tr><td><code>Bool</code>, <code>String</code>, <code>Float64</code> (helpers)</td><td><span class="file-ref">go/types.go</span></td><td>69-83</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 1.4 C# -->
+        <h3>1.4 C# / .NET</h3>
+        <p><span class="file-ref">dotnet/src/Client.cs</span>, <span class="file-ref">dotnet/src/Session.cs</span>, <span class="file-ref">dotnet/src/Types.cs</span></p>
+        <p>Namespace: <code>GitHub.Copilot.SDK</code></p>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Symbol</th><th>File</th><th>Line</th></tr></thead>
+            <tbody>
+              <tr><td><code>CopilotClient</code></td><td><span class="file-ref">dotnet/src/Client.cs</span></td><td>55</td></tr>
+              <tr><td><code>CopilotSession</code></td><td><span class="file-ref">dotnet/src/Session.cs</span></td><td>53</td></tr>
+              <tr><td><code>CopilotClientOptions</code></td><td><span class="file-ref">dotnet/src/Types.cs</span></td><td>38</td></tr>
+              <tr><td><code>SessionConfig</code></td><td><span class="file-ref">dotnet/src/Types.cs</span></td><td>(exported record)</td></tr>
+              <tr><td><code>ResumeSessionConfig</code></td><td><span class="file-ref">dotnet/src/Types.cs</span></td><td>(exported record)</td></tr>
+              <tr><td><code>PermissionHandler</code></td><td><span class="file-ref">dotnet/src/Types.cs</span></td><td>(static class)</td></tr>
+              <tr><td><code>ConnectionState</code></td><td><span class="file-ref">dotnet/src/Types.cs</span></td><td>19</td></tr>
+              <tr><td><code>SessionEvent</code> (hierarchy)</td><td><span class="file-ref">dotnet/src/Types.cs</span></td><td>(class hierarchy with pattern matching)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ================================================================ -->
+        <!-- 2. Client Initialization -->
+        <!-- ================================================================ -->
+        <h2 id="client-initialization">2. Client Initialization</h2>
+        <p>All four SDKs follow the same pattern: construct a client with options, then start it (either explicitly or via auto-start).</p>
+
+        <!-- 2.1-2.4 Constructor signatures (tabbed) -->
+        <h3>Constructor Signatures</h3>
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="tab-ts-ctor">TypeScript</button>
+            <button class="tab-btn" data-tab="tab-py-ctor">Python</button>
+            <button class="tab-btn" data-tab="tab-go-ctor">Go</button>
+            <button class="tab-btn" data-tab="tab-cs-ctor">C#</button>
+          </div>
+          <div class="tab-panel active" id="tab-ts-ctor"><pre data-lang="typescript"><code class="language-typescript">// nodejs/src/client.ts:203
+constructor(options: CopilotClientOptions = {})</code></pre></div>
+          <div class="tab-panel" id="tab-py-ctor"><pre data-lang="python"><code class="language-python"># python/copilot/client.py:113
+def __init__(self, options: CopilotClientOptions | None = None):</code></pre></div>
+          <div class="tab-panel" id="tab-go-ctor"><pre data-lang="go"><code class="language-go">// go/client.go:119
+func NewClient(options *ClientOptions) *Client</code></pre></div>
+          <div class="tab-panel" id="tab-cs-ctor"><pre data-lang="csharp"><code class="language-csharp">// dotnet/src/Client.cs:117
+public CopilotClient(CopilotClientOptions? options = null)</code></pre></div>
+        </div>
+
+        <!-- TypeScript ClientOptions -->
+        <h3>2.1 TypeScript <code>CopilotClientOptions</code></h3>
+        <p><span class="file-ref">nodejs/src/types.ts:16-107</span></p>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>cliPath</code></td><td><code>string?</code></td><td>bundled CLI</td><td>Path to CLI executable</td></tr>
+              <tr><td><code>cliArgs</code></td><td><code>string[]?</code></td><td><code>[]</code></td><td>Extra CLI arguments</td></tr>
+              <tr><td><code>cwd</code></td><td><code>string?</code></td><td><code>process.cwd()</code></td><td>Working directory</td></tr>
+              <tr><td><code>port</code></td><td><code>number?</code></td><td><code>0</code> (random)</td><td>TCP port (TCP mode)</td></tr>
+              <tr><td><code>useStdio</code></td><td><code>boolean?</code></td><td><code>true</code></td><td>Use stdio transport</td></tr>
+              <tr><td><code>isChildProcess</code></td><td><code>boolean?</code></td><td><code>false</code></td><td>Running as child of CLI</td></tr>
+              <tr><td><code>cliUrl</code></td><td><code>string?</code></td><td>&mdash;</td><td>Connect to existing server</td></tr>
+              <tr><td><code>logLevel</code></td><td><code>string?</code></td><td><code>"debug"</code></td><td>CLI log level</td></tr>
+              <tr><td><code>autoStart</code></td><td><code>boolean?</code></td><td><code>true</code></td><td>Auto-start on first use</td></tr>
+              <tr><td><code>autoRestart</code></td><td><code>boolean?</code></td><td><code>true</code></td><td>Auto-restart on crash</td></tr>
+              <tr><td><code>env</code></td><td><code>Record&lt;string,string&gt;?</code></td><td><code>process.env</code></td><td>Environment variables</td></tr>
+              <tr><td><code>githubToken</code></td><td><code>string?</code></td><td>&mdash;</td><td>GitHub auth token</td></tr>
+              <tr><td><code>useLoggedInUser</code></td><td><code>boolean?</code></td><td><code>true</code></td><td>Use stored OAuth/gh CLI auth</td></tr>
+              <tr><td><code>onListModels</code></td><td><code>() =&gt; ModelInfo[]?</code></td><td>&mdash;</td><td>Custom model listing</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout">
+          <div class="callout-title">Mutual Exclusions</div>
+          <p><code>cliUrl</code> is mutually exclusive with <code>useStdio</code> and <code>cliPath</code>. Auth options (<code>githubToken</code>, <code>useLoggedInUser</code>) cannot be used with <code>cliUrl</code>.</p>
+        </div>
+
+        <!-- Python ClientOptions -->
+        <h3>2.2 Python <code>CopilotClientOptions</code></h3>
+        <p><span class="file-ref">python/copilot/types.py:73-105</span></p>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>cli_path</code></td><td><code>str</code></td><td>bundled binary</td><td>Path to CLI executable</td></tr>
+              <tr><td><code>cli_args</code></td><td><code>list[str]</code></td><td><code>[]</code></td><td>Extra CLI arguments</td></tr>
+              <tr><td><code>cwd</code></td><td><code>str</code></td><td><code>os.getcwd()</code></td><td>Working directory</td></tr>
+              <tr><td><code>port</code></td><td><code>int</code></td><td><code>0</code></td><td>TCP port</td></tr>
+              <tr><td><code>use_stdio</code></td><td><code>bool</code></td><td><code>True</code></td><td>Use stdio transport</td></tr>
+              <tr><td><code>cli_url</code></td><td><code>str</code></td><td>&mdash;</td><td>Connect to existing server</td></tr>
+              <tr><td><code>log_level</code></td><td><code>LogLevel</code></td><td><code>"info"</code></td><td>CLI log level</td></tr>
+              <tr><td><code>auto_start</code></td><td><code>bool</code></td><td><code>True</code></td><td>Auto-start on first use</td></tr>
+              <tr><td><code>auto_restart</code></td><td><code>bool</code></td><td><code>True</code></td><td>Auto-restart on crash</td></tr>
+              <tr><td><code>env</code></td><td><code>dict[str,str]</code></td><td>inherited</td><td>Environment variables</td></tr>
+              <tr><td><code>github_token</code></td><td><code>str</code></td><td>&mdash;</td><td>GitHub auth token</td></tr>
+              <tr><td><code>use_logged_in_user</code></td><td><code>bool</code></td><td><code>True</code></td><td>Use stored auth</td></tr>
+              <tr><td><code>on_list_models</code></td><td><code>Callable</code></td><td>&mdash;</td><td>Custom model listing</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Go ClientOptions -->
+        <h3>2.3 Go <code>ClientOptions</code></h3>
+        <p><span class="file-ref">go/types.go:19-65</span></p>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>CLIPath</code></td><td><code>string</code></td><td><code>""</code> (auto-detect)</td><td>Path to CLI executable</td></tr>
+              <tr><td><code>CLIArgs</code></td><td><code>[]string</code></td><td><code>nil</code></td><td>Extra CLI arguments</td></tr>
+              <tr><td><code>Cwd</code></td><td><code>string</code></td><td><code>""</code> (inherit)</td><td>Working directory</td></tr>
+              <tr><td><code>Port</code></td><td><code>int</code></td><td><code>0</code></td><td>TCP port</td></tr>
+              <tr><td><code>UseStdio</code></td><td><code>*bool</code></td><td><code>nil</code> (true)</td><td>Use stdio transport</td></tr>
+              <tr><td><code>CLIUrl</code></td><td><code>string</code></td><td><code>""</code></td><td>Connect to existing server</td></tr>
+              <tr><td><code>LogLevel</code></td><td><code>string</code></td><td><code>"info"</code></td><td>CLI log level</td></tr>
+              <tr><td><code>AutoStart</code></td><td><code>*bool</code></td><td><code>nil</code> (true)</td><td>Auto-start on first use</td></tr>
+              <tr><td><code>AutoRestart</code></td><td><code>*bool</code></td><td><code>nil</code> (true)</td><td>Auto-restart on crash</td></tr>
+              <tr><td><code>Env</code></td><td><code>[]string</code></td><td><code>os.Environ()</code></td><td>Environment variables</td></tr>
+              <tr><td><code>GitHubToken</code></td><td><code>string</code></td><td><code>""</code></td><td>GitHub auth token</td></tr>
+              <tr><td><code>UseLoggedInUser</code></td><td><code>*bool</code></td><td><code>nil</code> (true)</td><td>Use stored auth</td></tr>
+              <tr><td><code>OnListModels</code></td><td><code>func(ctx) ([]ModelInfo, error)</code></td><td><code>nil</code></td><td>Custom model listing</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- C# ClientOptions -->
+        <h3>2.4 C# <code>CopilotClientOptions</code></h3>
+        <p><span class="file-ref">dotnet/src/Types.cs:38+</span></p>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>CliPath</code></td><td><code>string?</code></td><td><code>null</code> (bundled)</td><td>Path to CLI executable</td></tr>
+              <tr><td><code>CliArgs</code></td><td><code>IList&lt;string&gt;?</code></td><td><code>null</code></td><td>Extra CLI arguments</td></tr>
+              <tr><td><code>Cwd</code></td><td><code>string?</code></td><td><code>null</code> (inherit)</td><td>Working directory</td></tr>
+              <tr><td><code>Port</code></td><td><code>int?</code></td><td><code>null</code></td><td>TCP port</td></tr>
+              <tr><td><code>UseStdio</code></td><td><code>bool?</code></td><td><code>true</code></td><td>Use stdio transport</td></tr>
+              <tr><td><code>CliUrl</code></td><td><code>string?</code></td><td><code>null</code></td><td>Connect to existing server</td></tr>
+              <tr><td><code>LogLevel</code></td><td><code>string?</code></td><td><code>null</code></td><td>CLI log level</td></tr>
+              <tr><td><code>AutoStart</code></td><td><code>bool</code></td><td><code>true</code></td><td>Auto-start on first use</td></tr>
+              <tr><td><code>AutoRestart</code></td><td><code>bool</code></td><td><code>true</code></td><td>Auto-restart on crash</td></tr>
+              <tr><td><code>GitHubToken</code></td><td><code>string?</code></td><td><code>null</code></td><td>GitHub auth token</td></tr>
+              <tr><td><code>UseLoggedInUser</code></td><td><code>bool?</code></td><td><code>null</code> (true)</td><td>Use stored auth</td></tr>
+              <tr><td><code>Logger</code></td><td><code>ILogger?</code></td><td><code>NullLogger</code></td><td>Custom logger</td></tr>
+              <tr><td><code>OnListModels</code></td><td><code>Func&lt;CancellationToken, Task&lt;List&lt;ModelInfo&gt;&gt;&gt;?</code></td><td><code>null</code></td><td>Custom model listing</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ================================================================ -->
+        <!-- 3. Session Creation -->
+        <!-- ================================================================ -->
+        <h2 id="session-creation">3. Session Creation</h2>
+        <p>Sessions are the primary conversation primitive. Creating a session requires a <strong>mandatory</strong> <code>onPermissionRequest</code> handler.</p>
+
+        <h3>Create &amp; Resume Signatures</h3>
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="tab-ts-sess">TypeScript</button>
+            <button class="tab-btn" data-tab="tab-py-sess">Python</button>
+            <button class="tab-btn" data-tab="tab-go-sess">Go</button>
+            <button class="tab-btn" data-tab="tab-cs-sess">C#</button>
+          </div>
+          <div class="tab-panel active" id="tab-ts-sess"><pre data-lang="typescript"><code class="language-typescript">// nodejs/src/client.ts:539
+async createSession(config: SessionConfig): Promise&lt;CopilotSession&gt;
+
+// nodejs/src/client.ts:616+
+async resumeSession(sessionId: string, config: ResumeSessionConfig): Promise&lt;CopilotSession&gt;</code></pre></div>
+          <div class="tab-panel" id="tab-py-sess"><pre data-lang="python"><code class="language-python"># python/copilot/client.py:449
+async def create_session(self, config: SessionConfig) -&gt; CopilotSession:
+
+# python/copilot/client.py:640
+async def resume_session(self, session_id: str, config: ResumeSessionConfig) -&gt; CopilotSession:</code></pre></div>
+          <div class="tab-panel" id="tab-go-sess"><pre data-lang="go"><code class="language-go">// go/client.go:487
+func (c *Client) CreateSession(ctx context.Context, config *SessionConfig) (*Session, error)
+
+// go/client.go:588
+func (c *Client) ResumeSession(ctx context.Context, sessionID string, config *ResumeSessionConfig) (*Session, error)</code></pre></div>
+          <div class="tab-panel" id="tab-cs-sess"><pre data-lang="csharp"><code class="language-csharp">// dotnet/src/Client.cs:387
+public async Task&lt;CopilotSession&gt; CreateSessionAsync(
+    SessionConfig config, CancellationToken cancellationToken = default)
+
+// dotnet/src/Client.cs:493
+public async Task&lt;CopilotSession&gt; ResumeSessionAsync(
+    string sessionId, ResumeSessionConfig config, CancellationToken cancellationToken = default)</code></pre></div>
+        </div>
+
+        <!-- SessionConfig key fields -->
+        <h3><code>SessionConfig</code> Key Fields</h3>
+        <p><span class="file-ref">nodejs/src/types.ts:631-770</span> &mdash; other SDKs mirror these with idiomatic naming.</p>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>onPermissionRequest</code></td><td><strong>Yes</strong></td><td>Handler for tool permission requests</td></tr>
+              <tr><td><code>model</code></td><td>No</td><td>Model ID (e.g., <code>"gpt-4"</code>)</td></tr>
+              <tr><td><code>sessionId</code></td><td>No</td><td>Custom session ID (auto-generated UUID)</td></tr>
+              <tr><td><code>clientName</code></td><td>No</td><td>Application identifier for User-Agent</td></tr>
+              <tr><td><code>tools</code></td><td>No</td><td>Custom tool definitions</td></tr>
+              <tr><td><code>systemMessage</code></td><td>No</td><td>System prompt config (append/replace)</td></tr>
+              <tr><td><code>availableTools</code></td><td>No</td><td>Allowlist of tool names</td></tr>
+              <tr><td><code>excludedTools</code></td><td>No</td><td>Denylist of tool names</td></tr>
+              <tr><td><code>provider</code></td><td>No</td><td>BYOK provider config</td></tr>
+              <tr><td><code>onUserInputRequest</code></td><td>No</td><td>Handler for ask_user tool</td></tr>
+              <tr><td><code>hooks</code></td><td>No</td><td>Session lifecycle hooks</td></tr>
+              <tr><td><code>workingDirectory</code></td><td>No</td><td>CWD for tool operations</td></tr>
+              <tr><td><code>streaming</code></td><td>No</td><td>Enable delta streaming events</td></tr>
+              <tr><td><code>mcpServers</code></td><td>No</td><td>MCP server configurations</td></tr>
+              <tr><td><code>customAgents</code></td><td>No</td><td>Custom agent definitions</td></tr>
+              <tr><td><code>agent</code></td><td>No</td><td>Agent to activate on start</td></tr>
+              <tr><td><code>skillDirectories</code></td><td>No</td><td>Directories to load skills from</td></tr>
+              <tr><td><code>disabledSkills</code></td><td>No</td><td>Skill denylist</td></tr>
+              <tr><td><code>infiniteSessions</code></td><td>No</td><td>Infinite session / compaction config</td></tr>
+              <tr><td><code>reasoningEffort</code></td><td>No</td><td><code>"low"</code> / <code>"medium"</code> / <code>"high"</code> / <code>"xhigh"</code></td></tr>
+              <tr><td><code>onEvent</code></td><td>No</td><td>Early event handler (before RPC)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Session Lifecycle -->
+        <h3>3.5 Session Lifecycle</h3>
+        <p>Across all SDKs, the session creation sequence is:</p>
+        <ol>
+          <li>Validate <code>onPermissionRequest</code> is provided (throws if missing)</li>
+          <li>Ensure client is connected (auto-start if enabled)</li>
+          <li>Generate session ID if not provided (UUID)</li>
+          <li>Create <code>CopilotSession</code> object and register it <strong>before</strong> the RPC call (to avoid missing early events)</li>
+          <li>Register tools, permission handler, user input handler, hooks, and early event handler on the session</li>
+          <li>Issue <code>session.create</code> JSON-RPC request with serialized config</li>
+          <li>Return the session object (with workspace path if infinite sessions enabled)</li>
+        </ol>
+
+        <h4>Cleanup Methods</h4>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>SDK</th><th>Disconnect</th><th>Deprecated Alias</th><th>Dispose Pattern</th></tr></thead>
+            <tbody>
+              <tr><td><span class="lang-pill ts">TypeScript</span></td><td><code>session.disconnect()</code></td><td><code>session.destroy()</code></td><td><code>Symbol.asyncDispose</code></td></tr>
+              <tr><td><span class="lang-pill py">Python</span></td><td><code>await session.disconnect()</code></td><td><code>await session.destroy()</code></td><td><code>async with</code> context manager</td></tr>
+              <tr><td><span class="lang-pill go">Go</span></td><td><code>session.Disconnect()</code></td><td><code>session.Destroy()</code></td><td><code>defer session.Disconnect()</code></td></tr>
+              <tr><td><span class="lang-pill cs">C#</span></td><td><code>await session.DisposeAsync()</code></td><td>&mdash;</td><td><code>await using</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ================================================================ -->
+        <!-- 4. Extension Points -->
+        <!-- ================================================================ -->
+        <h2 id="extension-points">4. Extension Points</h2>
+
+        <!-- 4.1 Custom Tools -->
+        <h3 id="custom-tools">4.1 Custom Tools</h3>
+        <p>Tools allow the LLM to invoke user-defined functions. Each SDK provides a way to define tools with schemas.</p>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="tab-ts-tool">TypeScript</button>
+            <button class="tab-btn" data-tab="tab-py-tool">Python</button>
+            <button class="tab-btn" data-tab="tab-go-tool">Go</button>
+            <button class="tab-btn" data-tab="tab-cs-tool">C#</button>
+          </div>
+          <div class="tab-panel active" id="tab-ts-tool"><pre data-lang="typescript"><code class="language-typescript">// nodejs/src/types.ts:159-186
+// Tool interface
+interface Tool&lt;TArgs = unknown&gt; {
+    name: string;
+    description?: string;
+    parameters?: ZodSchema&lt;TArgs&gt; | Record&lt;string, unknown&gt;;
+    handler: ToolHandler&lt;TArgs&gt;;
+    overridesBuiltInTool?: boolean;
+}
+
+// defineTool helper for Zod-inferred types
+const myTool = defineTool("get_weather", {
+    description: "Get weather for a location",
+    parameters: z.object({ location: z.string() }),
+    handler: async (args) =&gt; ({ temperature: 72 }),
+});</code></pre></div>
+          <div class="tab-panel" id="tab-py-tool"><pre data-lang="python"><code class="language-python"># python/copilot/tools.py:43-166
+# Decorator pattern with Pydantic schema inference
+@define_tool(description="Fetch issue details")
+def lookup_issue(params: LookupIssueParams) -&gt; str:
+    return fetch_issue(params.id).summary
+
+# Function pattern
+tool = define_tool(
+    "lookup_issue",
+    description="Fetch issue details",
+    handler=lambda params, inv: fetch_issue(params.id).summary,
+    params_type=LookupIssueParams,
+)</code></pre></div>
+          <div class="tab-panel" id="tab-go-tool"><pre data-lang="go"><code class="language-go">// go/types.go:412-430
+type Tool struct {
+    Name                 string         `json:"name"`
+    Description          string         `json:"description,omitempty"`
+    Parameters           map[string]any `json:"parameters,omitempty"`
+    OverridesBuiltInTool bool           `json:"overridesBuiltInTool,omitempty"`
+    Handler              ToolHandler    `json:"-"`
+}
+
+type ToolHandler func(invocation ToolInvocation) (ToolResult, error)</code></pre></div>
+          <div class="tab-panel" id="tab-cs-tool"><pre data-lang="csharp"><code class="language-csharp">// dotnet/src/Session.cs:293
+// C# uses Microsoft.Extensions.AI.AIFunction for tool definitions
+internal void RegisterTools(ICollection&lt;AIFunction&gt; tools)</code></pre></div>
+        </div>
+
+        <!-- 4.2 Permission Handlers -->
+        <h3 id="permission-handlers">4.2 Permission Handlers</h3>
+        <p>Every SDK requires a permission handler. A convenience "approve all" handler is provided:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>SDK</th><th>Approve-all Handler</th><th>File:Line</th></tr></thead>
+            <tbody>
+              <tr><td><span class="lang-pill ts">TypeScript</span></td><td><code>approveAll</code> (exported const)</td><td><span class="file-ref">nodejs/src/types.ts:251</span></td></tr>
+              <tr><td><span class="lang-pill py">Python</span></td><td><code>PermissionHandler.approve_all</code> (static method)</td><td><span class="file-ref">python/copilot/types.py:211-215</span></td></tr>
+              <tr><td><span class="lang-pill go">Go</span></td><td><code>PermissionHandler.ApproveAll</code> (package-level var)</td><td><span class="file-ref">go/permissions.go:4-11</span></td></tr>
+              <tr><td><span class="lang-pill cs">C#</span></td><td><code>PermissionHandler.ApproveAll</code> (static member)</td><td><span class="file-ref">dotnet/src/Types.cs</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><strong>Permission request kinds:</strong> <code>"shell"</code>, <code>"write"</code>, <code>"mcp"</code>, <code>"read"</code>, <code>"url"</code>, <code>"custom-tool"</code>.</p>
+        <p><strong>Permission result kinds:</strong> <code>"approved"</code>, <code>"denied-by-rules"</code>, <code>"denied-by-content-exclusion-policy"</code>, <code>"denied-no-approval-rule-and-could-not-request-from-user"</code>, <code>"denied-interactively-by-user"</code>.</p>
+
+        <!-- 4.3 Session Hooks -->
+        <h3 id="session-hooks">4.3 Session Hooks</h3>
+        <p>Hooks intercept session lifecycle events. Six hook types are supported:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Hook</th><th>Input</th><th>Trigger</th></tr></thead>
+            <tbody>
+              <tr><td><code>onPreToolUse</code></td><td><code>PreToolUseHookInput</code></td><td>Before a tool executes</td></tr>
+              <tr><td><code>onPostToolUse</code></td><td><code>PostToolUseHookInput</code></td><td>After a tool executes</td></tr>
+              <tr><td><code>onUserPromptSubmitted</code></td><td><code>UserPromptSubmittedHookInput</code></td><td>User sends a prompt</td></tr>
+              <tr><td><code>onSessionStart</code></td><td><code>SessionStartHookInput</code></td><td>Session begins</td></tr>
+              <tr><td><code>onSessionEnd</code></td><td><code>SessionEndHookInput</code></td><td>Session terminates</td></tr>
+              <tr><td><code>onErrorOccurred</code></td><td><code>ErrorOccurredHookInput</code></td><td>An error occurs</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="tab-ts-hook">TypeScript</button>
+            <button class="tab-btn" data-tab="tab-go-hook">Go</button>
+          </div>
+          <div class="tab-panel active" id="tab-ts-hook"><pre data-lang="typescript"><code class="language-typescript">// nodejs/src/types.ts:470-500
+interface SessionHooks {
+    onPreToolUse?: PreToolUseHandler;
+    onPostToolUse?: PostToolUseHandler;
+    onUserPromptSubmitted?: UserPromptSubmittedHandler;
+    onSessionStart?: SessionStartHandler;
+    onSessionEnd?: SessionEndHandler;
+    onErrorOccurred?: ErrorOccurredHandler;
+}</code></pre></div>
+          <div class="tab-panel" id="tab-go-hook"><pre data-lang="go"><code class="language-go">// go/types.go:283-290
+type SessionHooks struct {
+    OnPreToolUse          PreToolUseHandler
+    OnPostToolUse         PostToolUseHandler
+    OnUserPromptSubmitted UserPromptSubmittedHandler
+    OnSessionStart        SessionStartHandler
+    OnSessionEnd          SessionEndHandler
+    OnErrorOccurred       ErrorOccurredHandler
+}</code></pre></div>
+        </div>
+        <p>The <code>preToolUse</code> hook can return permission decisions (<code>"allow"</code>, <code>"deny"</code>, <code>"ask"</code>) and modified arguments. The <code>postToolUse</code> hook can return modified results.</p>
+
+        <!-- 4.4 MCP Server Registration -->
+        <h3 id="mcp-server-registration">4.4 MCP Server Registration</h3>
+        <p>MCP (Model Context Protocol) servers are configured at session creation via <code>mcpServers</code>:</p>
+        <pre data-lang="typescript"><code class="language-typescript">// nodejs/src/types.ts:528-557
+interface MCPLocalServerConfig {
+    type?: "local" | "stdio";
+    command: string;
+    args: string[];
+    tools: string[];
+    env?: Record&lt;string, string&gt;;
+    cwd?: string;
+    timeout?: number;
+}
+
+interface MCPRemoteServerConfig {
+    type: "http" | "sse";
+    url: string;
+    tools: string[];
+    headers?: Record&lt;string, string&gt;;
+    timeout?: number;
+}</code></pre>
+
+        <h4>Usage Example</h4>
+        <pre data-lang="typescript"><code class="language-typescript">const session = await client.createSession({
+    onPermissionRequest: approveAll,
+    mcpServers: {
+        "my-server": {
+            command: "npx",
+            args: ["-y", "@my/mcp-server"],
+            tools: ["*"],
+        },
+    },
+});</code></pre>
+
+        <!-- 4.5 Custom Agents -->
+        <h3 id="custom-agents">4.5 Custom Agents</h3>
+        <p>Agents provide named prompt configurations with optional tool restrictions and MCP servers:</p>
+        <pre data-lang="typescript"><code class="language-typescript">// nodejs/src/types.ts:566-597
+interface CustomAgentConfig {
+    name: string;
+    displayName?: string;
+    description?: string;
+    tools?: string[] | null;
+    prompt: string;
+    mcpServers?: Record&lt;string, MCPServerConfig&gt;;
+    infer?: boolean;
+}</code></pre>
+        <p>Activated via <code>agent</code> field in <code>SessionConfig</code> or via <code>session.rpc.agent.select({ name })</code>.</p>
+
+        <!-- 4.6 Skills -->
+        <h3 id="skills">4.6 Skills</h3>
+        <p>Skills are loaded from directories specified in <code>skillDirectories</code> and can be disabled via <code>disabledSkills</code>:</p>
+        <pre data-lang="typescript"><code class="language-typescript">// nodejs/src/types.ts:746-751
+skillDirectories?: string[];
+disabledSkills?: string[];</code></pre>
+
+        <!-- 4.7 User Input Handler -->
+        <h3 id="user-input-handler">4.7 User Input Handler</h3>
+        <p>Enables the <code>ask_user</code> tool, allowing the agent to ask questions:</p>
+        <pre data-lang="typescript"><code class="language-typescript">// nodejs/src/types.ts:296-299
+type UserInputHandler = (
+    request: UserInputRequest,
+    invocation: { sessionId: string }
+) =&gt; Promise&lt;UserInputResponse&gt; | UserInputResponse;</code></pre>
+
+        <!-- 4.8 System Message Configuration -->
+        <h3 id="system-message-config">4.8 System Message Configuration</h3>
+        <p>Two modes for controlling the system prompt:</p>
+        <pre data-lang="typescript"><code class="language-typescript">// nodejs/src/types.ts:202-230
+// Append mode (default): SDK foundation + custom content
+interface SystemMessageAppendConfig {
+    mode?: "append";
+    content?: string;
+}
+
+// Replace mode: full control, replaces entire system message
+interface SystemMessageReplaceConfig {
+    mode: "replace";
+    content: string;
+}</code></pre>
+
+        <!-- 4.9 BYOK Provider Configuration -->
+        <h3 id="byok-provider">4.9 BYOK Provider Configuration</h3>
+        <p>Bring-your-own-key support for custom model providers:</p>
+        <pre data-lang="typescript"><code class="language-typescript">// nodejs/src/types.ts:810-847
+interface ProviderConfig {
+    type?: "openai" | "azure" | "anthropic";
+    wireApi?: "completions" | "responses";
+    baseUrl: string;
+    apiKey?: string;
+    bearerToken?: string;
+    azure?: { apiVersion?: string };
+}</code></pre>
+
+        <!-- 4.10 Extension Entry Point -->
+        <h3 id="extension-entry-point">4.10 Extension Entry Point (TypeScript only)</h3>
+        <p>The <code>joinSession</code> function is for extensions running as child processes of the Copilot CLI:</p>
+        <pre data-lang="typescript"><code class="language-typescript">// nodejs/src/extension.ts:26-39
+export async function joinSession(config: ResumeSessionConfig): Promise&lt;CopilotSession&gt; {
+    const sessionId = process.env.SESSION_ID;
+    if (!sessionId) {
+        throw new Error(
+            "joinSession() is intended for extensions running as child processes of the Copilot CLI."
+        );
+    }
+    const client = new CopilotClient({ isChildProcess: true });
+    return client.resumeSession(sessionId, {
+        ...config,
+        disableResume: config.disableResume ?? true,
+    });
+}</code></pre>
+        <p>This reads <code>SESSION_ID</code> from the environment and connects back to the parent CLI process via stdio.</p>
+
+        <!-- ================================================================ -->
+        <!-- 5. Sample Applications -->
+        <!-- ================================================================ -->
+        <h2 id="sample-applications">5. Sample Applications</h2>
+        <p>All four SDKs include a chat sample that demonstrates the minimal integration pattern.</p>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="tab-ts-sample">TypeScript</button>
+            <button class="tab-btn" data-tab="tab-py-sample">Python</button>
+            <button class="tab-btn" data-tab="tab-go-sample">Go</button>
+            <button class="tab-btn" data-tab="tab-cs-sample">C#</button>
+          </div>
+          <div class="tab-panel active" id="tab-ts-sample"><pre data-lang="typescript"><code class="language-typescript">// nodejs/samples/chat.ts:1-35
+import { CopilotClient, approveAll, type SessionEvent } from "@github/copilot-sdk";
+
+async function main() {
+    const client = new CopilotClient();
+    const session = await client.createSession({
+        onPermissionRequest: approveAll,
+    });
+
+    session.on((event: SessionEvent) =&gt; {
+        let output: string | null = null;
+        if (event.type === "assistant.reasoning") {
+            output = `[reasoning: ${event.data.content}]`;
+        } else if (event.type === "tool.execution_start") {
+            output = `[tool: ${event.data.toolName}]`;
+        }
+        if (output) console.log(`\x1b[34m${output}\x1b[0m`);
+    });
+
+    // REPL loop
+    while (true) {
+        const input = await prompt("You: ");
+        if (!input.trim()) continue;
+        const reply = await session.sendAndWait({ prompt: input });
+        console.log(`\nAssistant: ${reply?.data.content}\n`);
+    }
+}</code></pre></div>
+          <div class="tab-panel" id="tab-py-sample"><pre data-lang="python"><code class="language-python"># python/samples/chat.py:1-45
+from copilot import CopilotClient, PermissionHandler
+
+async def main():
+    client = CopilotClient()
+    await client.start()
+    session = await client.create_session({
+        "on_permission_request": PermissionHandler.approve_all,
+    })
+
+    def on_event(event):
+        if event.type.value == "assistant.reasoning":
+            print(f"[reasoning: {event.data.content}]")
+        elif event.type.value == "tool.execution_start":
+            print(f"[tool: {event.data.tool_name}]")
+
+    session.on(on_event)
+
+    while True:
+        user_input = input("You: ").strip()
+        reply = await session.send_and_wait({"prompt": user_input})
+        print(f"\nAssistant: {reply.data.content if reply else None}\n")</code></pre></div>
+          <div class="tab-panel" id="tab-go-sample"><pre data-lang="go"><code class="language-go">// go/samples/chat.go:17-73
+func main() {
+    ctx := context.Background()
+    client := copilot.NewClient(&amp;copilot.ClientOptions{CLIPath: cliPath})
+    if err := client.Start(ctx); err != nil { panic(err) }
+    defer client.Stop()
+
+    session, err := client.CreateSession(ctx, &amp;copilot.SessionConfig{
+        OnPermissionRequest: copilot.PermissionHandler.ApproveAll,
+    })
+    defer session.Disconnect()
+
+    session.On(func(event copilot.SessionEvent) {
+        switch event.Type {
+        case copilot.AssistantReasoning:
+            fmt.Printf("[reasoning: %s]", *event.Data.Content)
+        case copilot.ToolExecutionStart:
+            fmt.Printf("[tool: %s]", *event.Data.ToolName)
+        }
+    })
+
+    // Scanner loop
+    for scanner.Scan() {
+        reply, _ := session.SendAndWait(ctx, copilot.MessageOptions{Prompt: input})
+        fmt.Printf("\nAssistant: %s\n\n", *reply.Data.Content)
+    }
+}</code></pre></div>
+          <div class="tab-panel" id="tab-cs-sample"><pre data-lang="csharp"><code class="language-csharp">// dotnet/samples/Chat.cs:1-35
+using GitHub.Copilot.SDK;
+
+await using var client = new CopilotClient();
+await using var session = await client.CreateSessionAsync(new SessionConfig
+{
+    OnPermissionRequest = PermissionHandler.ApproveAll
+});
+
+using var _ = session.On(evt =&gt;
+{
+    switch (evt)
+    {
+        case AssistantReasoningEvent reasoning:
+            Console.WriteLine($"[reasoning: {reasoning.Data.Content}]");
+            break;
+        case ToolExecutionStartEvent tool:
+            Console.WriteLine($"[tool: {tool.Data.ToolName}]");
+            break;
+    }
+});
+
+while (true)
+{
+    var input = Console.ReadLine()?.Trim();
+    var reply = await session.SendAndWaitAsync(new MessageOptions { Prompt = input });
+    Console.WriteLine($"\nAssistant: {reply?.Data.Content}\n");
+}</code></pre></div>
+        </div>
+
+        <h3>5.5 Pattern Summary</h3>
+        <p>All samples demonstrate the same flow:</p>
+        <ol>
+          <li>Create client (optionally with explicit CLI path)</li>
+          <li>Start client (auto or explicit)</li>
+          <li>Create session with <code>approveAll</code> permission handler</li>
+          <li>Register event handler for reasoning and tool events</li>
+          <li>REPL loop: read input, call <code>sendAndWait</code>, print response</li>
+          <li>Cleanup on exit</li>
+        </ol>
+
+        <!-- ================================================================ -->
+        <!-- 6. CLI Integration -->
+        <!-- ================================================================ -->
+        <h2 id="cli-integration">6. CLI Integration</h2>
+
+        <h3>6.1 Transport Modes</h3>
+        <p>The SDK communicates with the Copilot CLI server via JSON-RPC 2.0 over one of two transports:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Mode</th><th>Default</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><strong>stdio</strong></td><td>Yes</td><td>SDK spawns CLI process, communicates via stdin/stdout pipes</td></tr>
+              <tr><td><strong>TCP</strong></td><td>No</td><td>SDK connects to CLI server on a TCP port</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>6.2 CLI Server Spawning</h3>
+        <p>When using stdio (default), the SDK spawns the Copilot CLI as a child process:</p>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="tab-ts-spawn">TypeScript</button>
+            <button class="tab-btn" data-tab="tab-py-spawn">Python</button>
+            <button class="tab-btn" data-tab="tab-go-spawn">Go</button>
+            <button class="tab-btn" data-tab="tab-cs-spawn">C#</button>
+          </div>
+          <div class="tab-panel active" id="tab-ts-spawn"><pre data-lang="typescript"><code class="language-typescript">// nodejs/src/client.ts:92-98
+function getBundledCliPath(): string {
+    const sdkUrl = import.meta.resolve("@github/copilot/sdk");
+    const sdkPath = fileURLToPath(sdkUrl);
+    return join(dirname(dirname(sdkPath)), "index.js");
+}
+// Resolves the bundled CLI from @github/copilot package, runs index.js via Node.</code></pre></div>
+          <div class="tab-panel" id="tab-py-spawn"><pre data-lang="python"><code class="language-python"># python/copilot/client.py:58-75
+def _get_bundled_cli_path() -&gt; str | None:
+    bin_dir = Path(__file__).parent / "bin"
+    if sys.platform == "win32":
+        binary_name = "copilot.exe"
+    else:
+        binary_name = "copilot"
+    binary_path = bin_dir / binary_name
+    if binary_path.exists():
+        return str(binary_path)
+    return None
+# Ships a platform-specific native binary in copilot/bin/.</code></pre></div>
+          <div class="tab-panel" id="tab-go-spawn"><pre data-lang="go"><code class="language-go">// go/client.go + go/internal/embeddedcli/
+// Uses an embedded CLI binary from the embeddedcli internal package,
+// or looks up COPILOT_CLI_PATH from the environment.</code></pre></div>
+          <div class="tab-panel" id="tab-cs-spawn"><pre data-lang="csharp"><code class="language-csharp">// dotnet/src/Client.cs
+// Follows a similar pattern: bundles the CLI binary or allows
+// CliPath override via CopilotClientOptions.</code></pre></div>
+        </div>
+
+        <h3>6.3 Connection to External Servers</h3>
+        <p>All SDKs support connecting to a pre-existing CLI server via <code>cliUrl</code>:</p>
+        <pre data-lang="typescript"><code class="language-typescript">const client = new CopilotClient({ cliUrl: "localhost:3000" });</code></pre>
+        <p>URL formats supported: <code>"port"</code>, <code>"host:port"</code>, <code>"http://host:port"</code>, <code>"https://host:port"</code>.</p>
+        <p>When <code>cliUrl</code> is set, no CLI process is spawned; the SDK connects via TCP directly.</p>
+
+        <h3>6.4 Protocol Version Negotiation</h3>
+        <p>After connecting, every SDK verifies protocol compatibility:</p>
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="tab-ts-proto">TypeScript</button>
+            <button class="tab-btn" data-tab="tab-py-proto">Python</button>
+            <button class="tab-btn" data-tab="tab-go-proto">Go</button>
+            <button class="tab-btn" data-tab="tab-cs-proto">C#</button>
+          </div>
+          <div class="tab-panel active" id="tab-ts-proto"><pre data-lang="typescript"><code class="language-typescript">// nodejs/src/client.ts:56
+const MIN_PROTOCOL_VERSION = 2;</code></pre></div>
+          <div class="tab-panel" id="tab-py-proto"><pre data-lang="python"><code class="language-python"># python/copilot/client.py:55
+MIN_PROTOCOL_VERSION = 2</code></pre></div>
+          <div class="tab-panel" id="tab-go-proto"><pre data-lang="go"><code class="language-go">// Verified in client.go Start() via verifyProtocolVersion()</code></pre></div>
+          <div class="tab-panel" id="tab-cs-proto"><pre data-lang="csharp"><code class="language-csharp">// dotnet/src/Client.cs:60
+private const int MinProtocolVersion = 2;</code></pre></div>
+        </div>
+        <p>The client issues a status check RPC and rejects servers with protocol versions below the minimum.</p>
+
+        <h3>6.5 JSON-RPC Methods</h3>
+        <p>Key RPC methods used by the SDK:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Method</th><th>Direction</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>status.get</code></td><td>SDK &rarr; CLI</td><td>Get server version and protocol version</td></tr>
+              <tr><td><code>session.create</code></td><td>SDK &rarr; CLI</td><td>Create a new session</td></tr>
+              <tr><td><code>session.resume</code></td><td>SDK &rarr; CLI</td><td>Resume an existing session</td></tr>
+              <tr><td><code>session.send</code></td><td>SDK &rarr; CLI</td><td>Send a user message</td></tr>
+              <tr><td><code>session.getMessages</code></td><td>SDK &rarr; CLI</td><td>Get conversation history</td></tr>
+              <tr><td><code>session.abort</code></td><td>SDK &rarr; CLI</td><td>Abort current processing</td></tr>
+              <tr><td><code>session.destroy</code></td><td>SDK &rarr; CLI</td><td>Disconnect session</td></tr>
+              <tr><td><code>session.delete</code></td><td>SDK &rarr; CLI</td><td>Permanently delete session data</td></tr>
+              <tr><td><code>session.list</code></td><td>SDK &rarr; CLI</td><td>List sessions with optional filter</td></tr>
+              <tr><td><code>session.event</code></td><td>CLI &rarr; SDK</td><td>Push session events (notification)</td></tr>
+              <tr><td><code>auth.getStatus</code></td><td>SDK &rarr; CLI</td><td>Check authentication status</td></tr>
+              <tr><td><code>models.list</code></td><td>SDK &rarr; CLI</td><td>List available models</td></tr>
+              <tr><td><code>session.model.switchTo</code></td><td>SDK &rarr; CLI</td><td>Change session model</td></tr>
+              <tr><td><code>session.tools.handlePendingToolCall</code></td><td>SDK &rarr; CLI</td><td>Return tool execution result</td></tr>
+              <tr><td><code>session.permissions.handlePendingPermissionRequest</code></td><td>SDK &rarr; CLI</td><td>Return permission decision</td></tr>
+              <tr><td><code>session.log</code></td><td>SDK &rarr; CLI</td><td>Log message to session timeline</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ================================================================ -->
+        <!-- 7. Bootstrap Sequence -->
+        <!-- ================================================================ -->
+        <h2 id="bootstrap-sequence">7. Bootstrap Sequence</h2>
+        <p>The full flow from import to first assistant response:</p>
+
+        <!-- Step 1 -->
+        <h3>Step 1: Import</h3>
+        <pre data-lang="typescript"><code class="language-typescript">import { CopilotClient, approveAll } from "@github/copilot-sdk";</code></pre>
+        <p>This loads the barrel file (<span class="file-ref">index.ts</span>), which re-exports <code>CopilotClient</code> from <span class="file-ref">client.ts</span>, <code>approveAll</code> from <span class="file-ref">types.ts</span>, and type definitions.</p>
+
+        <!-- Step 2 -->
+        <h3>Step 2: Client Construction</h3>
+        <pre data-lang="typescript"><code class="language-typescript">const client = new CopilotClient();</code></pre>
+        <ul>
+          <li>Resolves bundled CLI path (e.g., <code>@github/copilot/index.js</code>)</li>
+          <li>Merges user options with defaults</li>
+          <li>Sets initial state to <code>"disconnected"</code></li>
+          <li>Does <strong>NOT</strong> start the CLI process yet</li>
+        </ul>
+
+        <!-- Step 3 -->
+        <h3>Step 3: Session Creation (triggers auto-start)</h3>
+        <pre data-lang="typescript"><code class="language-typescript">const session = await client.createSession({
+    onPermissionRequest: approveAll,
+    model: "gpt-4",
+});</code></pre>
+        <p>Internally this triggers the following sub-steps:</p>
+
+        <h4>3a. Auto-start (<code>client.start()</code>)</h4>
+        <ol>
+          <li>State transitions to <code>"connecting"</code></li>
+          <li><strong>Spawn CLI process:</strong> <code>node /path/to/@github/copilot/index.js --stdio --log-level debug --sdk-protocol-version N</code></li>
+          <li><strong>Establish JSON-RPC connection:</strong> Creates <code>MessageConnection</code> over stdio pipes (using <code>vscode-jsonrpc</code>)</li>
+          <li><strong>Register notification handler:</strong> Listens for <code>session.event</code> notifications from CLI</li>
+          <li><strong>Register request handlers:</strong> Listens for <code>session.toolCall</code>, <code>session.permissionRequest</code>, <code>session.userInputRequest</code>, <code>session.hooksInvoke</code> requests from CLI (protocol v2) or broadcast events (protocol v3)</li>
+          <li><strong>Verify protocol version:</strong> Issues <code>status.get</code> RPC, checks <code>protocolVersion &gt;= MIN_PROTOCOL_VERSION</code></li>
+          <li>State transitions to <code>"connected"</code></li>
+        </ol>
+
+        <h4>3b. Session registration (before RPC)</h4>
+        <ol>
+          <li>Generate UUID for <code>sessionId</code></li>
+          <li>Create <code>CopilotSession(sessionId, connection)</code> instance</li>
+          <li>Register tools, permission handler, user input handler, hooks on the session object</li>
+          <li>Register <code>onEvent</code> handler if provided</li>
+          <li>Add session to <code>client.sessions</code> map</li>
+        </ol>
+
+        <h4>3c. Session creation RPC</h4>
+        <ol>
+          <li>Issue <code>session.create</code> JSON-RPC request with full config payload</li>
+          <li>CLI server creates the session, returns <code>{ sessionId, workspacePath }</code></li>
+          <li>SDK stores <code>workspacePath</code> on the session object</li>
+        </ol>
+
+        <!-- Step 4 -->
+        <h3>Step 4: Event Subscription</h3>
+        <pre data-lang="typescript"><code class="language-typescript">session.on((event) =&gt; {
+    if (event.type === "assistant.message") {
+        console.log(event.data.content);
+    }
+});</code></pre>
+        <p>Registers a callback in the session's <code>eventHandlers</code> set. Supports:</p>
+        <ul>
+          <li><strong>Wildcard:</strong> <code>session.on(handler)</code> &mdash; receives all events</li>
+          <li><strong>Typed:</strong> <code>session.on("assistant.message", handler)</code> &mdash; receives only matching events (TypeScript only)</li>
+        </ul>
+        <p>Returns an unsubscribe function.</p>
+
+        <!-- Step 5 -->
+        <h3>Step 5: Send Message</h3>
+        <pre data-lang="typescript"><code class="language-typescript">const reply = await session.sendAndWait({ prompt: "Hello!" });</code></pre>
+        <ol>
+          <li>Register internal event handler (before send, to avoid race conditions)</li>
+          <li>Issue <code>session.send</code> RPC with <code>{ sessionId, prompt }</code></li>
+          <li>CLI processes the message, streams events back via <code>session.event</code> notifications</li>
+          <li>Events are dispatched to all registered handlers</li>
+          <li><strong>Tool calls (protocol v3):</strong> CLI broadcasts <code>external_tool.requested</code> event; SDK executes handler and responds via <code>session.tools.handlePendingToolCall</code></li>
+          <li><strong>Permission requests (protocol v3):</strong> CLI broadcasts <code>permission.requested</code> event; SDK executes handler and responds via <code>session.permissions.handlePendingPermissionRequest</code></li>
+          <li>Wait for <code>session.idle</code> event (or <code>session.error</code>)</li>
+          <li>Return the last <code>assistant.message</code> event</li>
+        </ol>
+
+        <!-- Step 6 -->
+        <h3>Step 6: Cleanup</h3>
+        <pre data-lang="typescript"><code class="language-typescript">await session.disconnect();
+await client.stop();</code></pre>
+        <ul>
+          <li><code>session.disconnect()</code>: Issues <code>session.destroy</code> RPC, clears handlers/tools/permissions</li>
+          <li><code>client.stop()</code>: Disconnects all sessions, closes JSON-RPC connection, terminates CLI process</li>
+        </ul>
+
+        <!-- Sequence Diagram as flow-vertical -->
+        <h3>Sequence Diagram (SDK &harr; CLI message flow)</h3>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">SDK / CLI Bootstrap Sequence</div>
+          <pre class="mermaid">
+sequenceDiagram
+    participant SDK as SDK Client
+    participant CLI as CLI Server
+    SDK->>CLI: spawn process (stdio pipes)
+    SDK->>CLI: status.get
+    CLI-->>SDK: {version, protocolVersion}
+    SDK->>CLI: session.create {config}
+    CLI-->>SDK: {sessionId, workspacePath}
+    SDK->>CLI: session.send {prompt}
+    CLI-->>SDK: session.event (streaming tokens)
+    CLI-->>SDK: session.event: tool.requested
+    SDK->>CLI: tools.handlePendingToolCall
+    CLI-->>SDK: session.event: permission.requested
+    SDK->>CLI: permissions.handlePendingPermission
+    CLI-->>SDK: session.event: idle
+    SDK->>CLI: session.destroy
+    CLI-->>SDK: ok
+          </pre>
+        </div>
+
+        <!-- ================================================================ -->
+        <!-- Appendix: Cross-SDK API Correspondence -->
+        <!-- ================================================================ -->
+        <h2 id="cross-sdk-api">Appendix: Cross-SDK API Correspondence</h2>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Cross-SDK API Correspondence</div>
+          <pre class="mermaid">
+flowchart LR
+    subgraph CONCEPT["&lt;b&gt;Concept&lt;/b&gt;"]
+        direction TB
+        C1["Client class&lt;br/&gt;Constructor&lt;br/&gt;Start&lt;br/&gt;Stop&lt;br/&gt;Create session&lt;br/&gt;Resume session&lt;br/&gt;Send message&lt;br/&gt;Send and wait&lt;br/&gt;Subscribe&lt;br/&gt;Disconnect&lt;br/&gt;Abort&lt;br/&gt;Set model&lt;br/&gt;Log&lt;br/&gt;Approve all&lt;br/&gt;Define tool&lt;br/&gt;Typed RPC"]
+    end
+    subgraph TS["&lt;b&gt;TypeScript&lt;/b&gt;"]
+        direction TB
+        TS1["CopilotClient&lt;br/&gt;new CopilotClient#40;opts?#41;&lt;br/&gt;await client.start#40;#41;&lt;br/&gt;await client.stop#40;#41;&lt;br/&gt;await client.createSession#40;cfg#41;&lt;br/&gt;await client.resumeSession#40;id, cfg#41;&lt;br/&gt;await session.send#40;opts#41;&lt;br/&gt;await session.sendAndWait#40;opts#41;&lt;br/&gt;session.on#40;handler#41;&lt;br/&gt;await session.disconnect#40;#41;&lt;br/&gt;await session.abort#40;#41;&lt;br/&gt;await session.setModel#40;id#41;&lt;br/&gt;await session.log#40;msg#41;&lt;br/&gt;approveAll&lt;br/&gt;defineTool#40;name, cfg#41;&lt;br/&gt;session.rpc.*"]
+    end
+    subgraph PY["&lt;b&gt;Python&lt;/b&gt;"]
+        direction TB
+        PY1["CopilotClient&lt;br/&gt;CopilotClient#40;opts?#41;&lt;br/&gt;await client.start#40;#41;&lt;br/&gt;await client.stop#40;#41;&lt;br/&gt;await client.create_session#40;cfg#41;&lt;br/&gt;await client.resume_session#40;id, cfg#41;&lt;br/&gt;await session.send#40;opts#41;&lt;br/&gt;await session.send_and_wait#40;opts#41;&lt;br/&gt;session.on#40;handler#41;&lt;br/&gt;await session.disconnect#40;#41;&lt;br/&gt;await session.abort#40;#41;&lt;br/&gt;await session.set_model#40;id#41;&lt;br/&gt;await session.log#40;msg#41;&lt;br/&gt;PermissionHandler.approve_all&lt;br/&gt;@define_tool#40;...#41;&lt;br/&gt;session.rpc.*"]
+    end
+    subgraph GO["&lt;b&gt;Go&lt;/b&gt;"]
+        direction TB
+        GO1["Client&lt;br/&gt;NewClient#40;opts*#41;&lt;br/&gt;client.Start#40;ctx#41;&lt;br/&gt;client.Stop#40;#41;&lt;br/&gt;client.CreateSession#40;ctx, cfg#41;&lt;br/&gt;client.ResumeSession#40;ctx, id, cfg#41;&lt;br/&gt;session.Send#40;ctx, opts#41;&lt;br/&gt;session.SendAndWait#40;ctx, opts#41;&lt;br/&gt;session.On#40;handler#41;&lt;br/&gt;session.Disconnect#40;#41;&lt;br/&gt;session.Abort#40;ctx#41;&lt;br/&gt;session.SetModel#40;ctx, id#41;&lt;br/&gt;session.Log#40;ctx, msg, opts#41;&lt;br/&gt;PermissionHandler.ApproveAll&lt;br/&gt;Tool#123;...#125; struct literal&lt;br/&gt;session.RPC.*"]
+    end
+    subgraph CS["&lt;b&gt;C#&lt;/b&gt;"]
+        direction TB
+        CS1["CopilotClient&lt;br/&gt;new CopilotClient#40;opts?#41;&lt;br/&gt;await client.StartAsync#40;#41;&lt;br/&gt;await client.StopAsync#40;#41;&lt;br/&gt;await client.CreateSessionAsync#40;cfg#41;&lt;br/&gt;await client.ResumeSessionAsync#40;id, cfg#41;&lt;br/&gt;await session.SendAsync#40;opts#41;&lt;br/&gt;await session.SendAndWaitAsync#40;opts#41;&lt;br/&gt;session.On#40;handler#41;&lt;br/&gt;await session.DisposeAsync#40;#41;&lt;br/&gt;await session.AbortAsync#40;#41;&lt;br/&gt;await session.SetModelAsync#40;id#41;&lt;br/&gt;await session.LogAsync#40;msg#41;&lt;br/&gt;PermissionHandler.ApproveAll&lt;br/&gt;AIFunctionFactory.Create#40;...#41;&lt;br/&gt;session.Rpc.*"]
+    end
+          </pre>
+        </div>
+
+      </div>
+      <nav class="page-nav">
+        <a href="03-tech-stack.html" class="page-nav-link prev">
+          <span class="page-nav-label">Previous</span>
+          <span class="page-nav-title">03 — Tech Stack</span>
+        </a>
+        <a href="05-architecture.html" class="page-nav-link next">
+          <span class="page-nav-label">Next</span>
+          <span class="page-nav-title">05 — Architecture &amp; Patterns</span>
+        </a>
+      </nav>
+    </main>
+  </div>
+  <button class="scroll-top" aria-label="Scroll to top">&#8593;</button>
+  <script src="app.js"></script>
+</body>
+</html>

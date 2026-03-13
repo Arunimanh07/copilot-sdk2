@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Testing - copilot-sdk Dissection</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/styles/github-dark-dimmed.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/go.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/csharp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect rx=%2715%27 width=%27100%27 height=%27100%27 fill=%27%230F172A%27/%3E%3Ctext x=%2750%27 y=%2770%27 font-size=%2750%27 text-anchor=%27middle%27 fill=%27%2322C55E%27%3E%26lt;/%26gt;%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <button class="sidebar-toggle">Menu</button>
+  <div class="page-wrapper">
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <h1>copilot-sdk</h1>
+        <div class="subtitle">Dissection Documentation</div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Foundation</div>
+        <a href="index.html" class="sidebar-link"><span class="link-num">00</span> Overview</a>
+        <a href="01-discovery.html" class="sidebar-link"><span class="link-num">01</span> Discovery</a>
+        <a href="02-structure.html" class="sidebar-link"><span class="link-num">02</span> Structure</a>
+        <a href="03-tech-stack.html" class="sidebar-link"><span class="link-num">03</span> Tech Stack</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Architecture</div>
+        <a href="04-entry-points.html" class="sidebar-link"><span class="link-num">04</span> Entry Points</a>
+        <a href="05-architecture.html" class="sidebar-link"><span class="link-num">05</span> Architecture</a>
+        <a href="06-data-flow.html" class="sidebar-link"><span class="link-num">06</span> Data Flow</a>
+        <a href="07-api-surface.html" class="sidebar-link"><span class="link-num">07</span> API Surface</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Implementation</div>
+        <a href="08-conventions.html" class="sidebar-link"><span class="link-num">08</span> Conventions</a>
+        <a href="09-testing.html" class="sidebar-link active"><span class="link-num">09</span> Testing</a>
+        <a href="10-build-deploy.html" class="sidebar-link"><span class="link-num">10</span> Build &amp; Deploy</a>
+        <a href="11-dependencies.html" class="sidebar-link"><span class="link-num">11</span> Dependencies</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Operations</div>
+        <a href="12-security.html" class="sidebar-link"><span class="link-num">12</span> Security</a>
+        <a href="13-contribution.html" class="sidebar-link"><span class="link-num">13</span> Contribution</a>
+      </div>
+    </nav>
+    <main class="main-content">
+      <div class="content-area">
+
+        <div class="phase-badge"><span class="dot"></span>Phase 9/13 &mdash; Testing</div>
+
+        <h1>Phase 9: Testing Infrastructure</h1>
+        <p>Comprehensive analysis of the testing infrastructure spanning <span class="lang-pill ts">TypeScript</span> <span class="lang-pill py">Python</span> <span class="lang-pill go">Go</span> <span class="lang-pill cs">C#</span> with a shared replay proxy architecture.</p>
+
+        <nav class="toc">
+          <h2>Table of Contents</h2>
+          <ol>
+            <li><a href="#s1">Testing Frameworks per Language</a></li>
+            <li><a href="#s2">Test Structure &mdash; Unit vs E2E</a></li>
+            <li><a href="#s3">Test Harness Architecture</a></li>
+            <li><a href="#s4">E2E Test Pattern</a></li>
+            <li><a href="#s5">Scenario Testing</a></li>
+            <li><a href="#s6">Snapshot Testing</a></li>
+            <li><a href="#s7">Test Categories</a></li>
+            <li><a href="#s8">CI Integration</a></li>
+            <li><a href="#s9">Test Utilities</a></li>
+            <li><a href="#s10">Coverage Analysis</a></li>
+            <li><a href="#s11">Architecture Diagram</a></li>
+            <li><a href="#s12">Key Design Decisions</a></li>
+          </ol>
+        </nav>
+
+        <!-- =============== Section 1: Testing Frameworks =============== -->
+        <section id="s1">
+          <h2>1. Testing Frameworks per Language</h2>
+
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Testing Frameworks per Language</div>
+            <pre class="mermaid">
+flowchart TD
+  SDK["copilot-sdk"] --> TS["TypeScript\nVitest"]
+  SDK --> PY["Python\npytest + pytest-asyncio"]
+  SDK --> GO["Go\ngo test"]
+  SDK --> CS["C#\nxUnit"]
+            </pre>
+          </div>
+
+          <h4><span class="lang-pill ts">TypeScript</span> Vitest</h4>
+          <p>Configuration: <code>nodejs/vitest.config.ts</code></p>
+          <pre data-lang="TypeScript"><code class="language-typescript">export default defineConfig({
+  test: {
+    globals: true,
+    environment: "node",
+    testTimeout: 30000,
+    hookTimeout: 30000,
+    teardownTimeout: 10000,
+    isolate: true,
+    pool: "forks",
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/*.d.ts",
+      "**/basic-test.ts",
+    ],
+  },
+});</code></pre>
+          <p>Key choices: 30-second timeout (generous for E2E), process forking for isolation, global test APIs enabled.</p>
+
+          <h4><span class="lang-pill py">Python</span> pytest + pytest-asyncio</h4>
+          <p>Configuration: <code>python/pyproject.toml</code> (lines 81-86)</p>
+          <pre data-lang="TOML"><code class="language-toml">[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+asyncio_mode = "auto"</code></pre>
+          <p>Dev dependencies: <code>pytest&gt;=7.0.0</code>, <code>pytest-asyncio&gt;=0.21.0</code>, <code>pytest-timeout&gt;=2.0.0</code>, <code>httpx&gt;=0.24.0</code>.</p>
+
+          <h4><span class="lang-pill go">Go</span> go test</h4>
+          <p>Standard <code>go test</code> framework. No special configuration &mdash; tests follow Go conventions with <code>_test.go</code> suffixes and <code>testing.T</code> parameters.</p>
+
+          <h4><span class="lang-pill cs">C#</span> xUnit</h4>
+          <p>Configuration: <code>dotnet/test/Harness/E2ETestBase.cs</code></p>
+          <pre data-lang="C#"><code class="language-csharp">public abstract class E2ETestBase
+  : IClassFixture&lt;E2ETestFixture&gt;,
+    IAsyncLifetime</code></pre>
+          <p>Uses <code>IClassFixture&lt;T&gt;</code> for shared context, <code>IAsyncLifetime</code> for async setup/teardown, and <code>Fact</code>/<code>Theory</code> attributes.</p>
+        </section>
+
+        <!-- =============== Section 2: Test Structure =============== -->
+        <section id="s2">
+          <h2>2. Test Structure &mdash; Unit Tests vs E2E Tests</h2>
+
+          <h3>Directory Layout</h3>
+          <pre data-lang="text"><code class="language-plaintext">copilot-sdk/
+  nodejs/
+    test/
+      client.test.ts              # Unit tests
+      e2e/
+        harness/
+          CapiProxy.ts            # Per-SDK proxy client
+          sdkTestContext.ts        # Test context
+          sdkTestHelper.ts        # Utility functions
+        session.test.ts           # E2E tests
+        hooks.test.ts
+        ... (20+ E2E test files)
+  python/
+    test_client.py                # Unit tests
+    test_jsonrpc.py
+    test_event_forward_compatibility.py
+    test_rpc_timeout.py
+    e2e/
+      conftest.py                 # Shared fixtures
+      testharness/
+        context.py / helper.py / proxy.py
+      test_session.py / test_hooks.py  ... (13+ files)
+  go/
+    client_test.go                # Unit tests
+    definetool_test.go / session_test.go / types_test.go
+    internal/e2e/
+      testharness/
+        context.go / helper.go / proxy.go
+      session_test.go / hooks_test.go  ... (14+ files)
+  dotnet/
+    test/
+      Harness/
+        E2ETestBase.cs / E2ETestContext.cs
+        E2ETestFixture.cs / TestHelper.cs
+      SessionTests.cs / HooksTests.cs  ... (17+ files)
+  test/                           # SHARED cross-language
+    harness/
+      server.ts / capturingHttpProxy.ts
+      replayingCapiProxy.ts / util.ts
+    snapshots/                    # YAML snapshot files
+    scenarios/                    # Polyglot scenario tests</code></pre>
+
+          <h3>Unit vs E2E Distinction</h3>
+          <div class="callout info">
+            <strong>Convention:</strong> <code>nodejs/test/client.test.ts</code> line 5: <em>"This file is for unit tests. Where relevant, prefer to add e2e tests in e2e/*.test.ts instead"</em>
+          </div>
+
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Aspect</th><th>Unit Tests</th><th>E2E Tests</th></tr></thead>
+            <tbody>
+              <tr><td>Location</td><td>SDK root (<code>nodejs/test/</code>, <code>python/test_*.py</code>, <code>go/*_test.go</code>)</td><td>Dedicated subdirs (<code>*/e2e/</code>, <code>dotnet/test/</code>)</td></tr>
+              <tr><td>What they test</td><td>Client construction, parameter validation, URL parsing</td><td>Full request/response flows with real session management</td></tr>
+              <tr><td>Dependencies</td><td>Mocks/spies (<code>vi.spyOn</code>), no external deps</td><td>Real CLI process + replaying HTTP proxy</td></tr>
+              <tr><td>Speed</td><td>Fast and deterministic</td><td>Slower, 30-second timeout</td></tr>
+              <tr><td>Snapshots</td><td>None</td><td>Shared YAML across all 4 languages</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+        </section>
+
+        <!-- =============== Section 3: Test Harness Architecture =============== -->
+        <section id="s3">
+          <h2>3. Test Harness Architecture</h2>
+          <p>The test harness is a layered system with a shared TypeScript server at the base and per-language wrapper clients on top.</p>
+
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Test Harness Architecture</div>
+            <pre class="mermaid">
+block-beta
+  columns 1
+  L5["Layer 5: Test Files\n22 E2E Vitest - 14 E2E pytest - 13 E2E go test - 17 E2E xUnit"]
+  L4["Layer 4: Per-Language Wrappers\nCapiProxy.ts - proxy.py - proxy.go - E2ETestContext.cs"]
+  L3["Layer 3: ReplayingCapiProxy\ntest/harness/replayingCapiProxy.ts lines 52-1059\nRecord/replay, YAML snapshots, normalization"]
+  L2["Layer 2: CapturingHttpProxy\ntest/harness/capturingHttpProxy.ts lines 11-206\nTransparent HTTP proxy: forwards and records"]
+  L1["Layer 1: Shared Proxy Server\ntest/harness/server.ts - Node.js HTTP server, random port\nEndpoints: POST /config - GET /exchanges - POST /stop"]
+  L5 --> L4 --> L3 --> L2 --> L1
+  style L5 fill:#7c3aed,color:#fff
+  style L4 fill:#6d28d9,color:#fff
+  style L3 fill:#5b21b6,color:#fff
+  style L2 fill:#4c1d95,color:#fff
+  style L1 fill:#3b0764,color:#fff
+            </pre>
+          </div>
+
+          <h3>Layer 1: Shared Proxy Server</h3>
+          <pre data-lang="TypeScript"><code class="language-typescript">// test/harness/server.ts (lines 1-13)
+const proxy = new ReplayingCapiProxy("https://api.githubcopilot.com");
+const proxyUrl = await proxy.start();
+console.log(`Listening: ${proxyUrl}`);</code></pre>
+          <p>Launched as a child process by each language's CapiProxy wrapper. Listens on random local port, prints <code>Listening: http://127.0.0.1:&lt;port&gt;</code> to stdout.</p>
+
+          <h4>Control Endpoints</h4>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>POST /config</code></td><td>Reconfigure for the next test (snapshot path, work dir)</td></tr>
+              <tr><td><code>GET /exchanges</code></td><td>Retrieve captured HTTP exchanges</td></tr>
+              <tr><td><code>POST /stop</code></td><td>Gracefully shut down (optionally skip cache writes)</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Layer 2: CapturingHttpProxy</h3>
+          <p><code>test/harness/capturingHttpProxy.ts</code> (lines 11-206) &mdash; Base class that acts as a transparent HTTP proxy:</p>
+          <ul>
+            <li>Starts <code>http.Server</code> on <code>127.0.0.1:0</code></li>
+            <li>Forwards requests to target URL (<code>https://api.githubcopilot.com</code>)</li>
+            <li>Records all request/response pairs as <code>CapturedExchange</code> objects</li>
+            <li>Handles streaming responses by forwarding chunks as they arrive</li>
+          </ul>
+
+          <h3>Layer 3: ReplayingCapiProxy</h3>
+          <p><code>test/harness/replayingCapiProxy.ts</code> (lines 52-1059) &mdash; Core of the entire test infrastructure.</p>
+
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">ReplayingCapiProxy Request Flow</div>
+            <pre class="mermaid">
+flowchart TD
+  A["Incoming Request"] --> B["Check snapshot cache"]
+  B --> C{"Match found?"}
+  C -->|Yes| D["Replay from YAML"]
+  C -->|No| E["Forward & Record"]
+            </pre>
+          </div>
+
+          <h3>Layer 4: Per-Language Wrappers</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Per-Language Wrappers</div>
+            <pre class="mermaid">
+flowchart LR
+  subgraph TypeScript
+    TS1["CapiProxy.ts\nSpawns via npx tsx, parses port"]
+    TS2["sdkTestContext.ts\nTemp dirs, config, proxy lifecycle"]
+  end
+  subgraph Python
+    PY1["proxy.py\nSpawns via subprocess, httpx"]
+    PY2["context.py\nAsync context manager, fixtures"]
+  end
+  subgraph Go
+    GO1["proxy.go\nSpawns via exec.Command, net/http"]
+    GO2["context.go\nTestMain setup, t.Cleanup teardown"]
+  end
+  subgraph CSharp["C#"]
+    CS1["E2ETestContext.cs\nSpawns via Process.Start, HttpClient"]
+    CS2["E2ETestBase.cs\nIAsyncLifetime fixture pattern"]
+  end
+            </pre>
+          </div>
+        </section>
+
+        <!-- =============== Section 4: E2E Test Pattern =============== -->
+        <section id="s4">
+          <h2>4. E2E Test Pattern</h2>
+
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">E2E Test Lifecycle</div>
+            <pre class="mermaid">
+flowchart TD
+  A["Test starts -- context.configureForTest#40;category, name#41;"] --> B["POST /config -- proxy loads snapshot YAML"]
+  B --> C["CopilotClient.createSession#40;#41; with proxy URL"]
+  C --> D["session.sendAndWait#40;prompt#41;"]
+  D --> E["CLI calls LLM API -- proxy intercepts & replays"]
+  E --> F["Assert on response / events / tool calls"]
+  F --> G["Teardown: session.disconnect#40;#41;, proxy.stop#40;#41;"]
+            </pre>
+          </div>
+
+          <h3>Environment Configuration</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Variable</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>GITHUB_COPILOT_CHAT_OVERRIDE_URL</code></td><td>Points CLI to the local replay proxy</td></tr>
+              <tr><td><code>GITHUB_TOKEN</code></td><td>Fake token (<code>ghu_test...</code>) for replay mode</td></tr>
+              <tr><td><code>COPILOT_CLI_PATH</code></td><td>Path to the Copilot CLI binary</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+        </section>
+
+        <!-- =============== Section 5: Scenario Testing =============== -->
+        <section id="s5">
+          <h2>5. Scenario Testing</h2>
+          <p>The <code>test/scenarios/</code> directory contains <strong>35 polyglot scenario tests</strong>, each implemented in all four languages.</p>
+
+          <h3>Scenario Structure</h3>
+          <pre data-lang="text"><code class="language-plaintext">test/scenarios/
+  01-basic-conversation/
+    typescript/ (package.json, index.ts)
+    python/     (main.py)
+    go/         (main.go)
+    dotnet/     (Program.cs, *.csproj)
+  02-tool-use/
+    typescript/ python/ go/ dotnet/
+  ...
+  35-advanced-hooks/
+    typescript/ python/ go/ dotnet/</code></pre>
+
+          <h3>Scenario Runner</h3>
+          <p><code>test/scenarios/verify.sh</code> &mdash; Runs all scenarios against a live CLI with real GitHub tokens. <strong>Not wired into CI</strong>.</p>
+
+          <div class="callout warning">
+            <strong>CI Limitation:</strong> The <code>scenario-builds.yml</code> workflow only verifies that scenarios <strong>compile</strong>, not that they <strong>run</strong>. The <code>verify.sh</code> runner requires real GitHub tokens and a live Copilot CLI.
+          </div>
+        </section>
+
+        <!-- =============== Section 6: Snapshot Testing =============== -->
+        <section id="s6">
+          <h2>6. Snapshot Testing</h2>
+
+          <h3>Snapshot File Format</h3>
+          <p>Each test has a corresponding YAML snapshot in <code>test/snapshots/</code>:</p>
+          <pre data-lang="YAML"><code class="language-yaml"># test/snapshots/session/basic_conversation.yaml
+exchanges:
+  - request:
+      method: POST
+      url: /chat/completions
+      headers:
+        content-type: application/json
+      body:
+        messages:
+          - role: system
+            content: "..."
+          - role: user
+            content: "What is 2+2?"
+    response:
+      status: 200
+      headers:
+        content-type: application/json
+      body:
+        choices:
+          - message:
+              role: assistant
+              content: "2+2 equals 4."</code></pre>
+
+          <h3>Snapshot Naming Convention</h3>
+          <pre data-lang="text"><code class="language-plaintext">test/snapshots/{category}/{test_name}.yaml
+# Examples:
+test/snapshots/session/basic_conversation.yaml
+test/snapshots/hooks/pre_tool_use_deny.yaml
+test/snapshots/permissions/approve_all.yaml</code></pre>
+
+          <h3>Normalization Pipeline</h3>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Normalization Pipeline</div>
+            <pre class="mermaid">
+flowchart TD
+  A["Raw HTTP request/response"] --> B["Strip volatile headers #40;Date, X-Request-Id#41;"]
+  B --> C["Normalize paths #40;OS-specific to forward slashes#41;"]
+  C --> D["Replace tool call IDs with deterministic placeholders"]
+  D --> E["Normalize timestamps to epoch"]
+  E --> F["Normalize shell names #40;PowerShell / bash#41;"]
+  F --> G["Deterministic, cross-platform snapshot"]
+            </pre>
+          </div>
+
+          <h3>Request Matching Logic</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Strategy</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td>Exact match</td><td>Method + URL + body deep-equals normalized snapshot</td></tr>
+              <tr><td>Prefix matching</td><td>For multi-turn: matches conversation as prefix of full exchange list</td></tr>
+              <tr><td>Fallback</td><td>If no match in replay mode &rarr; error (CI) or forward to real API (local dev)</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Corruption Prevention</h3>
+          <div class="callout error">
+            <strong>Safety:</strong> Snapshots are <strong>never written when tests fail</strong>, preventing storage of incorrect behavior. Python's <code>conftest.py</code> tracks failures via <code>item.session.stash</code>.
+          </div>
+        </section>
+
+        <!-- =============== Section 7: Test Categories =============== -->
+        <section id="s7">
+          <h2>7. Test Categories</h2>
+
+          <h3><span class="lang-pill ts">Node.js</span> E2E Tests (22 files)</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Test File</th><th>Focus Area</th></tr></thead>
+            <tbody>
+              <tr><td><code>session.test.ts</code></td><td>Session lifecycle (create, resume, abort, delete)</td></tr>
+              <tr><td><code>hooks.test.ts</code></td><td>Pre/post tool use hooks</td></tr>
+              <tr><td><code>hooks_extended.test.ts</code></td><td>Extended hooks (onError, onSessionEnd, etc.)</td></tr>
+              <tr><td><code>permissions.test.ts</code></td><td>Permission handling (approve, deny, async)</td></tr>
+              <tr><td><code>custom_tools.test.ts</code></td><td>Custom tool registration and execution</td></tr>
+              <tr><td><code>skills.test.ts</code></td><td>Skill invocation</td></tr>
+              <tr><td><code>ask_user.test.ts</code></td><td>User input handler</td></tr>
+              <tr><td><code>mcp.test.ts</code></td><td>MCP server integration</td></tr>
+              <tr><td><code>custom_agents.test.ts</code></td><td>Custom agent configuration</td></tr>
+              <tr><td><code>multi_client.test.ts</code></td><td>Multiple client instances</td></tr>
+              <tr><td><code>compaction.test.ts</code></td><td>Context compaction</td></tr>
+              <tr><td><code>streaming.test.ts</code></td><td>Streaming event fidelity</td></tr>
+              <tr><td><code>rpc.test.ts</code></td><td>Low-level RPC operations</td></tr>
+              <tr><td><code>builtin_tools.test.ts</code></td><td>Built-in tools (file ops, shell, grep)</td></tr>
+              <tr><td><code>event_fidelity.test.ts</code></td><td>Event field/ordering accuracy</td></tr>
+              <tr><td><code>error_resilience.test.ts</code></td><td>Error recovery and resilience</td></tr>
+              <tr><td><code>multi_turn.test.ts</code></td><td>Multi-turn conversations</td></tr>
+              <tr><td><code>tool_results.test.ts</code></td><td>Tool result handling</td></tr>
+              <tr><td><code>session_config.test.ts</code></td><td>Session configuration options</td></tr>
+              <tr><td><code>session_lifecycle.test.ts</code></td><td>Full session lifecycle</td></tr>
+              <tr><td><code>client_lifecycle.test.ts</code></td><td>Client start/stop/restart</td></tr>
+              <tr><td><code>resume_permissions.test.ts</code></td><td>Permissions on session resume</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3><span class="lang-pill py">Python</span> E2E Tests (14 files)</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Test File</th><th>Focus Area</th></tr></thead>
+            <tbody>
+              <tr><td><code>test_session.py</code></td><td>Session lifecycle</td></tr>
+              <tr><td><code>test_hooks.py</code></td><td>Pre/post tool use hooks</td></tr>
+              <tr><td><code>test_permissions.py</code></td><td>Permission handling</td></tr>
+              <tr><td><code>test_custom_tools.py</code></td><td>Custom tools</td></tr>
+              <tr><td><code>test_skills.py</code></td><td>Skills</td></tr>
+              <tr><td><code>test_ask_user.py</code></td><td>User input</td></tr>
+              <tr><td><code>test_mcp.py</code></td><td>MCP servers</td></tr>
+              <tr><td><code>test_custom_agents.py</code></td><td>Custom agents</td></tr>
+              <tr><td><code>test_multi_client.py</code></td><td>Multiple clients</td></tr>
+              <tr><td><code>test_compaction.py</code></td><td>Compaction</td></tr>
+              <tr><td><code>test_streaming.py</code></td><td>Streaming</td></tr>
+              <tr><td><code>test_rpc.py</code></td><td>RPC operations</td></tr>
+              <tr><td><code>test_client_lifecycle.py</code></td><td>Client lifecycle</td></tr>
+              <tr><td><code>test_resume_permissions.py</code></td><td>Resume permissions</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3><span class="lang-pill go">Go</span> E2E Tests (13 files) &amp; <span class="lang-pill cs">C#</span> E2E Tests (17 files)</h3>
+          <p>Both SDKs mirror the same test categories as Node.js and Python, with language-appropriate implementations.</p>
+        </section>
+
+        <!-- =============== Section 8: CI Integration =============== -->
+        <section id="s8">
+          <h2>8. CI Integration</h2>
+          <p>Six GitHub Actions workflows orchestrate the test suite:</p>
+
+          <h3>1. Node.js SDK Tests (<code>nodejs-sdk-tests.yml</code>)</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Aspect</th><th>Detail</th></tr></thead>
+            <tbody>
+              <tr><td>Triggers</td><td>Push to <code>main</code>, PRs touching <code>nodejs/**</code> or <code>test/**</code></td></tr>
+              <tr><td>Matrix</td><td><code>ubuntu-latest</code>, <code>macos-latest</code>, <code>windows-latest</code></td></tr>
+              <tr><td>Steps</td><td>Setup Node.js 22, <code>npm ci</code>, <code>npm run lint</code>, <code>npm run format:check</code>, <code>npm run build</code>, install harness deps, PowerShell warmup (Windows), <code>npm test</code></td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>2. Python SDK Tests (<code>python-sdk-tests.yml</code>)</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Aspect</th><th>Detail</th></tr></thead>
+            <tbody>
+              <tr><td>Triggers</td><td>Push to <code>main</code>, PRs touching <code>python/**</code> or <code>test/**</code></td></tr>
+              <tr><td>Matrix</td><td>3 OS &times; Python 3.10, 3.11, 3.12</td></tr>
+              <tr><td>Steps</td><td>Setup Python, Node.js 22, install deps, <code>ruff check</code>, <code>ruff format --check</code>, <code>pyright</code>, install harness deps, PowerShell warmup, <code>pytest</code></td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>3. Go SDK Tests (<code>go-sdk-tests.yml</code>)</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Aspect</th><th>Detail</th></tr></thead>
+            <tbody>
+              <tr><td>Triggers</td><td>Push to <code>main</code>, PRs touching <code>go/**</code> or <code>test/**</code></td></tr>
+              <tr><td>Matrix</td><td><code>ubuntu-latest</code>, <code>macos-latest</code>, <code>windows-latest</code></td></tr>
+              <tr><td>Steps</td><td>Setup Copilot CLI, Go 1.24, <code>go fmt</code> (Linux), <code>golangci-lint</code> (Linux), install harness deps, PowerShell warmup, <code>/bin/bash test.sh</code></td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>4. .NET SDK Tests (<code>dotnet-sdk-tests.yml</code>)</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Aspect</th><th>Detail</th></tr></thead>
+            <tbody>
+              <tr><td>Triggers</td><td>Push to <code>main</code>, PRs touching <code>dotnet/**</code> or <code>test/**</code></td></tr>
+              <tr><td>Matrix</td><td><code>ubuntu-latest</code>, <code>macos-latest</code>, <code>windows-latest</code></td></tr>
+              <tr><td>Steps</td><td>Setup .NET 10.0.x, Node.js 22, <code>dotnet restore</code>, <code>dotnet format --verify-no-changes</code> (Linux), <code>dotnet build</code>, install harness deps, PowerShell warmup, <code>dotnet test --no-build -v n</code></td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>5. Scenario Build Verification (<code>scenario-builds.yml</code>)</h3>
+          <p>Triggers on PRs/pushes touching <code>test/scenarios/**</code> or SDK source. Four parallel jobs:</p>
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Scenario Build Verification</div>
+            <pre class="mermaid">
+flowchart LR
+  TS["TS\nnpm install per scenario"]
+  PY["Py\npy_compile + import copilot"]
+  GO["Go\ngo build ./... per scenario"]
+  CS["C#\ndotnet build per scenario"]
+            </pre>
+          </div>
+
+          <h3>6. Codegen Check (<code>codegen-check.yml</code>)</h3>
+          <p>Validates that generated code is up-to-date.</p>
+
+          <h3>Common CI Patterns</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Pattern</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td>Three-OS matrix</td><td>Ubuntu, macOS, Windows &mdash; cross-platform compatibility</td></tr>
+              <tr><td>Test harness dependency install</td><td>All install <code>test/harness/</code> npm packages</td></tr>
+              <tr><td>PowerShell warmup on Windows</td><td>Avoids first-run delays during tests</td></tr>
+              <tr><td>Path-based triggers</td><td>Only run when relevant files change</td></tr>
+              <tr><td>Content read permissions only</td><td>Security-conscious permissions</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+        </section>
+
+        <!-- =============== Section 9: Test Utilities =============== -->
+        <section id="s9">
+          <h2>9. Test Utilities</h2>
+
+          <h3><span class="lang-pill ts">Node.js</span> Helpers</h3>
+          <p><code>nodejs/test/e2e/harness/sdkTestHelper.ts</code></p>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Function</th><th>Lines</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>getFinalAssistantMessage(session)</code></td><td>7-76</td><td>Races existing messages against future events for final assistant response</td></tr>
+              <tr><td><code>retry(message, fn, maxTries, delay)</code></td><td>78-99</td><td>Retries an async function up to N times with delay</td></tr>
+              <tr><td><code>formatError(error)</code></td><td>101-113</td><td>Safe error formatting (handles objects, circular refs)</td></tr>
+              <tr><td><code>getNextEventOfType(session, eventType)</code></td><td>115-130</td><td>Waits for a specific event type from a session stream</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3><span class="lang-pill py">Python</span> Helpers</h3>
+          <p><code>python/e2e/testharness/helper.py</code></p>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Function</th><th>Lines</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>get_final_assistant_message(session, timeout)</code></td><td>11-55</td><td>Async wait for final assistant message</td></tr>
+              <tr><td><code>_get_existing_final_response(session)</code></td><td>58-93</td><td>Check existing messages for completed response</td></tr>
+              <tr><td><code>write_file(work_dir, filename, content)</code></td><td>96-111</td><td>Write a file in the test work directory</td></tr>
+              <tr><td><code>read_file(work_dir, filename)</code></td><td>114-127</td><td>Read a file from the test work directory</td></tr>
+              <tr><td><code>get_next_event_of_type(session, event_type, timeout)</code></td><td>130-163</td><td>Wait for a specific event type</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3><span class="lang-pill go">Go</span> Helpers</h3>
+          <p><code>go/internal/e2e/testharness/helper.go</code></p>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Function</th><th>Lines</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>GetFinalAssistantMessage(ctx, session)</code></td><td>12-56</td><td>Wait for final assistant message using channels</td></tr>
+              <tr><td><code>GetNextEventOfType(session, eventType, timeout)</code></td><td>59-91</td><td>Wait for a specific event type</td></tr>
+              <tr><td><code>getExistingFinalResponse(ctx, session)</code></td><td>93-145</td><td>Check existing messages for completed response</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3><span class="lang-pill cs">C#</span> Helpers</h3>
+          <p><code>dotnet/test/Harness/TestHelper.cs</code></p>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Method</th><th>Lines</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>GetFinalAssistantMessageAsync(session, timeout)</code></td><td>9-53</td><td>Async wait with <code>TaskCompletionSource</code> and cancellation</td></tr>
+              <tr><td><code>GetExistingFinalResponseAsync(session)</code></td><td>55-75</td><td>Check existing messages</td></tr>
+              <tr><td><code>GetNextEventOfTypeAsync&lt;T&gt;(session, timeout)</code></td><td>77-100</td><td>Generic wait for typed events</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Shared Utilities</h3>
+          <p><code>test/harness/util.ts</code> (lines 1-35)</p>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Export</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>iife&lt;T&gt;(fn)</code></td><td>Immediately-invoked function expression wrapper</td></tr>
+              <tr><td><code>sleep(ms)</code></td><td>Promise-based sleep</td></tr>
+              <tr><td><code>ShellConfig.powerShell</code> / <code>.bash</code></td><td>Platform-specific shell tool name mappings for snapshot normalization</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Python conftest.py Fixtures</h3>
+          <p><code>python/e2e/conftest.py</code> (lines 1-47)</p>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Fixture/Hook</th><th>Scope</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>pytest_runtest_makereport</code></td><td>Hook</td><td>Tracks test failures via <code>item.session.stash</code> to prevent corrupted snapshot writes</td></tr>
+              <tr><td><code>ctx</code></td><td>Module</td><td>Creates and tears down <code>E2ETestContext</code> shared across all tests in a module</td></tr>
+              <tr><td><code>configure_test</code></td><td>Function (autouse)</td><td>Automatically configures the proxy for each test based on module and test name</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>C# Test Base</h3>
+          <p><code>dotnet/test/Harness/E2ETestBase.cs</code> (lines 13-79) &mdash; The <code>E2ETestBase</code> abstract class provides:</p>
+          <ul>
+            <li><code>Ctx</code> and <code>Client</code> properties from the shared fixture</li>
+            <li><code>InitializeAsync()</code> that calls <code>ConfigureForTestAsync</code></li>
+            <li><code>CreateSessionAsync()</code> / <code>ResumeSessionAsync()</code> convenience methods (default approve-all)</li>
+            <li><code>GetSystemMessage()</code> / <code>GetToolNames()</code> helpers for exchange inspection</li>
+          </ul>
+
+          <p><code>dotnet/test/Harness/E2ETestFixture.cs</code> (lines 10-30) &mdash; xUnit <code>IAsyncLifetime</code> fixture:</p>
+          <ul>
+            <li>Creates <code>E2ETestContext</code> and <code>CopilotClient</code> on initialize</li>
+            <li>Calls <code>ForceStopAsync()</code> and <code>DisposeAsync()</code> on teardown</li>
+          </ul>
+        </section>
+
+        <!-- =============== Section 10: Coverage Analysis =============== -->
+        <section id="s10">
+          <h2>10. Coverage Analysis</h2>
+
+          <h3>Well-Tested Areas</h3>
+          <ul>
+            <li><strong>Session lifecycle</strong>: Comprehensive coverage across all 4 SDKs (create, resume, abort, delete, stateful conversation)</li>
+            <li><strong>Permission handling</strong>: Approve, deny, async handlers, error cases, resume with permissions</li>
+            <li><strong>Tool use hooks</strong>: Pre/post tool use, deny behavior, both hooks combined</li>
+            <li><strong>Client construction and validation</strong>: URL parsing, auth options, mutual exclusivity checks</li>
+            <li><strong>Custom tools and agents</strong>: Registration, MCP server configuration, custom agent setup</li>
+            <li><strong>Multi-client scenarios</strong>: Tool registration across clients, permission handling, event visibility</li>
+            <li><strong>Streaming and event fidelity</strong>: Event ordering, field correctness, streaming chunk accuracy</li>
+            <li><strong>Cross-platform</strong>: All E2E tests run on Linux, macOS, and Windows in CI</li>
+            <li><strong>Cross-SDK snapshot sharing</strong>: All 4 languages share the same YAML snapshots</li>
+          </ul>
+
+          <h3>Potential Gaps</h3>
+          <div class="callout warning">
+            <strong>11 potential coverage gaps identified:</strong>
+          </div>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>#</th><th>Gap</th><th>Details</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>C# unit tests</td><td>.NET SDK has only E2E tests, no pure unit tests (unlike TS, Python, Go)</td></tr>
+              <tr><td>2</td><td>Error resilience</td><td>Only Node.js has <code>error_resilience.test.ts</code></td></tr>
+              <tr><td>3</td><td>Built-in tools</td><td>Only Node.js tests file ops, shell, grep, find</td></tr>
+              <tr><td>4</td><td>Event fidelity</td><td>Only Node.js has <code>event_fidelity.test.ts</code></td></tr>
+              <tr><td>5</td><td>Extended hooks</td><td>Only Node.js tests onErrorOccurred, onSessionEnd, etc.</td></tr>
+              <tr><td>6</td><td>Multi-turn</td><td>Only Node.js has <code>multi_turn.test.ts</code></td></tr>
+              <tr><td>7</td><td>Session config/lifecycle</td><td>Node.js has separate files; others may subsume them</td></tr>
+              <tr><td>8</td><td>Tool results</td><td>Only Node.js has <code>tool_results.test.ts</code></td></tr>
+              <tr><td>9</td><td>Scenario execution</td><td>CI only verifies compile, not run</td></tr>
+              <tr><td>10</td><td>Harness self-tests</td><td>Edge cases not assessed</td></tr>
+              <tr><td>11</td><td>Snapshot staleness</td><td>No automated orphaned snapshot detection</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+
+          <h3>Cross-SDK Test Parity Summary</h3>
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>Test Category</th><th><span class="lang-pill ts">TS</span></th><th><span class="lang-pill py">Py</span></th><th><span class="lang-pill go">Go</span></th><th><span class="lang-pill cs">C#</span></th></tr></thead>
+            <tbody>
+              <tr><td>Session management</td><td>Y</td><td>Y</td><td>Y</td><td>Y</td></tr>
+              <tr><td>Client lifecycle</td><td>Y</td><td>Y</td><td>Y</td><td>Y</td></tr>
+              <tr><td>Hooks (pre/post tool)</td><td>Y</td><td>Y</td><td>Y</td><td>Y</td></tr>
+              <tr><td>Extended hooks</td><td>Y</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td></tr>
+              <tr><td>Permissions</td><td>Y</td><td>Y</td><td>Y</td><td>Y</td></tr>
+              <tr><td>Custom tools</td><td>Y</td><td>Y</td><td>Y</td><td>Y</td></tr>
+              <tr><td>Skills</td><td>Y</td><td>Y</td><td>Y</td><td>Y</td></tr>
+              <tr><td>Ask user</td><td>Y</td><td>Y</td><td>Y</td><td>Y</td></tr>
+              <tr><td>MCP + agents</td><td>Y</td><td>Y</td><td>Y</td><td>Y</td></tr>
+              <tr><td>Multi-client</td><td>Y</td><td>Y</td><td>Y</td><td>Y</td></tr>
+              <tr><td>Compaction</td><td>Y</td><td>Y</td><td>Y</td><td>Y</td></tr>
+              <tr><td>Streaming fidelity</td><td>Y</td><td>Y</td><td>Y</td><td>Y</td></tr>
+              <tr><td>RPC</td><td>Y</td><td>Y</td><td>Y</td><td>Y</td></tr>
+              <tr><td>Built-in tools</td><td>Y</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td></tr>
+              <tr><td>Event fidelity</td><td>Y</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td></tr>
+              <tr><td>Error resilience</td><td>Y</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td></tr>
+              <tr><td>Multi-turn</td><td>Y</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td></tr>
+              <tr><td>Tool results</td><td>Y</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td></tr>
+              <tr><td>Unit tests</td><td>Y (1)</td><td>Y (4)</td><td>Y (4+2)</td><td>Partial</td></tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+          <p><strong>Legend:</strong> Y = has dedicated test file, &ndash; = no dedicated test file (may be partially covered elsewhere)</p>
+        </section>
+
+        <!-- =============== Section 11: Architecture Diagram =============== -->
+        <section id="s11">
+          <h2>11. Architecture Diagram</h2>
+
+          <div class="mermaid-wrapper">
+            <div class="diagram-title">Test Architecture Overview</div>
+            <pre class="mermaid">
+flowchart TD
+  SNAP["test/snapshots/*.yaml\n#40;shared across all SDKs#41;"]
+  SNAP --> HARNESS["test/harness/\nserver.ts - replayingCapiProxy.ts"]
+  SNAP --> SCENARIOS["test/scenarios/\n35 scenarios x 4 langs"]
+
+  HARNESS --> TS_W["Node.js\nCapiProxy - Context - Helper"]
+  HARNESS --> PY_W["Python\nproxy - context - helper"]
+  HARNESS --> GO_W["Go\nproxy - context - helper"]
+  HARNESS --> CS_W["C#\nContext - Base - Helper"]
+
+  TS_W --> TS_E["22 E2E #40;Vitest#41;"]
+  PY_W --> PY_E["14 E2E #40;pytest#41;"]
+  GO_W --> GO_E["13 E2E #40;go test#41;"]
+  CS_W --> CS_E["17 E2E #40;xUnit#41;"]
+            </pre>
+          </div>
+        </section>
+
+        <!-- =============== Section 12: Key Design Decisions =============== -->
+        <section id="s12">
+          <h2>12. Key Design Decisions</h2>
+
+          <div class="table-wrapper">
+<table>
+            <thead><tr><th>#</th><th>Decision</th><th>Rationale</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td><strong>Single shared proxy server in TypeScript</strong></td>
+                <td>Rather than implementing proxy/replay logic in each language, a single Node.js server handles all complexity. Language-specific wrappers are thin HTTP clients (~50-100 lines each).</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td><strong>YAML snapshots as the source of truth</strong></td>
+                <td>All SDKs share the same snapshots, ensuring behavioral consistency. A snapshot captured by one SDK can be replayed for another.</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td><strong>Record-then-replay pattern</strong></td>
+                <td>Developers run tests locally to capture new snapshots against real APIs. CI replays without real API access, using fake tokens.</td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td><strong>Extensive normalization</strong></td>
+                <td>System messages, paths, tool call IDs, timestamps, and shell-specific names are all normalized, making snapshots deterministic and cross-platform.</td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td><strong>Fail-fast in CI</strong></td>
+                <td>No silent fallback to live APIs in CI. Missing snapshots produce GitHub Actions error annotations with file/line references.</td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td><strong>Prefix matching for multi-turn</strong></td>
+                <td>A single YAML conversation captures the full multi-turn exchange. The proxy matches requests as conversation prefixes.</td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td><strong>Corruption prevention</strong></td>
+                <td>Snapshots are not written when tests fail, avoiding storage of incorrect behavior.</td>
+              </tr>
+            </tbody>
+          </table>
+</div><!-- /table-wrapper -->
+        </section>
+
+      </div>
+      <nav class="page-nav">
+        <a href="08-conventions.html" class="page-nav-link prev">
+          <span class="page-nav-label">Previous</span>
+          <span class="page-nav-title">08 — Conventions</span>
+        </a>
+        <a href="10-build-deploy.html" class="page-nav-link next">
+          <span class="page-nav-label">Next</span>
+          <span class="page-nav-title">10 — Build &amp; Deploy</span>
+        </a>
+      </nav>
+    </main>
+  </div>
+
+  <button class="scroll-top" title="Back to top">&uarr;</button>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Structure - copilot-sdk Dissection</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/styles/github-dark-dimmed.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/go.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/csharp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect rx=%2715%27 width=%27100%27 height=%27100%27 fill=%27%230F172A%27/%3E%3Ctext x=%2750%27 y=%2770%27 font-size=%2750%27 text-anchor=%27middle%27 fill=%27%2322C55E%27%3E%26lt;/%26gt;%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <button class="sidebar-toggle">Menu</button>
+  <div class="page-wrapper">
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <h1>copilot-sdk</h1>
+        <div class="subtitle">Dissection Documentation</div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Foundation</div>
+        <a href="index.html" class="sidebar-link"><span class="link-num">00</span> Overview</a>
+        <a href="01-discovery.html" class="sidebar-link"><span class="link-num">01</span> Discovery</a>
+        <a href="02-structure.html" class="sidebar-link"><span class="link-num">02</span> Structure</a>
+        <a href="03-tech-stack.html" class="sidebar-link"><span class="link-num">03</span> Tech Stack</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Architecture</div>
+        <a href="04-entry-points.html" class="sidebar-link"><span class="link-num">04</span> Entry Points</a>
+        <a href="05-architecture.html" class="sidebar-link"><span class="link-num">05</span> Architecture</a>
+        <a href="06-data-flow.html" class="sidebar-link"><span class="link-num">06</span> Data Flow</a>
+        <a href="07-api-surface.html" class="sidebar-link"><span class="link-num">07</span> API Surface</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Implementation</div>
+        <a href="08-conventions.html" class="sidebar-link"><span class="link-num">08</span> Conventions</a>
+        <a href="09-testing.html" class="sidebar-link"><span class="link-num">09</span> Testing</a>
+        <a href="10-build-deploy.html" class="sidebar-link"><span class="link-num">10</span> Build &amp; Deploy</a>
+        <a href="11-dependencies.html" class="sidebar-link"><span class="link-num">11</span> Dependencies</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Operations</div>
+        <a href="12-security.html" class="sidebar-link"><span class="link-num">12</span> Security</a>
+        <a href="13-contribution.html" class="sidebar-link"><span class="link-num">13</span> Contribution</a>
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <div class="content-area">
+
+        <!-- Phase badge -->
+        <div class="phase-badge"><span class="dot"></span> Phase 2/13</div>
+
+        <h1>Phase 2: Structure</h1>
+        <p>Structure complete &mdash; <strong>4-SDK mirror pattern</strong>, contract-first polyglot architecture.</p>
+
+        <!-- Stats overview -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value">4</div>
+            <div class="stat-label">Language SDKs</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">8</div>
+            <div class="stat-label">Top-Level Modules</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">20</div>
+            <div class="stat-label">CI/CD Workflows</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">30</div>
+            <div class="stat-label">Scenario Templates</div>
+          </div>
+        </div>
+
+        <!-- Table of Contents -->
+        <nav class="toc">
+          <div class="toc-title">On This Page</div>
+          <ul class="toc-list">
+            <li><a href="#directory-tree"><span class="toc-num">1</span> Directory Tree</a></li>
+            <li><a href="#module-map"><span class="toc-num">2</span> Module Map</a></li>
+            <li><a href="#sdk-mirror-pattern"><span class="toc-num">3</span> SDK Mirror Pattern</a></li>
+            <li><a href="#dependency-graph"><span class="toc-num">4</span> Dependency Graph Between Modules</a></li>
+            <li><a href="#architecture-patterns"><span class="toc-num">5</span> Architecture Pattern Detection</a></li>
+            <li><a href="#key-structural-files"><span class="toc-num">6</span> Key Structural Files</a></li>
+          </ul>
+        </nav>
+
+        <!-- ============================================================ -->
+        <!-- 1. Directory Tree -->
+        <!-- ============================================================ -->
+        <h2 id="directory-tree">1. Directory Tree (Top 3&ndash;4 levels, annotated)</h2>
+
+        <pre data-lang="tree"><code class="language-plaintext">copilot-sdk/
+&#9474;
+&#9500;&#9472;&#9472; justfile                          # Polyglot task runner: format, lint, test, install, codegen
+&#9500;&#9472;&#9472; sdk-protocol-version.json         # Single source of truth for protocol version (currently 3)
+&#9500;&#9472;&#9472; README.md / CHANGELOG.md / CONTRIBUTING.md / LICENSE
+&#9474;
+&#9500;&#9472;&#9472; nodejs/                           # &#9472;&#9472; TypeScript/Node.js SDK &#9472;&#9472;
+&#9474;   &#9500;&#9472;&#9472; package.json                  #   npm: &quot;@github/copilot-sdk&quot;
+&#9474;   &#9500;&#9472;&#9472; tsconfig.json / vitest.config.ts / eslint.config.js
+&#9474;   &#9500;&#9472;&#9472; esbuild-copilotsdk-nodejs.ts  #   Custom esbuild bundler
+&#9474;   &#9500;&#9472;&#9472; src/
+&#9474;   &#9474;   &#9500;&#9472;&#9472; index.ts                  #     Public API barrel export
+&#9474;   &#9474;   &#9500;&#9472;&#9472; client.ts                 #     CopilotClient (JSON-RPC connection mgmt)
+&#9474;   &#9474;   &#9500;&#9472;&#9472; session.ts                #     CopilotSession (conversation lifecycle)
+&#9474;   &#9474;   &#9500;&#9472;&#9472; types.ts                  #     Handwritten type definitions
+&#9474;   &#9474;   &#9500;&#9472;&#9472; extension.ts              #     joinSession() for child-process extensions
+&#9474;   &#9474;   &#9500;&#9472;&#9472; sdkProtocolVersion.ts     #     [GENERATED] Protocol version constant
+&#9474;   &#9474;   &#9492;&#9472;&#9472; generated/
+&#9474;   &#9474;       &#9500;&#9472;&#9472; rpc.ts                #     [GENERATED] Typed JSON-RPC method stubs
+&#9474;   &#9474;       &#9492;&#9472;&#9472; session-events.ts     #     [GENERATED] Session event type definitions
+&#9474;   &#9500;&#9472;&#9472; test/e2e/                     #   End-to-end tests
+&#9474;   &#9474;   &#9492;&#9472;&#9472; harness/                  #   Node.js-specific E2E harness wrappers
+&#9474;   &#9500;&#9472;&#9472; samples/ / scripts/ / docs/ / examples/
+&#9474;
+&#9500;&#9472;&#9472; python/                           # &#9472;&#9472; Python SDK &#9472;&#9472;
+&#9474;   &#9500;&#9472;&#9472; pyproject.toml                #   PyPI: &quot;github-copilot-sdk&quot;
+&#9474;   &#9500;&#9472;&#9472; copilot/
+&#9474;   &#9474;   &#9500;&#9472;&#9472; __init__.py               #     Public API exports
+&#9474;   &#9474;   &#9500;&#9472;&#9472; client.py                 #     CopilotClient (subprocess + JSON-RPC)
+&#9474;   &#9474;   &#9500;&#9472;&#9472; session.py                #     CopilotSession (conversation lifecycle)
+&#9474;   &#9474;   &#9500;&#9472;&#9472; types.py                  #     Handwritten types (Pydantic models)
+&#9474;   &#9474;   &#9500;&#9472;&#9472; tools.py                  #     define_tool() helper
+&#9474;   &#9474;   &#9500;&#9472;&#9472; jsonrpc.py                #     Custom async JSON-RPC 2.0 client (stdio)
+&#9474;   &#9474;   &#9492;&#9472;&#9472; generated/               #     [GENERATED] rpc.py, session_events.py
+&#9474;   &#9500;&#9472;&#9472; e2e/testharness/              #   Python-specific E2E harness
+&#9474;   &#9500;&#9472;&#9472; test_*.py                     #   Unit tests (pytest)
+&#9474;
+&#9500;&#9472;&#9472; go/                               # &#9472;&#9472; Go SDK &#9472;&#9472;
+&#9474;   &#9500;&#9472;&#9472; go.mod                        #   Module: github.com/github/copilot-sdk/go
+&#9474;   &#9500;&#9472;&#9472; client.go                     #   CopilotClient (process mgmt + JSON-RPC)
+&#9474;   &#9500;&#9472;&#9472; session.go                    #   CopilotSession
+&#9474;   &#9500;&#9472;&#9472; types.go                      #   Handwritten types
+&#9474;   &#9500;&#9472;&#9472; definetool.go                 #   DefineTool() with JSON Schema generation
+&#9474;   &#9500;&#9472;&#9472; permissions.go                #   PermissionHandler.ApproveAll
+&#9474;   &#9500;&#9472;&#9472; process_windows.go            #   Platform-specific process mgmt (Windows)
+&#9474;   &#9500;&#9472;&#9472; process_other.go              #   Platform-specific process mgmt (Unix)
+&#9474;   &#9500;&#9472;&#9472; rpc/generated_rpc.go          #   [GENERATED] Typed RPC method bindings
+&#9474;   &#9500;&#9472;&#9472; generated_session_events.go   #   [GENERATED] Session event structs
+&#9474;   &#9500;&#9472;&#9472; internal/
+&#9474;   &#9474;   &#9500;&#9472;&#9472; jsonrpc2/                 #   Custom JSON-RPC 2.0 implementation
+&#9474;   &#9474;   &#9500;&#9472;&#9472; embeddedcli/              #   Embedded CLI binary management
+&#9474;   &#9474;   &#9500;&#9472;&#9472; flock/                    #   Cross-platform file locking
+&#9474;   &#9474;   &#9492;&#9472;&#9472; e2e/testharness/          #   Go-specific E2E harness
+&#9474;   &#9500;&#9472;&#9472; embeddedcli/ / cmd/bundler/   #   Public CLI installer + bundler tool
+&#9474;
+&#9500;&#9472;&#9472; dotnet/                           # &#9472;&#9472; .NET (C#) SDK &#9472;&#9472;
+&#9474;   &#9500;&#9472;&#9472; GitHub.Copilot.SDK.slnx       #   Solution file
+&#9474;   &#9500;&#9472;&#9472; Directory.Build.props / Directory.Packages.props / nuget.config
+&#9474;   &#9500;&#9472;&#9472; src/
+&#9474;   &#9474;   &#9500;&#9472;&#9472; GitHub.Copilot.SDK.csproj #   NuGet: &quot;GitHub.Copilot.SDK&quot;
+&#9474;   &#9474;   &#9500;&#9472;&#9472; Client.cs                 #   CopilotClient (process + StreamJsonRpc)
+&#9474;   &#9474;   &#9500;&#9472;&#9472; Session.cs                #   CopilotSession
+&#9474;   &#9474;   &#9500;&#9472;&#9472; Types.cs                  #   Handwritten types
+&#9474;   &#9474;   &#9500;&#9472;&#9472; PermissionHandlers.cs     #   PermissionHandler.ApproveAll
+&#9474;   &#9474;   &#9500;&#9472;&#9472; build/GitHub.Copilot.SDK.targets  # MSBuild targets for CLI bundling
+&#9474;   &#9474;   &#9492;&#9472;&#9472; Generated/               #   [GENERATED] Rpc.cs, SessionEvents.cs
+&#9474;   &#9492;&#9472;&#9472; test/Harness/                 #   E2E harness (CapiProxy, TestContext, etc.)
+&#9474;
+&#9500;&#9472;&#9472; scripts/                          # &#9472;&#9472; Shared Build Infrastructure &#9472;&#9472;
+&#9474;   &#9500;&#9472;&#9472; codegen/                      #   Code generation from JSON Schema &#8594; all 4 SDKs
+&#9474;   &#9474;   &#9500;&#9472;&#9472; utils.ts                  #     Schema loading, processing, shared utilities
+&#9474;   &#9474;   &#9500;&#9472;&#9472; typescript.ts / python.ts / go.ts / csharp.ts
+&#9474;   &#9492;&#9472;&#9472; docs-validation/              #   Documentation code-example validator
+&#9474;       &#9500;&#9472;&#9472; extract.ts / validate.ts
+&#9474;
+&#9500;&#9472;&#9472; test/                             # &#9472;&#9472; Shared Test Infrastructure &#9472;&#9472;
+&#9474;   &#9500;&#9472;&#9472; harness/                      #   Cross-language E2E test harness (TypeScript)
+&#9474;   &#9474;   &#9500;&#9472;&#9472; replayingCapiProxy.ts     #     Record/replay CAPI HTTP proxy
+&#9474;   &#9474;   &#9500;&#9472;&#9472; capturingHttpProxy.ts     #     Low-level HTTP interception
+&#9474;   &#9474;   &#9500;&#9472;&#9472; server.ts                 #     Proxy server entry point
+&#9474;   &#9474;   &#9492;&#9472;&#9472; test-mcp-server.mjs       #     Mock MCP server for tool tests
+&#9474;   &#9500;&#9472;&#9472; scenarios/                    #   Cross-language E2E scenario tests
+&#9474;   &#9474;   &#9500;&#9472;&#9472; auth/ bundling/ callbacks/ modes/ prompts/ sessions/ tools/ transport/
+&#9474;   &#9492;&#9472;&#9472; snapshots/                    #   Recorded YAML test replay data
+&#9474;
+&#9500;&#9472;&#9472; docs/                             # &#9472;&#9472; Documentation &#9472;&#9472;
+&#9474;   &#9500;&#9472;&#9472; setup/ auth/ features/ hooks/ integrations/ observability/ troubleshooting/
+&#9474;
+&#9492;&#9472;&#9472; .github/                          # &#9472;&#9472; CI/CD &amp; GitHub Configuration &#9472;&#9472;
+    &#9500;&#9472;&#9472; workflows/ (20 files)         #   Per-SDK tests, codegen check, publish, agentic workflows
+    &#9500;&#9472;&#9472; actions/setup-copilot/        #   Composite action: install deps + expose CLI path
+    &#9500;&#9472;&#9472; agents/                       #   Copilot agent definitions (.agent.md)
+    &#9492;&#9472;&#9472; aw/                           #   Agentic workflow definitions + schemas</code></pre>
+
+        <!-- ============================================================ -->
+        <!-- 2. Module Map -->
+        <!-- ============================================================ -->
+        <h2 id="module-map">2. Module Map</h2>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Directory</th>
+                <th>Role</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="file-ref">nodejs/</span></td>
+                <td><strong>Primary SDK</strong> &mdash; houses <span class="file-ref">@github/copilot</span> dependency providing CLI binary + JSON Schemas all SDKs consume. Published to npm.</td>
+              </tr>
+              <tr>
+                <td><span class="file-ref">python/</span></td>
+                <td><strong>Python SDK</strong> &mdash; async client using <code>asyncio</code> + subprocess stdio. Own JSON-RPC impl (<span class="file-ref">jsonrpc.py</span>). Published to PyPI.</td>
+              </tr>
+              <tr>
+                <td><span class="file-ref">go/</span></td>
+                <td><strong>Go SDK</strong> &mdash; pure Go with custom JSON-RPC 2.0. Platform-specific process code. CLI bundler tool. Published as Go module.</td>
+              </tr>
+              <tr>
+                <td><span class="file-ref">dotnet/</span></td>
+                <td><strong>C#/.NET SDK</strong> &mdash; uses <code>StreamJsonRpc</code>. MSBuild targets for auto CLI bundling. Published to NuGet.</td>
+              </tr>
+              <tr>
+                <td><span class="file-ref">scripts/</span></td>
+                <td><strong>Shared codegen</strong> &mdash; TypeScript-based, reads JSON Schemas from <span class="file-ref">@github/copilot</span>, emits typed code into all 4 SDKs.</td>
+              </tr>
+              <tr>
+                <td><span class="file-ref">test/</span></td>
+                <td><strong>Shared test infra</strong> &mdash; Replaying HTTP proxy, 30 cross-language scenario templates, YAML snapshots.</td>
+              </tr>
+              <tr>
+                <td><span class="file-ref">docs/</span></td>
+                <td><strong>Unified docs</strong> &mdash; polyglot guides with machine-validated code examples.</td>
+              </tr>
+              <tr>
+                <td><span class="file-ref">.github/</span></td>
+                <td><strong>CI/CD</strong> &mdash; per-language tests, codegen verification, multi-registry publish, agentic workflows.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- 3. SDK Mirror Pattern -->
+        <!-- ============================================================ -->
+        <h2 id="sdk-mirror-pattern">3. SDK Mirror Pattern</h2>
+        <p>The four SDKs follow a rigorous structural mirror with idiomatic naming:</p>
+
+        <!-- 3a. Core Source Files -->
+        <h3 id="core-source-files">Core Source Files</h3>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Core Source Files &mdash; 4-SDK Mirror</div>
+          <pre class="mermaid">
+flowchart LR
+  subgraph Concepts[" "]
+    direction TB
+    C1["Client"]
+    C2["Session"]
+    C3["Types"]
+    C4["Public API"]
+    C5["Protocol ver."]
+    C6["Tool helper"]
+    C7["Permissions"]
+  end
+  subgraph TS["TypeScript"]
+    direction TB
+    T1["src/client.ts"]
+    T2["src/session.ts"]
+    T3["src/types.ts"]
+    T4["src/index.ts"]
+    T5["sdkProtocolVersion.ts"]
+    T6["types.ts defineTool"]
+    T7["types.ts approveAll"]
+  end
+  subgraph PY["Python"]
+    direction TB
+    P1["copilot/client.py"]
+    P2["copilot/session.py"]
+    P3["copilot/types.py"]
+    P4["copilot/__init__.py"]
+    P5["sdk_protocol_version.py"]
+    P6["tools.py define_tool"]
+    P7["types.py"]
+  end
+  subgraph GO["Go"]
+    direction TB
+    G1["client.go"]
+    G2["session.go"]
+    G3["types.go"]
+    G4["package-level"]
+    G5["sdk_protocol_version.go"]
+    G6["definetool.go DefineTool"]
+    G7["permissions.go"]
+  end
+  subgraph CS["C#"]
+    direction TB
+    S1["src/Client.cs"]
+    S2["src/Session.cs"]
+    S3["src/Types.cs"]
+    S4["namespace"]
+    S5["SdkProtocolVersion.cs"]
+    S6["inline Types.cs"]
+    S7["PermissionHandlers.cs"]
+  end
+  C1 --- T1 & P1 & G1 & S1
+  C2 --- T2 & P2 & G2 & S2
+  C3 --- T3 & P3 & G3 & S3
+  C4 --- T4 & P4 & G4 & S4
+  C5 --- T5 & P5 & G5 & S5
+  C6 --- T6 & P6 & G6 & S6
+  C7 --- T7 & P7 & G7 & S7
+          </pre>
+        </div>
+
+        <!-- 3b. Generated Files -->
+        <h3 id="generated-files">Generated Files (all from same JSON Schemas via <span class="file-ref">scripts/codegen/</span>)</h3>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Generated Artifacts &mdash; Schema-Driven Code Generation</div>
+          <pre class="mermaid">
+flowchart TD
+  Schema["JSON Schemas&lt;br/&gt;scripts/codegen/"] --> TS & PY & GO & CS
+  subgraph TS["TypeScript"]
+    T1["generated/rpc.ts"]
+    T2["generated/session-events.ts"]
+  end
+  subgraph PY["Python"]
+    P1["generated/rpc.py"]
+    P2["generated/session_events.py"]
+  end
+  subgraph GO["Go"]
+    G1["rpc/generated_rpc.go"]
+    G2["generated_session_events.go"]
+  end
+  subgraph CS["C#"]
+    S1["Generated/Rpc.cs"]
+    S2["Generated/SessionEvents.cs"]
+  end
+          </pre>
+        </div>
+
+        <!-- 3c. E2E Test Harness -->
+        <h3 id="e2e-test-harness">E2E Test Harness (per SDK wrapping shared <span class="file-ref">test/harness/</span>)</h3>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th><span class="lang-pill ts">TypeScript</span></th>
+                <th><span class="lang-pill py">Python</span></th>
+                <th><span class="lang-pill go">Go</span></th>
+                <th><span class="lang-pill cs">C#</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>E2E dir</td>
+                <td><span class="file-ref">test/e2e/</span></td>
+                <td><span class="file-ref">e2e/</span></td>
+                <td><span class="file-ref">internal/e2e/</span></td>
+                <td><span class="file-ref">test/</span></td>
+              </tr>
+              <tr>
+                <td>Harness</td>
+                <td><span class="file-ref">test/e2e/harness/</span></td>
+                <td><span class="file-ref">e2e/testharness/</span></td>
+                <td><span class="file-ref">internal/e2e/testharness/</span></td>
+                <td><span class="file-ref">test/Harness/</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 3d. Scenario Mirror -->
+        <h3 id="scenario-mirror">Scenario Mirror (each scenario has up to 4 language subdirs)</h3>
+
+        <pre data-lang="tree"><code class="language-plaintext">test/scenarios/tools/custom-agents/
+&#9500;&#9472;&#9472; typescript/  (package.json + src/index.ts)
+&#9500;&#9472;&#9472; python/      (main.py + requirements.txt)
+&#9500;&#9472;&#9472; go/          (go.mod + main.go)
+&#9500;&#9472;&#9472; csharp/      (csharp.csproj + Program.cs)
+&#9500;&#9472;&#9472; verify.sh    # Language-agnostic verification
+&#9492;&#9472;&#9472; README.md</code></pre>
+
+        <!-- ============================================================ -->
+        <!-- 4. Dependency Graph Between Modules -->
+        <!-- ============================================================ -->
+        <h2 id="dependency-graph">4. Dependency Graph Between Modules</h2>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Module Dependency Flow</div>
+          <pre class="mermaid">
+flowchart TD
+  A["sdk-protocol-version.json"] --> B["scripts/codegen/utils.ts"]
+  B --> C1["typescript.ts"]
+  B --> C2["python.ts"]
+  B --> C3["go.ts"]
+  B --> C4["csharp.ts"]
+  C1 --> D1["nodejs/generated/"]
+  C2 --> D2["python/generated/"]
+  C3 --> D3["go/rpc/"]
+  C4 --> D4["dotnet/Generated/"]
+  D1 --> E1["nodejs/src/\nclient.ts, session.ts"]
+  D2 --> E2["python/copilot/\nclient.py, session.py"]
+  D3 --> E3["go/\nclient.go, session.go"]
+  D4 --> E4["dotnet/src/\nClient.cs, Session.cs"]
+  E1 & E2 & E3 & E4 --> F1["@github/copilot\nCLI binary + JSON Schemas"]
+  E1 & E2 & E3 & E4 --> F2["test/harness/\nreplayingCapiProxy"]
+  F1 --> G1["Copilot CLI Server\n(runtime)"]
+  F2 --> G2["test/scenarios/\n(all 4 languages)"]
+  G2 --> H["test/snapshots/"]
+          </pre>
+        </div>
+
+        <h3>Key relationships</h3>
+        <ol>
+          <li><strong><span class="file-ref">@github/copilot</span></strong> is the root &mdash; provides CLI binary + JSON Schema definitions</li>
+          <li><strong><span class="file-ref">scripts/codegen/</span></strong> depends on <span class="file-ref">nodejs/</span> (schemas live in <span class="file-ref">nodejs/node_modules/@github/copilot/schemas/</span>)</li>
+          <li><strong>All 4 SDKs</strong> consume codegen output in their <span class="file-ref">generated/</span> directories</li>
+          <li><strong><span class="file-ref">test/harness/</span></strong> is language-independent &mdash; each SDK launches it as a subprocess</li>
+          <li><strong><span class="file-ref">publish.yml</span></strong> orchestrates all SDKs &mdash; shared version, parallel publish to 4 registries</li>
+        </ol>
+
+        <!-- ============================================================ -->
+        <!-- 5. Architecture Pattern Detection -->
+        <!-- ============================================================ -->
+        <h2 id="architecture-patterns">5. Architecture Pattern Detection</h2>
+
+        <h3>Primary: Contract-First Polyglot SDK with Facade Pattern</h3>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Architecture Layer Stack</div>
+          <pre class="mermaid">
+flowchart TD
+  L1["Facade: Public API\nindex.ts / __init__.py / package-level"]
+  L2["Connection Manager: CopilotClient\nConnection lifecycle, process spawning"]
+  L3["Session Manager: CopilotSession\nConversation lifecycle, event handling"]
+  L4a["Generated RPC\nMethod Stubs"]
+  L4b["Generated Events\nType Definitions"]
+  L5["Transport: JSON-RPC 2.0\nvscode-jsonrpc / custom / StreamJsonRpc"]
+  L6["Runtime: Copilot CLI Server Process\nSpawned subprocess or TCP connection"]
+  L1 --> L2 --> L3
+  L3 --> L4a & L4b
+  L4a & L4b --> L5 --> L6
+          </pre>
+        </div>
+
+        <h3>Secondary Patterns</h3>
+        <ul>
+          <li><strong>Schema-Driven Code Generation</strong> (Contract-First Design) &mdash; JSON Schemas are single source of truth</li>
+          <li><strong>Observer Pattern</strong> &mdash; Sessions use event-based subscription across all SDKs</li>
+          <li><strong>Proxy Pattern</strong> (testing) &mdash; <code>ReplayingCapiProxy</code> transparently intercepts HTTP for record/replay</li>
+          <li><strong>Monorepo with Independent Publishing</strong> &mdash; one repo, 4 independent registry publishes</li>
+        </ul>
+
+        <h3>What this is NOT</h3>
+        <ul>
+          <li>Not Hexagonal Architecture (no explicit ports/adapters)</li>
+          <li>Not Plugin Architecture (extensible via tools/MCP, but SDK itself isn&rsquo;t plugin-based)</li>
+          <li>Not Layered Architecture (Client manages both process lifecycle and RPC)</li>
+        </ul>
+
+        <div class="callout success">
+          <div class="callout-title">Best Characterization</div>
+          <p><strong>Contract-First Polyglot SDK</strong> using <strong>Facade + Schema-Driven Code Generation</strong> to maintain protocol conformance across 4 language implementations.</p>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- 6. Key Structural Files -->
+        <!-- ============================================================ -->
+        <h2 id="key-structural-files">6. Key Structural Files</h2>
+
+        <h3><span class="file-ref">justfile</span> (root)</h3>
+        <p>The developer&rsquo;s single entry point for all cross-cutting operations:</p>
+        <ul>
+          <li><code>just format/lint/test</code> &mdash; aggregate across all languages</li>
+          <li><code>just install</code> &mdash; all deps across all SDKs</li>
+          <li><code>just scenario-build</code> &mdash; build-verify all scenario samples</li>
+          <li><code>just validate-docs</code> &mdash; machine-verify documentation code examples</li>
+        </ul>
+
+        <h3><span class="file-ref">sdk-protocol-version.json</span></h3>
+        <p>Contains <code>{&quot;version&quot;: 3}</code>. Propagated to all 4 SDKs via codegen. Checked during client init to ensure SDK/CLI compatibility (e.g., <span class="file-ref">nodejs/src/client.ts:56</span> &mdash; <code>MIN_PROTOCOL_VERSION = 2</code>).</p>
+
+        <h3><span class="file-ref">.github/workflows/</span> (20 files)</h3>
+        <ul>
+          <li><strong>4 per-SDK test workflows</strong> &mdash; lint + test on Linux/macOS/Windows matrix</li>
+          <li><strong>3 cross-cutting workflows</strong> &mdash; codegen check, docs validation, scenario builds</li>
+          <li><strong>1 publish workflow</strong> &mdash; multi-registry publish + GitHub Release</li>
+          <li><strong>4 agentic workflows</strong> &mdash; AI-powered PR review, issue triage, changelog generation</li>
+          <li><strong>Others</strong> &mdash; dependency updates, Copilot setup</li>
+        </ul>
+
+      </div>
+      <nav class="page-nav">
+        <a href="01-discovery.html" class="page-nav-link prev">
+          <span class="page-nav-label">Previous</span>
+          <span class="page-nav-title">01 — Discovery</span>
+        </a>
+        <a href="03-tech-stack.html" class="page-nav-link next">
+          <span class="page-nav-label">Next</span>
+          <span class="page-nav-title">03 — Tech Stack</span>
+        </a>
+      </nav>
+    </main>
+  </div>
+  <button class="scroll-top" aria-label="Scroll to top">&#8593;</button>
+  <script src="app.js"></script>
+</body>
+</html>

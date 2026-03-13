@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architecture &amp; Patterns - copilot-sdk Dissection</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/styles/github-dark-dimmed.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/go.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9/build/languages/csharp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect rx=%2715%27 width=%27100%27 height=%27100%27 fill=%27%230F172A%27/%3E%3Ctext x=%2750%27 y=%2770%27 font-size=%2750%27 text-anchor=%27middle%27 fill=%27%2322C55E%27%3E%26lt;/%26gt;%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <button class="sidebar-toggle">Menu</button>
+  <div class="page-wrapper">
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <h1>copilot-sdk</h1>
+        <div class="subtitle">Dissection Documentation</div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Foundation</div>
+        <a href="index.html" class="sidebar-link"><span class="link-num">00</span> Overview</a>
+        <a href="01-discovery.html" class="sidebar-link"><span class="link-num">01</span> Discovery</a>
+        <a href="02-structure.html" class="sidebar-link"><span class="link-num">02</span> Structure</a>
+        <a href="03-tech-stack.html" class="sidebar-link"><span class="link-num">03</span> Tech Stack</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Architecture</div>
+        <a href="04-entry-points.html" class="sidebar-link"><span class="link-num">04</span> Entry Points</a>
+        <a href="05-architecture.html" class="sidebar-link active"><span class="link-num">05</span> Architecture</a>
+        <a href="06-data-flow.html" class="sidebar-link"><span class="link-num">06</span> Data Flow</a>
+        <a href="07-api-surface.html" class="sidebar-link"><span class="link-num">07</span> API Surface</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Implementation</div>
+        <a href="08-conventions.html" class="sidebar-link"><span class="link-num">08</span> Conventions</a>
+        <a href="09-testing.html" class="sidebar-link"><span class="link-num">09</span> Testing</a>
+        <a href="10-build-deploy.html" class="sidebar-link"><span class="link-num">10</span> Build &amp; Deploy</a>
+        <a href="11-dependencies.html" class="sidebar-link"><span class="link-num">11</span> Dependencies</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Operations</div>
+        <a href="12-security.html" class="sidebar-link"><span class="link-num">12</span> Security</a>
+        <a href="13-contribution.html" class="sidebar-link"><span class="link-num">13</span> Contribution</a>
+      </div>
+    </nav>
+    <main class="main-content">
+      <div class="content-area">
+
+        <div class="phase-badge"><span class="dot"></span>Phase 5/13 &mdash; Architecture &amp; Patterns</div>
+
+        <h1>Architecture &amp; Design Patterns</h1>
+        <p>This document dissects the architecture of the <strong>copilot-sdk</strong> polyglot repository (<span class="lang-pill ts">TypeScript</span> <span class="lang-pill py">Python</span> <span class="lang-pill go">Go</span> <span class="lang-pill cs">C#</span>). Each SDK communicates with a Copilot CLI server process over <strong>JSON-RPC 2.0</strong> to provide a session-based conversational AI interface with tool execution, permission management, and event streaming.</p>
+
+        <!-- Table of Contents -->
+        <nav class="toc">
+          <div class="toc-title">Table of Contents</div>
+          <ul class="toc-list">
+            <li><a href="#architecture-style"><span class="toc-num">01</span> Overall Architecture Style</a></li>
+            <li><a href="#design-patterns"><span class="toc-num">02</span> Design Patterns Found</a></li>
+            <li><a href="#client-lifecycle"><span class="toc-num">03</span> Client Lifecycle Pattern</a></li>
+            <li><a href="#session-state-machine"><span class="toc-num">04</span> Session State Machine</a></li>
+            <li><a href="#event-driven"><span class="toc-num">05</span> Event-Driven Architecture</a></li>
+            <li><a href="#jsonrpc-protocol"><span class="toc-num">06</span> JSON-RPC Protocol Layer</a></li>
+            <li><a href="#code-generation"><span class="toc-num">07</span> Code Generation Pattern</a></li>
+            <li><a href="#cross-language"><span class="toc-num">08</span> Cross-Language Consistency</a></li>
+            <li><a href="#error-handling"><span class="toc-num">09</span> Error Handling Patterns</a></li>
+            <li><a href="#callback-hooks"><span class="toc-num">10</span> Callback/Hook System</a></li>
+            <li><a href="#summary"><span class="toc-num">11</span> Summary of Key Decisions</a></li>
+          </ul>
+        </nav>
+
+        <!-- ============================================================ -->
+        <!-- 1. Overall Architecture Style -->
+        <!-- ============================================================ -->
+        <h2 id="architecture-style">1. Overall Architecture Style</h2>
+
+        <h3>Process-Communication Model (IPC via JSON-RPC)</h3>
+        <p>The fundamental architecture is a <strong>two-process client-server model</strong> where the SDK (library code in the host application) communicates with a separate <strong>Copilot CLI server process</strong> over JSON-RPC 2.0.</p>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">IPC Architecture &mdash; Host Application &harr; CLI Server</div>
+          <pre class="mermaid">
+flowchart LR
+  A["SDK Client\n(CopilotClient)\nSession(s)"] <-->|"JSON-RPC 2.0\nstdio / TCP"| B["Copilot CLI\nServer Process"]
+          </pre>
+        </div>
+
+        <p><strong>Transport options</strong> (all languages):</p>
+        <ul>
+          <li><strong>stdio</strong> (default): The SDK spawns the CLI as a child process and communicates over stdin/stdout pipes using Content-Length-framed JSON-RPC messages.</li>
+          <li><strong>TCP</strong>: The SDK either spawns a CLI process listening on a TCP port or connects to a pre-existing external server via <code>cliUrl</code>.</li>
+          <li><strong>Child-process mode</strong> (TypeScript): The SDK itself runs as a child of the CLI, reversing the parent-child relationship (<code>isChildProcess: true</code>).</li>
+        </ul>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="arch-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="arch-py">Python</button>
+          </div>
+          <div class="tab-panel active" id="arch-ts">
+            <pre data-lang="TypeScript"><code class="language-typescript">// client.ts, lines 20-25
+import {
+    createMessageConnection,
+    MessageConnection,
+    StreamMessageReader,
+    StreamMessageWriter,
+} from &quot;vscode-jsonrpc/node.js&quot;;</code></pre>
+          </div>
+          <div class="tab-panel" id="arch-py">
+            <pre data-lang="Python"><code class="language-python"># jsonrpc.py, lines 177-191
+async def _send_message(self, message: dict):
+    &quot;&quot;&quot;Send a JSON-RPC message with Content-Length header&quot;&quot;&quot;
+    def write():
+        content = json.dumps(message, separators=(&quot;,&quot;, &quot;:&quot;))
+        content_bytes = content.encode(&quot;utf-8&quot;)
+        header = f&quot;Content-Length: {len(content_bytes)}\r\n\r\n&quot;
+        with self._write_lock:
+            self.process.stdin.write(header.encode(&quot;utf-8&quot;))
+            self.process.stdin.write(content_bytes)
+            self.process.stdin.flush()
+    await loop.run_in_executor(None, write)</code></pre>
+          </div>
+        </div>
+
+        <div class="callout warning">
+          <div class="callout-title">Key Architectural Constraint</div>
+          <p>The Client does <strong>not</strong> implement AI logic. All model inference, tool orchestration, and conversation state management live in the CLI server. The SDK is a thin typed wrapper for the JSON-RPC protocol.</p>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- 2. Design Patterns Found -->
+        <!-- ============================================================ -->
+        <h2 id="design-patterns">2. Design Patterns Found</h2>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Design Patterns Found</div>
+          <pre class="mermaid">
+flowchart LR
+  A["&lt;b&gt;7&lt;/b&gt;&lt;br/&gt;Design Patterns Identified"] ~~~ B["&lt;b&gt;4&lt;/b&gt;&lt;br/&gt;Languages Implementing Each"] ~~~ C["&lt;b&gt;100%&lt;/b&gt;&lt;br/&gt;Cross-Language Consistency"]
+          </pre>
+        </div>
+
+        <!-- 2.1 Factory -->
+        <h3 id="pattern-factory">2.1 Factory Pattern</h3>
+        <p>Sessions are never constructed directly by user code. The <code>Client</code> acts as a <strong>Factory</strong> for <code>Session</code> objects.</p>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Factory Pattern &mdash; Client creates Sessions</div>
+          <pre class="mermaid">
+flowchart TD
+  A[CopilotClient] -->|"createSession()"| B["new Session()"]
+  B --> C["registerTools()"]
+  C --> D["registerPermissions()"]
+  D -->|"sessions.set(id, session)"| E["RPC: session.create"]
+          </pre>
+        </div>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="factory-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="factory-go">Go</button>
+          </div>
+          <div class="tab-panel active" id="factory-ts">
+            <pre data-lang="TypeScript"><code class="language-typescript">// client.ts &mdash; createSession method
+// Session is created, registered, and then the RPC call is made
+const session = new CopilotSession(sessionId, this.connection);
+session.registerTools(config.tools);
+session.registerPermissionHandler(config.onPermissionRequest);
+this.sessions.set(sessionId, session);
+// Then RPC...
+const response = await this.connection.sendRequest(&quot;session.create&quot;, payload);</code></pre>
+          </div>
+          <div class="tab-panel" id="factory-go">
+            <pre data-lang="Go"><code class="language-go">// client.go &mdash; CreateSession, line ~539
+session := newSession(sessionID, c.client, &quot;&quot;)
+session.registerTools(config.Tools)
+session.registerPermissionHandler(config.OnPermissionRequest)
+c.sessions[sessionID] = session
+result, err := c.client.Request(&quot;session.create&quot;, req)</code></pre>
+          </div>
+        </div>
+
+        <div class="callout info">
+          <div class="callout-title">Important Sequencing</div>
+          <p>In all four SDKs, the session is registered in the local map <strong>before</strong> the <code>session.create</code> RPC is issued. This prevents a race condition where early events from the CLI (like <code>session.start</code>) could arrive before the session is registered.</p>
+        </div>
+
+        <!-- 2.2 Observer -->
+        <h3 id="pattern-observer">2.2 Observer Pattern</h3>
+        <p>The event system in <code>Session</code> is a classic Observer (publish-subscribe) pattern. Multiple handlers can subscribe; events are multicast to all.</p>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Observer Pattern &mdash; Event Dispatch</div>
+          <pre class="mermaid">
+flowchart TD
+  A[Session Event] -->|dispatch| B[Handler 1]
+  A -->|dispatch| C[Handler 2]
+  A -->|dispatch| D[Handler 3]
+  A -->|dispatch| E["Handler N..."]
+  B -->|returns| F[Unsubscribe Token]
+  C -->|returns| F
+  D -->|returns| F
+  E -->|returns| F
+          </pre>
+        </div>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="obs-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="obs-go">Go</button>
+            <button class="tab-btn" data-tab="obs-cs">C#</button>
+            <button class="tab-btn" data-tab="obs-py">Python</button>
+          </div>
+          <div class="tab-panel active" id="obs-ts">
+            <pre data-lang="TypeScript"><code class="language-typescript">// session.ts, lines 60-62, 257-284
+private eventHandlers: Set&lt;SessionEventHandler&gt; = new Set();
+private typedEventHandlers: Map&lt;SessionEventType, Set&lt;(event: SessionEvent) =&gt; void&gt;&gt; = new Map();
+
+on&lt;K extends SessionEventType&gt;(
+    eventTypeOrHandler: K | SessionEventHandler,
+    handler?: TypedSessionEventHandler&lt;K&gt;
+): () =&gt; void { ... }</code></pre>
+          </div>
+          <div class="tab-panel" id="obs-go">
+            <pre data-lang="Go"><code class="language-go">// session.go, lines 237-257
+func (s *Session) On(handler SessionEventHandler) func() {
+    s.handlerMutex.Lock()
+    defer s.handlerMutex.Unlock()
+    id := s.nextHandlerID
+    s.nextHandlerID++
+    s.handlers = append(s.handlers, sessionHandler{id: id, fn: handler})
+    return func() { /* unsubscribe by id */ }
+}</code></pre>
+          </div>
+          <div class="tab-panel" id="obs-cs">
+            <pre data-lang="C#"><code class="language-csharp">// Session.cs, lines 61, 260-264
+// Uses C# multicast delegates for zero-allocation dispatch
+private event SessionEventHandler? EventHandlers;
+public IDisposable On(SessionEventHandler handler)
+{
+    EventHandlers += handler;
+    return new ActionDisposable(() =&gt; EventHandlers -= handler);
+}</code></pre>
+          </div>
+          <div class="tab-panel" id="obs-py">
+            <pre data-lang="Python"><code class="language-python"># session.py, lines 212-246
+def on(self, handler: Callable[[SessionEvent], None]) -&gt; Callable[[], None]:
+    with self._event_handlers_lock:
+        self._event_handlers.add(handler)
+    def unsubscribe():
+        with self._event_handlers_lock:
+            self._event_handlers.discard(handler)
+    return unsubscribe</code></pre>
+          </div>
+        </div>
+
+        <p><strong>Unsubscribe mechanism:</strong> All four SDKs return a callable/disposable that removes the handler, following the &ldquo;subscription token&rdquo; variant of Observer.</p>
+
+        <!-- 2.3 Strategy -->
+        <h3 id="pattern-strategy">2.3 Strategy Pattern</h3>
+        <p>Permission handling and tool execution use the <strong>Strategy</strong> pattern. The caller provides a handler function (strategy), and the SDK invokes it at the appropriate time.</p>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="strat-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="strat-go">Go</button>
+          </div>
+          <div class="tab-panel active" id="strat-ts">
+            <pre data-lang="TypeScript"><code class="language-typescript">// types.ts, lines 246-251
+export type PermissionHandler = (
+    request: PermissionRequest,
+    invocation: { sessionId: string }
+) =&gt; Promise&lt;PermissionRequestResult&gt; | PermissionRequestResult;
+
+export const approveAll: PermissionHandler = () =&gt; ({ kind: &quot;approved&quot; });</code></pre>
+          </div>
+          <div class="tab-panel" id="strat-go">
+            <pre data-lang="Go"><code class="language-go">// permissions.go, lines 1-11
+var PermissionHandler = struct {
+    ApproveAll PermissionHandlerFunc
+}{
+    ApproveAll: func(_ PermissionRequest, _ PermissionInvocation) (PermissionRequestResult, error) {
+        return PermissionRequestResult{Kind: PermissionRequestResultKindApproved}, nil
+    },
+}</code></pre>
+          </div>
+        </div>
+
+        <!-- 2.4 Decorator -->
+        <h3 id="pattern-decorator">2.4 Decorator Pattern (Python)</h3>
+        <p>The Python SDK provides a <code>define_tool</code> decorator that wraps user functions into the standard <code>Tool</code> structure with automatic Pydantic schema generation.</p>
+
+        <pre data-lang="Python"><code class="language-python"># tools.py, lines 43-166
+def define_tool(
+    name: str | None = None,
+    *,
+    description: str | None = None,
+    handler: Callable[[Any, ToolInvocation], Any] | None = None,
+    params_type: type[BaseModel] | None = None,
+) -&gt; Tool | Callable[[Callable[[Any, ToolInvocation], Any]], Tool]:
+    def decorator(fn: Callable[..., Any]) -&gt; Tool:
+        # ... introspects signature, generates schema, wraps handler
+        async def wrapped_handler(invocation: ToolInvocation) -&gt; ToolResult:
+            # ... validates, calls fn, normalizes result
+        return Tool(name=tool_name, ...)
+    return decorator</code></pre>
+
+        <!-- 2.5 Adapter -->
+        <h3 id="pattern-adapter">2.5 Adapter Pattern (Go Generics)</h3>
+        <p>Go uses generics to adapt user handler functions to the standard <code>ToolHandler</code> interface.</p>
+
+        <pre data-lang="Go"><code class="language-go">// definetool.go, lines 30-40
+func DefineTool[T any, U any](name, description string, handler func(T, ToolInvocation) (U, error)) Tool {
+    var zero T
+    schema := generateSchemaForType(reflect.TypeOf(zero))
+    return Tool{
+        Name: name, Description: description,
+        Parameters: schema,
+        Handler: createTypedHandler(handler),
+    }
+}</code></pre>
+
+        <p>The <code>createTypedHandler</code> function (line 43) adapts <code>func(T, ToolInvocation) (U, error)</code> into <code>func(ToolInvocation) (ToolResult, error)</code> via JSON round-trip deserialization.</p>
+
+        <!-- 2.6 Proxy/Facade -->
+        <h3 id="pattern-facade">2.6 Proxy / Facade Pattern (Generated RPC)</h3>
+        <p>The generated <span class="file-ref">rpc.ts</span> / <span class="file-ref">rpc.py</span> / <span class="file-ref">rpc/</span> modules provide a <strong>typed facade</strong> over the raw JSON-RPC connection. They abstract <code>connection.sendRequest(&quot;session.model.switchTo&quot;, {...})</code> into <code>session.rpc.model.switchTo({modelId: &quot;gpt-4&quot;})</code>.</p>
+
+        <pre data-lang="TypeScript"><code class="language-typescript">// generated/rpc.ts, lines 540-598
+export function createSessionRpc(connection: MessageConnection, sessionId: string) {
+    return {
+        model: {
+            getCurrent: async (): Promise&lt;SessionModelGetCurrentResult&gt; =&gt;
+                connection.sendRequest(&quot;session.model.getCurrent&quot;, { sessionId }),
+            switchTo: async (params) =&gt;
+                connection.sendRequest(&quot;session.model.switchTo&quot;, { sessionId, ...params }),
+        },
+        // ... plan, workspace, fleet, agent, compaction, tools, permissions, log
+    };
+}</code></pre>
+
+        <!-- 2.7 Template Method -->
+        <h3 id="pattern-template">2.7 Template Method Pattern (<code>sendAndWait</code>)</h3>
+        <p><code>sendAndWait</code> implements a fixed algorithm: subscribe to events &rarr; send message &rarr; wait for idle/error &rarr; return result. Each SDK follows this identical template.</p>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Template Method &mdash; sendAndWait Sequence</div>
+          <pre class="mermaid">
+flowchart LR
+  A["Subscribe\non(event)"] --> B["Send\nsend(prompt)"]
+  B --> C["Wait\nidle | error"]
+  C --> D["Return\nresult"]
+          </pre>
+        </div>
+
+        <p>TypeScript (<span class="file-ref">session.ts</span>, lines 154-207), Python (<span class="file-ref">session.py</span>, lines 153-210), Go (<span class="file-ref">session.go</span>, lines 160-213), C# (<span class="file-ref">Session.cs</span>, lines 183-226) all follow this exact sequence.</p>
+
+        <!-- ============================================================ -->
+        <!-- 3. Client Lifecycle Pattern -->
+        <!-- ============================================================ -->
+        <h2 id="client-lifecycle">3. Client Lifecycle Pattern</h2>
+
+        <h3>Connection State Machine</h3>
+        <p>All four SDKs implement the same connection state machine:</p>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Client Connection State Machine</div>
+          <pre class="mermaid">
+stateDiagram-v2
+    [*] --> disconnected
+    disconnected --> connecting : start()
+    connecting --> connected : success
+    connecting --> error : failure
+    connected --> disconnected : stop() / crash
+    error --> disconnected : reset
+          </pre>
+        </div>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="state-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="state-cs">C#</button>
+          </div>
+          <div class="tab-panel active" id="state-ts">
+            <pre data-lang="TypeScript"><code class="language-typescript">// types.ts, line 917
+export type ConnectionState = &quot;disconnected&quot; | &quot;connecting&quot; | &quot;connected&quot; | &quot;error&quot;;</code></pre>
+          </div>
+          <div class="tab-panel" id="state-cs">
+            <pre data-lang="C#"><code class="language-csharp">// Types.cs, lines 18-33
+public enum ConnectionState
+{
+    Disconnected, Connecting, Connected, Error
+}</code></pre>
+          </div>
+        </div>
+
+        <h3>Start Sequence (all SDKs)</h3>
+        <ol>
+          <li>Resolve CLI path (bundled binary, explicit path, or environment variable)</li>
+          <li>Spawn child process with <code>--sdk-protocol-version=N</code> (or connect to external server)</li>
+          <li>Establish JSON-RPC connection (stdio reader/writer or TCP socket)</li>
+          <li><strong>Protocol version negotiation</strong> via <code>ping</code> request</li>
+          <li>Transition to <code>connected</code></li>
+        </ol>
+
+        <h3>Protocol Version Negotiation</h3>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="proto-py">Python</button>
+            <button class="tab-btn" data-tab="proto-go">Go</button>
+          </div>
+          <div class="tab-panel active" id="proto-py">
+            <pre data-lang="Python"><code class="language-python"># client.py &mdash; _verify_protocol_version
+MIN_PROTOCOL_VERSION = 2
+# ... during start():
+await self._verify_protocol_version()
+# Sends ping, checks server protocolVersion &gt;= MIN_PROTOCOL_VERSION
+# Stores negotiated version for feature-gating</code></pre>
+          </div>
+          <div class="tab-panel" id="proto-go">
+            <pre data-lang="Go"><code class="language-go">// client.go &mdash; verifyProtocolVersion
+// Sends ping, checks protocolVersion, negotiates to min(sdk, server)</code></pre>
+          </div>
+        </div>
+
+        <h3>Stop Sequence (all SDKs)</h3>
+        <ol>
+          <li>Disconnect all active sessions (sends <code>session.destroy</code> for each)</li>
+          <li>Close JSON-RPC connection</li>
+          <li>Terminate CLI process (if spawned)</li>
+          <li>Clear caches and reset state to <code>disconnected</code></li>
+        </ol>
+
+        <h3>Auto-start and Auto-restart</h3>
+        <p>All SDKs support <code>autoStart</code> (default <code>true</code>): the first <code>createSession</code> call automatically calls <code>start()</code> if disconnected. <code>autoRestart</code> handles CLI process crashes.</p>
+
+        <h3>Dispose Protocol</h3>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Dispose Protocol per Language</div>
+          <pre class="mermaid">
+flowchart LR
+  subgraph TS["TypeScript"]
+    TS1["Symbol.asyncDispose"]
+    TS2["await using"]
+  end
+  subgraph PY["Python"]
+    PY1["__aenter__ / __aexit__"]
+    PY2["async with"]
+  end
+  subgraph CS["C#"]
+    CS1["IAsyncDisposable"]
+    CS2["await using"]
+  end
+  subgraph GO["Go"]
+    GO1["Explicit call"]
+    GO2["defer client.Stop"]
+  end
+          </pre>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- 4. Session State Machine -->
+        <!-- ============================================================ -->
+        <h2 id="session-state-machine">4. Session State Machine</h2>
+        <p>Sessions have an implicit state model driven by events from the CLI server:</p>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Session State Machine</div>
+          <pre class="mermaid">
+stateDiagram-v2
+    [*] --> IDLE : create / resume
+    IDLE --> PROCESSING : send()
+    PROCESSING --> IDLE : session.idle
+    PROCESSING --> IDLE : session.abort
+    PROCESSING --> ERROR : session.error
+    ERROR --> IDLE : retry
+          </pre>
+        </div>
+
+        <h3>Session Event Flow</h3>
+        <p>When <code>send()</code> is called, the CLI processes the prompt, invokes tools, requests permissions, and eventually emits <code>session.idle</code> (or <code>session.error</code>). The <code>sendAndWait</code> convenience method bridges this into a synchronous-looking call by subscribing to events before sending:</p>
+
+        <pre data-lang="TypeScript"><code class="language-typescript">// session.ts, lines 169-206
+// Register event handler BEFORE calling send to avoid race condition
+const unsubscribe = this.on((event) =&gt; {
+    if (event.type === &quot;assistant.message&quot;) {
+        lastAssistantMessage = event;
+    } else if (event.type === &quot;session.idle&quot;) {
+        resolveIdle();
+    } else if (event.type === &quot;session.error&quot;) {
+        rejectWithError(new Error(event.data.message));
+    }
+});
+await this.send(options);
+await Promise.race([idlePromise, timeoutPromise]);</code></pre>
+
+        <h3>Session Resource Cleanup</h3>
+        <p><code>disconnect()</code> performs:</p>
+        <ol>
+          <li>RPC call <code>session.destroy</code> to notify CLI</li>
+          <li>Clear all event handlers, tool handlers, permission handler</li>
+          <li>Session object is invalidated (but disk state is preserved for resumption)</li>
+        </ol>
+
+        <!-- ============================================================ -->
+        <!-- 5. Event-Driven Architecture -->
+        <!-- ============================================================ -->
+        <h2 id="event-driven">5. Event-Driven Architecture</h2>
+
+        <h3>Event Flow</h3>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Event Dispatch Flow</div>
+          <pre class="mermaid">
+flowchart TD
+    CLI["CLI Server"] -->|"notification: session.event"| Client["SDK Client"]
+    Client --> dispatch["_dispatchEvent(event)"]
+    dispatch --> step1["handleBroadcastEvent()"]
+    dispatch --> step2["typedHandlers[event.type]"]
+    dispatch --> step3["wildcardHandlers"]
+    step1 -->|"tool / permission requests"| response["RPC Response back to CLI"]
+          </pre>
+        </div>
+
+        <h3>Notification Routing</h3>
+        <p>The <code>Client</code> receives JSON-RPC notifications from the CLI, identifies the target session by <code>sessionId</code>, and calls <code>session._dispatchEvent(event)</code>.</p>
+
+        <h3>Broadcast Events (Protocol v3)</h3>
+        <p>Tool call requests and permission requests are <strong>broadcast</strong> as session events (not as synchronous RPC requests). The SDK intercepts these before user handlers see them:</p>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="bcast-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="bcast-go">Go</button>
+          </div>
+          <div class="tab-panel active" id="bcast-ts">
+            <pre data-lang="TypeScript"><code class="language-typescript">// session.ts, lines 325-349
+private _handleBroadcastEvent(event: SessionEvent): void {
+    if (event.type === &quot;external_tool.requested&quot;) {
+        const handler = this.toolHandlers.get(toolName);
+        if (handler) {
+            void this._executeToolAndRespond(requestId, toolName, toolCallId, args, handler);
+        }
+    } else if (event.type === &quot;permission.requested&quot;) {
+        if (this.permissionHandler) {
+            void this._executePermissionAndRespond(requestId, permissionRequest);
+        }
+    }
+}</code></pre>
+          </div>
+          <div class="tab-panel" id="bcast-go">
+            <pre data-lang="Go"><code class="language-go">// session.go, lines 468-497
+func (s *Session) handleBroadcastEvent(event SessionEvent) {
+    switch event.Type {
+    case ExternalToolRequested:
+        handler, ok := s.getToolHandler(*toolName)
+        if !ok { return }
+        go s.executeToolAndRespond(...)  // fire-and-forget goroutine
+    case PermissionRequested:
+        handler := s.getPermissionHandler()
+        if handler == nil { return }
+        go s.executePermissionAndRespond(...)
+    }
+}</code></pre>
+          </div>
+        </div>
+
+        <h3>Event Types</h3>
+        <p>The event system defines a comprehensive set of event types (discriminated union on <code>type</code>), from generated <span class="file-ref">session-events.ts</span>:</p>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Event Types by Category</div>
+          <pre class="mermaid">
+flowchart LR
+  subgraph SL["Session Lifecycle"]
+    SL1["session.start"]
+    SL2["session.resume"]
+    SL3["session.idle"]
+    SL4["session.error"]
+    SL5["session.end"]
+  end
+  subgraph MSG["Messages"]
+    MSG1["user.message"]
+    MSG2["assistant.message"]
+    MSG3["assistant.message_delta"]
+    MSG4["assistant.reasoning_delta"]
+  end
+  subgraph TL["Tools"]
+    TL1["tool.executing"]
+    TL2["tool.completed"]
+    TL3["tool.aborted"]
+    TL4["tool.error"]
+    TL5["external_tool.requested"]
+  end
+  subgraph OTH["Other"]
+    OTH1["permission.requested"]
+    OTH2["compaction.start"]
+    OTH3["compaction.complete"]
+    OTH4["sdk.log"]
+  end
+          </pre>
+        </div>
+
+        <p>Each event carries common fields: <code>id</code>, <code>timestamp</code>, <code>parentId</code>, <code>ephemeral</code>, <code>type</code>, <code>data</code>.</p>
+
+        <!-- ============================================================ -->
+        <!-- 6. JSON-RPC Protocol Layer -->
+        <!-- ============================================================ -->
+        <h2 id="jsonrpc-protocol">6. JSON-RPC Protocol Layer</h2>
+
+        <h3>Message Format</h3>
+        <p>All transports use the <strong>Language Server Protocol</strong> framing: <code>Content-Length: N\r\n\r\n{JSON}</code>.</p>
+
+        <h3>Request/Response Pattern</h3>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">RPC Message Direction</div>
+          <pre class="mermaid">
+flowchart LR
+  SDK[SDK Client] -->|requests| CLI[CLI Server]
+  CLI -->|notifications| SDK
+  CLI -->|"requests (v2)"| SDK
+          </pre>
+        </div>
+
+        <h4>SDK &rarr; CLI (requests)</h4>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Category</th><th>Methods</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Session</strong></td>
+                <td><code>session.create</code>, <code>session.resume</code>, <code>session.destroy</code>, <code>session.delete</code></td>
+              </tr>
+              <tr>
+                <td><strong>Messaging</strong></td>
+                <td><code>session.send</code>, <code>session.abort</code>, <code>session.getMessages</code></td>
+              </tr>
+              <tr>
+                <td><strong>Configuration</strong></td>
+                <td><code>session.model.switchTo</code>, <code>session.mode.set</code>, <code>session.plan.read</code></td>
+              </tr>
+              <tr>
+                <td><strong>Server</strong></td>
+                <td><code>ping</code>, <code>status.get</code>, <code>auth.getStatus</code>, <code>models.list</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>CLI &rarr; SDK (notifications)</h4>
+        <ul>
+          <li><code>session.event</code> &mdash; carries all session events (broadcast model)</li>
+          <li><code>session.lifecycle</code> &mdash; session lifecycle changes (create/delete/update)</li>
+        </ul>
+
+        <h4>CLI &rarr; SDK (requests, protocol v2 back-compat)</h4>
+        <ul>
+          <li><code>tool.call</code> &mdash; synchronous tool call request</li>
+          <li><code>session.requestPermission</code> &mdash; synchronous permission request</li>
+          <li><code>session.requestUserInput</code> &mdash; synchronous user input request</li>
+          <li><code>session.hooks.invoke</code> &mdash; synchronous hook invocation</li>
+        </ul>
+
+        <h3>Custom JSON-RPC Implementation (Python)</h3>
+        <p>Python implements a minimal JSON-RPC 2.0 client from scratch rather than using a library:</p>
+
+        <pre data-lang="Python"><code class="language-python"># jsonrpc.py, lines 36-43
+class JsonRpcClient:
+    &quot;&quot;&quot;Minimal async JSON-RPC 2.0 client for stdio transport.
+    Uses threads for blocking IO but provides async interface.&quot;&quot;&quot;
+    def __init__(self, process):
+        self.pending_requests: dict[str, asyncio.Future] = {}
+        self.notification_handler: Callable[[str, dict], None] | None = None
+        self.request_handlers: dict[str, RequestHandler] = {}</code></pre>
+
+        <p>The read loop runs in a daemon thread and uses <code>loop.call_soon_threadsafe()</code> to resolve futures on the asyncio event loop (lines 193-211, 289-312).</p>
+
+        <h3>Library Dependencies per Language</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Language</th><th>JSON-RPC Library</th><th>Transport</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="lang-pill ts">TypeScript</span></td>
+                <td><code>vscode-jsonrpc</code></td>
+                <td>StreamReader/Writer</td>
+              </tr>
+              <tr>
+                <td><span class="lang-pill py">Python</span></td>
+                <td>Custom (<span class="file-ref">jsonrpc.py</span>)</td>
+                <td>subprocess pipes</td>
+              </tr>
+              <tr>
+                <td><span class="lang-pill go">Go</span></td>
+                <td>Custom (<span class="file-ref">internal/jsonrpc2</span>)</td>
+                <td>bufio reader/writer</td>
+              </tr>
+              <tr>
+                <td><span class="lang-pill cs">C#</span></td>
+                <td><code>StreamJsonRpc</code></td>
+                <td>Nerdbank streams</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- 7. Code Generation Pattern -->
+        <!-- ============================================================ -->
+        <h2 id="code-generation">7. Code Generation Pattern</h2>
+
+        <h3>Schema-Driven Generation</h3>
+        <p>Two JSON schema files are the <strong>single source of truth</strong>:</p>
+        <ul>
+          <li><span class="file-ref">api.schema.json</span> &mdash; defines all RPC methods, their parameters, and results</li>
+          <li><span class="file-ref">session-events.schema.json</span> &mdash; defines all session event types and their data payloads</li>
+        </ul>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Schema-Driven Code Generation</div>
+          <pre class="mermaid">
+flowchart TD
+  S1[api.schema.json] --> CG[codegen scripts]
+  S2[session-events.schema.json] --> CG
+  CG --> TS["TypeScript\ngenerated/rpc.ts\ngenerated/session-events.ts"]
+  CG --> PY["Python\ngenerated/rpc.py\ngenerated/session_events.py"]
+  CG --> GO["Go\nrpc/ package"]
+  CG --> CS["C#\nRpc/ directory"]
+          </pre>
+        </div>
+
+        <h3>Generated RPC Layer</h3>
+        <p>The generated RPC module provides type-safe wrappers at two scopes:</p>
+
+        <h4>Server-scoped (no session required)</h4>
+        <pre data-lang="TypeScript"><code class="language-typescript">// generated/rpc.ts, lines 520-537
+export function createServerRpc(connection: MessageConnection) {
+    return {
+        ping: async (params: PingParams): Promise&lt;PingResult&gt; =&gt;
+            connection.sendRequest(&quot;ping&quot;, params),
+        models: { list: async () =&gt; ... },
+        tools: { list: async (params) =&gt; ... },
+        account: { getQuota: async () =&gt; ... },
+    };
+}</code></pre>
+
+        <h4>Session-scoped (auto-injects sessionId)</h4>
+        <pre data-lang="TypeScript"><code class="language-typescript">// generated/rpc.ts, lines 540-599
+export function createSessionRpc(connection: MessageConnection, sessionId: string) {
+    return {
+        model: { getCurrent, switchTo },
+        mode: { get, set },
+        plan: { read, update, delete },
+        workspace: { listFiles, readFile, createFile },
+        fleet: { start },
+        agent: { list, getCurrent, select, deselect },
+        compaction: { compact },
+        tools: { handlePendingToolCall },
+        permissions: { handlePendingPermissionRequest },
+        log,
+    };
+}</code></pre>
+
+        <h3>Generated Event Types</h3>
+        <p>The session events schema generates a <strong>discriminated union</strong> type. In TypeScript, this is a large union of object types discriminated on <code>type</code>. In Python, it generates dataclass-like structures with a <code>session_event_from_dict()</code> factory. In C#, it generates a class hierarchy with a <code>SessionEvent.FromJson()</code> parser.</p>
+
+        <pre data-lang="TypeScript"><code class="language-typescript">// generated/session-events.ts, line 6
+export type SessionEvent =
+  | { type: &quot;session.start&quot;; data: { sessionId: string; version: number; ... } }
+  | { type: &quot;session.resume&quot;; data: { resumeTime: string; ... } }
+  | { type: &quot;assistant.message&quot;; data: { content: string; ... } }
+  // ... 20+ event types</code></pre>
+
+        <h3>Lazy RPC Initialization</h3>
+        <p>All four SDKs lazily initialize the typed RPC wrapper on first access:</p>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="lazy-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="lazy-cs">C#</button>
+          </div>
+          <div class="tab-panel active" id="lazy-ts">
+            <pre data-lang="TypeScript"><code class="language-typescript">// session.ts, lines 86-91
+get rpc(): ReturnType&lt;typeof createSessionRpc&gt; {
+    if (!this._rpc) {
+        this._rpc = createSessionRpc(this.connection, this.sessionId);
+    }
+    return this._rpc;
+}</code></pre>
+          </div>
+          <div class="tab-panel" id="lazy-cs">
+            <pre data-lang="C#"><code class="language-csharp">// Session.cs, line 80
+public SessionRpc Rpc =&gt; _sessionRpc ??= new SessionRpc(_rpc, SessionId);</code></pre>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- 8. Cross-Language Consistency -->
+        <!-- ============================================================ -->
+        <h2 id="cross-language">8. Cross-Language Consistency</h2>
+
+        <h3>Identical API Surface</h3>
+        <p>All four SDKs expose the same public API shape:</p>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Concept</th>
+                <th><span class="lang-pill ts">TypeScript</span></th>
+                <th><span class="lang-pill py">Python</span></th>
+                <th><span class="lang-pill go">Go</span></th>
+                <th><span class="lang-pill cs">C#</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Client class</strong></td>
+                <td><code>CopilotClient</code></td>
+                <td><code>CopilotClient</code></td>
+                <td><code>Client</code></td>
+                <td><code>CopilotClient</code></td>
+              </tr>
+              <tr>
+                <td><strong>Create</strong></td>
+                <td><code>createSession()</code></td>
+                <td><code>create_session()</code></td>
+                <td><code>CreateSession()</code></td>
+                <td><code>CreateSessionAsync()</code></td>
+              </tr>
+              <tr>
+                <td><strong>Resume</strong></td>
+                <td><code>resumeSession()</code></td>
+                <td><code>resume_session()</code></td>
+                <td><code>ResumeSession()</code></td>
+                <td><code>ResumeSessionAsync()</code></td>
+              </tr>
+              <tr>
+                <td><strong>Session class</strong></td>
+                <td><code>CopilotSession</code></td>
+                <td><code>CopilotSession</code></td>
+                <td><code>Session</code></td>
+                <td><code>CopilotSession</code></td>
+              </tr>
+              <tr>
+                <td><strong>Send</strong></td>
+                <td><code>send()</code></td>
+                <td><code>send()</code></td>
+                <td><code>Send()</code></td>
+                <td><code>SendAsync()</code></td>
+              </tr>
+              <tr>
+                <td><strong>Send+wait</strong></td>
+                <td><code>sendAndWait()</code></td>
+                <td><code>send_and_wait()</code></td>
+                <td><code>SendAndWait()</code></td>
+                <td><code>SendAndWaitAsync()</code></td>
+              </tr>
+              <tr>
+                <td><strong>Subscribe</strong></td>
+                <td><code>on(handler)</code></td>
+                <td><code>on(handler)</code></td>
+                <td><code>On(handler)</code></td>
+                <td><code>On(handler)</code></td>
+              </tr>
+              <tr>
+                <td><strong>Disconnect</strong></td>
+                <td><code>disconnect()</code></td>
+                <td><code>disconnect()</code></td>
+                <td><code>Disconnect()</code></td>
+                <td><code>DisposeAsync()</code></td>
+              </tr>
+              <tr>
+                <td><strong>Typed RPC</strong></td>
+                <td><code>session.rpc.*</code></td>
+                <td><code>session.rpc.*</code></td>
+                <td><code>session.RPC.*</code></td>
+                <td><code>session.Rpc.*</code></td>
+              </tr>
+              <tr>
+                <td><strong>Define tool</strong></td>
+                <td><code>defineTool()</code></td>
+                <td><code>@define_tool</code></td>
+                <td><code>DefineTool[T,U]()</code></td>
+                <td><code>AIFunctionFactory</code> (MEAI)</td>
+              </tr>
+              <tr>
+                <td><strong>Approve all</strong></td>
+                <td><code>approveAll</code></td>
+                <td><code>PermissionHandler.approve_all</code></td>
+                <td><code>PermissionHandler.ApproveAll</code></td>
+                <td><code>PermissionHandler.ApproveAll</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Idiomatic Adaptations</h3>
+        <p>While the API surface is consistent, each SDK uses language-idiomatic patterns:</p>
+
+        <h4>Concurrency</h4>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Concurrency per Language</div>
+          <pre class="mermaid">
+flowchart LR
+  subgraph TS["TypeScript"]
+    TS1["Promises"]
+    TS2["async/await"]
+  end
+  subgraph PY["Python"]
+    PY1["asyncio"]
+    PY2["Thread-based I/O bridge"]
+    PY3["run_in_executor"]
+  end
+  subgraph GO["Go"]
+    GO1["goroutines"]
+    GO2["channels"]
+    GO3["sync.RWMutex"]
+  end
+  subgraph CS["C#"]
+    CS1["Task&lt;T&gt;"]
+    CS2["async/await"]
+    CS3["CancellationToken"]
+  end
+          </pre>
+        </div>
+
+        <h4>Unsubscribe Mechanism</h4>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Unsubscribe Mechanism per Language</div>
+          <pre class="mermaid">
+flowchart LR
+  subgraph TS["TypeScript"]
+    TS1["Returns () => void"]
+  end
+  subgraph PY["Python"]
+    PY1["Returns Callable[[], None]"]
+  end
+  subgraph GO["Go"]
+    GO1["Returns func()"]
+  end
+  subgraph CS["C#"]
+    CS1["Returns IDisposable"]
+  end
+          </pre>
+        </div>
+
+        <h4>Thread Safety</h4>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Thread Safety per Language</div>
+          <pre class="mermaid">
+flowchart LR
+  subgraph TS["TypeScript"]
+    TS1["Single-threaded (event loop)"]
+    TS2["No locks needed"]
+  end
+  subgraph PY["Python"]
+    PY1["threading.Lock"]
+    PY2["For handler collections"]
+  end
+  subgraph GO["Go"]
+    GO1["sync.RWMutex"]
+    GO2["For handler slices and maps"]
+  end
+  subgraph CS["C#"]
+    CS1["volatile fields"]
+    CS2["SemaphoreSlim, lock-free CAS"]
+  end
+          </pre>
+        </div>
+
+        <h4>Tool Definition</h4>
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Tool Definition per Language</div>
+          <pre class="mermaid">
+flowchart LR
+  subgraph TS["TypeScript"]
+    TS1["defineTool()"]
+    TS2["Zod schema support"]
+  end
+  subgraph PY["Python"]
+    PY1["@define_tool decorator"]
+    PY2["Pydantic introspection"]
+  end
+  subgraph GO["Go"]
+    GO1["DefineTool[T, U]()"]
+    GO2["Generics + JSON schema reflection"]
+  end
+  subgraph CS["C#"]
+    CS1["Microsoft.Extensions.AI"]
+    CS2["AIFunction abstraction"]
+  end
+          </pre>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- 9. Error Handling Patterns -->
+        <!-- ============================================================ -->
+        <h2 id="error-handling">9. Error Handling Patterns</h2>
+
+        <h3>Layered Error Handling</h3>
+        <p>Errors propagate through three layers:</p>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Error Handling Layers</div>
+          <pre class="mermaid">
+flowchart TD
+  L1["Layer 1 -- Transport\nJSON-RPC transport errors\n(connection lost, process exited)"]
+  L2["Layer 2 -- Handlers\nTool/permission handler errors\n(fail gracefully via RPC)"]
+  L3["Layer 3 -- Events\nEvent handler errors\n(swallowed to protect dispatch loop)"]
+  L1 --> L2 --> L3
+          </pre>
+        </div>
+
+        <h4>Layer 1 &mdash; JSON-RPC Transport Errors</h4>
+
+        <pre data-lang="Python"><code class="language-python"># jsonrpc.py, lines 17-30
+class JsonRpcError(Exception):
+    def __init__(self, code: int, message: str, data: Any = None):
+        self.code = code; self.message = message; self.data = data
+
+class ProcessExitedError(Exception):
+    &quot;&quot;&quot;Error raised when the CLI process exits unexpectedly&quot;&quot;&quot;</code></pre>
+
+        <p>All pending requests are failed when the process exits (<code>_fail_pending_requests</code>, line 215).</p>
+
+        <h4>Layer 2 &mdash; Tool/Permission Handler Errors (fail gracefully)</h4>
+        <p>All four SDKs catch handler exceptions and send error results back via RPC rather than crashing:</p>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="err2-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="err2-go">Go</button>
+          </div>
+          <div class="tab-panel active" id="err2-ts">
+            <pre data-lang="TypeScript"><code class="language-typescript">// session.ts, lines 378-389
+} catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    try {
+        await this.rpc.tools.handlePendingToolCall({ requestId, error: message });
+    } catch (rpcError) {
+        if (!(rpcError instanceof ConnectionError || rpcError instanceof ResponseError)) {
+            throw rpcError;
+        }
+        // Connection lost &mdash; nothing we can do
+    }
+}</code></pre>
+          </div>
+          <div class="tab-panel" id="err2-go">
+            <pre data-lang="Go"><code class="language-go">// session.go, lines 501-509 &mdash; uses defer/recover to catch panics
+defer func() {
+    if r := recover(); r != nil {
+        errMsg := fmt.Sprintf(&quot;tool panic: %v&quot;, r)
+        s.RPC.Tools.HandlePendingToolCall(context.Background(), &amp;rpc.SessionToolsHandlePendingToolCallParams{
+            RequestID: requestID, Error: &amp;errMsg,
+        })
+    }
+}()</code></pre>
+          </div>
+        </div>
+
+        <h4>Layer 3 &mdash; Event Handler Errors (swallowed)</h4>
+        <p>All SDKs protect the event dispatch loop from handler exceptions to prevent one bad handler from blocking all others:</p>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="err3-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="err3-go">Go</button>
+          </div>
+          <div class="tab-panel active" id="err3-ts">
+            <pre data-lang="TypeScript"><code class="language-typescript">// session.ts, lines 298-316
+for (const handler of this.eventHandlers) {
+    try { handler(event); } catch (_error) { /* Handler error */ }
+}</code></pre>
+          </div>
+          <div class="tab-panel" id="err3-go">
+            <pre data-lang="Go"><code class="language-go">// session.go, lines 452-462
+func() {
+    defer func() {
+        if r := recover(); r != nil {
+            fmt.Printf(&quot;Error in session event handler: %v\n&quot;, r)
+        }
+    }()
+    handler(event)
+}()</code></pre>
+          </div>
+        </div>
+
+        <h3>Permission Denial as Default</h3>
+        <p>When a permission handler is missing or fails, the default is always <strong>denial</strong> (fail-safe):</p>
+
+        <div class="code-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="deny-ts">TypeScript</button>
+            <button class="tab-btn" data-tab="deny-go">Go</button>
+          </div>
+          <div class="tab-panel active" id="deny-ts">
+            <pre data-lang="TypeScript"><code class="language-typescript">// session.ts, line 409
+return { kind: &quot;denied-no-approval-rule-and-could-not-request-from-user&quot; };</code></pre>
+          </div>
+          <div class="tab-panel" id="deny-go">
+            <pre data-lang="Go"><code class="language-go">// session.go, lines 542-548
+s.RPC.Permissions.HandlePendingPermissionRequest(ctx, &amp;rpc.SessionPermissionsHandlePendingPermissionRequestParams{
+    RequestID: requestID,
+    Result: rpc.SessionPermissionsHandlePendingPermissionRequestParamsResult{
+        Kind: rpc.DeniedNoApprovalRuleAndCouldNotRequestFromUser,
+    },
+})</code></pre>
+          </div>
+        </div>
+
+        <h3>Graceful vs Force Stop</h3>
+        <p>All SDKs provide two shutdown paths:</p>
+        <ul>
+          <li><strong><code>stop()</code></strong>: Graceful &mdash; disconnects each session, then kills the process</li>
+          <li><strong><code>forceStop()</code></strong>: Immediate &mdash; kills process, clears sessions without RPC</li>
+        </ul>
+
+        <pre data-lang="Python"><code class="language-python"># client.py &mdash; force_stop
+async def force_stop(self) -&gt; None:
+    with self._sessions_lock:
+        self._sessions.clear()
+    if self._process:
+        self._process.kill()</code></pre>
+
+        <!-- ============================================================ -->
+        <!-- 10. Callback/Hook System -->
+        <!-- ============================================================ -->
+        <h2 id="callback-hooks">10. Callback/Hook System</h2>
+
+        <h3>Three Callback Systems</h3>
+        <p>The SDK provides three distinct callback mechanisms at the session level:</p>
+
+        <div class="mermaid-wrapper">
+          <div class="diagram-title">Three Callback Mechanisms</div>
+          <pre class="mermaid">
+flowchart LR
+  A["Permission\nHandlers\nrequest / response"] ~~~ B["Tool\nHandlers\nbroadcast events"] ~~~ C["Lifecycle\nHooks\nCLI invoked"]
+          </pre>
+        </div>
+
+        <h4 id="hook-permissions">10.1 Permission Handlers</h4>
+        <p>Synchronous request/response: the CLI asks for permission, the SDK handler decides, and returns the result.</p>
+        <p>Permission result kinds (from <span class="file-ref">generated/rpc.ts</span>, lines 471-491):</p>
+
+        <pre data-lang="TypeScript"><code class="language-typescript">result:
+    | { kind: &quot;approved&quot; }
+    | { kind: &quot;denied-by-rules&quot;; rules: unknown[] }
+    | { kind: &quot;denied-no-approval-rule-and-could-not-request-from-user&quot; }
+    | { kind: &quot;denied-interactively-by-user&quot;; feedback?: string }
+    | { kind: &quot;denied-by-content-exclusion-policy&quot;; path: string; message: string };</code></pre>
+
+        <h4 id="hook-tools">10.2 Tool Handlers</h4>
+        <p>External tools are registered at session creation time. The CLI broadcasts <code>external_tool.requested</code> events; the SDK intercepts, executes the matching handler, and sends the result back via <code>tools.handlePendingToolCall</code>.</p>
+        <p>The tool result is normalized from various return types:</p>
+
+        <pre data-lang="Go"><code class="language-go">// definetool.go, lines 69-100
+func normalizeResult(result any) (ToolResult, error) {
+    if result == nil { return ToolResult{TextResultForLLM: &quot;&quot;, ResultType: &quot;success&quot;}, nil }
+    if tr, ok := result.(ToolResult); ok { return tr, nil }
+    if str, ok := result.(string); ok { return ToolResult{TextResultForLLM: str, ResultType: &quot;success&quot;}, nil }
+    jsonBytes, _ := json.Marshal(result)
+    return ToolResult{TextResultForLLM: string(jsonBytes), ResultType: &quot;success&quot;}, nil
+}</code></pre>
+
+        <h4 id="hook-lifecycle">10.3 Lifecycle Hooks</h4>
+        <p>Hooks are invoked by the CLI via <code>session.hooks.invoke</code> RPC. The SDK dispatches to the appropriate handler based on <code>hookType</code>:</p>
+
+        <pre data-lang="TypeScript"><code class="language-typescript">// session.ts, lines 546-578
+async _handleHooksInvoke(hookType: string, input: unknown): Promise&lt;unknown&gt; {
+    const handlerMap: Record&lt;string, GenericHandler | undefined&gt; = {
+        preToolUse: this.hooks.onPreToolUse,
+        postToolUse: this.hooks.onPostToolUse,
+        userPromptSubmitted: this.hooks.onUserPromptSubmitted,
+        sessionStart: this.hooks.onSessionStart,
+        sessionEnd: this.hooks.onSessionEnd,
+        errorOccurred: this.hooks.onErrorOccurred,
+    };
+    const handler = handlerMap[hookType];
+    if (!handler) return undefined;
+    return await handler(input, { sessionId: this.sessionId });
+}</code></pre>
+
+        <p>Hook interface (<span class="file-ref">types.ts</span>, lines 470-500):</p>
+
+        <pre data-lang="TypeScript"><code class="language-typescript">export interface SessionHooks {
+    onPreToolUse?: PreToolUseHandler;
+    onPostToolUse?: PostToolUseHandler;
+    onUserPromptSubmitted?: UserPromptSubmittedHandler;
+    onSessionStart?: SessionStartHandler;
+    onSessionEnd?: SessionEndHandler;
+    onErrorOccurred?: ErrorOccurredHandler;
+}</code></pre>
+
+        <p>Hook handlers can <strong>modify behavior</strong>: <code>PreToolUseHookOutput</code> can deny tools, modify arguments, or add context. <code>ErrorOccurredHookOutput</code> can dictate retry/skip/abort strategies.</p>
+
+        <pre data-lang="TypeScript"><code class="language-typescript">// types.ts, lines 324-330
+export interface PreToolUseHookOutput {
+    permissionDecision?: &quot;allow&quot; | &quot;deny&quot; | &quot;ask&quot;;
+    permissionDecisionReason?: string;
+    modifiedArgs?: unknown;
+    additionalContext?: string;
+    suppressOutput?: boolean;
+}</code></pre>
+
+        <h3>Extension System (TypeScript-specific)</h3>
+        <p>The <span class="file-ref">extension.ts</span> module provides a <code>joinSession()</code> function for the &ldquo;extension&rdquo; deployment model, where the SDK runs as a child process of the CLI:</p>
+
+        <pre data-lang="TypeScript"><code class="language-typescript">// extension.ts, lines 26-39
+export async function joinSession(config: ResumeSessionConfig): Promise&lt;CopilotSession&gt; {
+    const sessionId = process.env.SESSION_ID;
+    if (!sessionId) {
+        throw new Error(&quot;joinSession() is intended for extensions running as child processes&quot;);
+    }
+    const client = new CopilotClient({ isChildProcess: true });
+    return client.resumeSession(sessionId, {
+        ...config,
+        disableResume: config.disableResume ?? true,
+    });
+}</code></pre>
+
+        <!-- ============================================================ -->
+        <!-- 11. Summary -->
+        <!-- ============================================================ -->
+        <h2 id="summary">Summary of Key Architectural Decisions</h2>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Decision</th><th>Rationale</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>JSON-RPC over stdio (default)</strong></td>
+                <td>No port conflicts, simpler deployment, works in sandboxed environments</td>
+              </tr>
+              <tr>
+                <td><strong>Session registered before RPC</strong></td>
+                <td>Prevents race condition with early events from CLI</td>
+              </tr>
+              <tr>
+                <td><strong>Broadcast events for tool/permission calls</strong></td>
+                <td>Enables multi-client scenarios (extensions, TUI+server)</td>
+              </tr>
+              <tr>
+                <td><strong>Generated code from JSON schemas</strong></td>
+                <td>Single source of truth across 4 languages</td>
+              </tr>
+              <tr>
+                <td><strong>Handler errors swallowed in dispatch</strong></td>
+                <td>One bad handler cannot crash the event loop</td>
+              </tr>
+              <tr>
+                <td><strong>Permission denied by default</strong></td>
+                <td>Fail-safe security posture</td>
+              </tr>
+              <tr>
+                <td><strong>Lazy RPC wrapper initialization</strong></td>
+                <td>No overhead for sessions that do not use typed RPC</td>
+              </tr>
+              <tr>
+                <td><strong>Protocol version negotiation at startup</strong></td>
+                <td>Forward/backward compatibility across SDK and CLI versions</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+      <nav class="page-nav">
+        <a href="04-entry-points.html" class="page-nav-link prev">
+          <span class="page-nav-label">Previous</span>
+          <span class="page-nav-title">04 — Entry Points</span>
+        </a>
+        <a href="06-data-flow.html" class="page-nav-link next">
+          <span class="page-nav-label">Next</span>
+          <span class="page-nav-title">06 — Data Flow</span>
+        </a>
+      </nav>
+    </main>
+  </div>
+  <button class="scroll-top" aria-label="Scroll to top">&#8593;</button>
+  <script src="app.js"></script>
+</body>
+</html>
