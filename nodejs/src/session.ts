@@ -10,7 +10,7 @@
 import type { MessageConnection } from "vscode-jsonrpc/node.js";
 import { ConnectionError, ResponseError } from "vscode-jsonrpc/node.js";
 import { createSessionRpc } from "./generated/rpc.js";
-import { getTraceContext, withTraceContext } from "./telemetry.js";
+import { getTraceContext } from "./telemetry.js";
 import type {
     MessageOptions,
     PermissionHandler,
@@ -23,6 +23,7 @@ import type {
     SessionHooks,
     Tool,
     ToolHandler,
+    TraceContextProvider,
     TypedSessionEventHandler,
     UserInputHandler,
     UserInputRequest,
@@ -69,6 +70,7 @@ export class CopilotSession {
     private userInputHandler?: UserInputHandler;
     private hooks?: SessionHooks;
     private _rpc: ReturnType<typeof createSessionRpc> | null = null;
+    private traceContextProvider?: TraceContextProvider;
 
     /**
      * Creates a new CopilotSession instance.
@@ -76,13 +78,17 @@ export class CopilotSession {
      * @param sessionId - The unique identifier for this session
      * @param connection - The JSON-RPC message connection to the Copilot CLI
      * @param workspacePath - Path to the session workspace directory (when infinite sessions enabled)
+     * @param traceContextProvider - Optional callback to get W3C Trace Context for outbound RPCs
      * @internal This constructor is internal. Use {@link CopilotClient.createSession} to create sessions.
      */
     constructor(
         public readonly sessionId: string,
         private connection: MessageConnection,
-        private _workspacePath?: string
-    ) {}
+        private _workspacePath?: string,
+        traceContextProvider?: TraceContextProvider
+    ) {
+        this.traceContextProvider = traceContextProvider;
+    }
 
     /**
      * Typed session-scoped RPC methods.
@@ -123,7 +129,7 @@ export class CopilotSession {
      */
     async send(options: MessageOptions): Promise<string> {
         const response = await this.connection.sendRequest("session.send", {
-            ...(await getTraceContext()),
+            ...(await getTraceContext(this.traceContextProvider)),
             sessionId: this.sessionId,
             prompt: options.prompt,
             attachments: options.attachments,
@@ -377,14 +383,14 @@ export class CopilotSession {
         tracestate?: string
     ): Promise<void> {
         try {
-            const rawResult = await withTraceContext(traceparent, tracestate, () =>
-                handler(args, {
-                    sessionId: this.sessionId,
-                    toolCallId,
-                    toolName,
-                    arguments: args,
-                })
-            );
+            const rawResult = await handler(args, {
+                sessionId: this.sessionId,
+                toolCallId,
+                toolName,
+                arguments: args,
+                traceparent,
+                tracestate,
+            });
             let result: string;
             if (rawResult == null) {
                 result = "";

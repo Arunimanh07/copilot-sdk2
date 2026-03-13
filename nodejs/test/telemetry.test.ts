@@ -1,49 +1,67 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it } from "vitest";
-import { getTraceContext, withTraceContext } from "../src/telemetry.js";
+import { getTraceContext } from "../src/telemetry.js";
+import type { TraceContextProvider } from "../src/types.js";
 
 describe("telemetry", () => {
     describe("getTraceContext", () => {
-        it("returns empty object when OTel is not configured", async () => {
+        it("returns empty object when no provider is given", async () => {
             const ctx = await getTraceContext();
-            // Without an active span / propagator the carrier stays empty
             expect(ctx).toEqual({});
         });
-    });
 
-    describe("withTraceContext", () => {
-        it("calls fn directly when traceparent is undefined", async () => {
-            let called = false;
-            const result = await withTraceContext(undefined, undefined, () => {
-                called = true;
-                return 42;
-            });
-            expect(called).toBe(true);
-            expect(result).toBe(42);
+        it("returns empty object when provider is undefined", async () => {
+            const ctx = await getTraceContext(undefined);
+            expect(ctx).toEqual({});
         });
 
-        it("calls fn directly when traceparent is undefined (async fn)", async () => {
-            const result = await withTraceContext(undefined, undefined, async () => {
-                return "hello";
+        it("calls provider and returns trace context", async () => {
+            const provider: TraceContextProvider = () => ({
+                traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+                tracestate: "congo=t61rcWkgMzE",
             });
-            expect(result).toBe("hello");
+            const ctx = await getTraceContext(provider);
+            expect(ctx).toEqual({
+                traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+                tracestate: "congo=t61rcWkgMzE",
+            });
         });
 
-        it("calls fn when traceparent is provided (graceful without OTel SDK)", async () => {
-            // Even if @opentelemetry/api is installed, without a configured propagator
-            // the context won't carry anything — but the function should still run.
-            const result = await withTraceContext(
-                "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
-                undefined,
-                () => "ok"
-            );
-            expect(result).toBe("ok");
+        it("supports async providers", async () => {
+            const provider: TraceContextProvider = async () => ({
+                traceparent: "00-abcdef1234567890abcdef1234567890-1234567890abcdef-01",
+            });
+            const ctx = await getTraceContext(provider);
+            expect(ctx).toEqual({
+                traceparent: "00-abcdef1234567890abcdef1234567890-1234567890abcdef-01",
+            });
+        });
+
+        it("returns empty object when provider throws", async () => {
+            const provider: TraceContextProvider = () => {
+                throw new Error("boom");
+            };
+            const ctx = await getTraceContext(provider);
+            expect(ctx).toEqual({});
+        });
+
+        it("returns empty object when async provider rejects", async () => {
+            const provider: TraceContextProvider = async () => {
+                throw new Error("boom");
+            };
+            const ctx = await getTraceContext(provider);
+            expect(ctx).toEqual({});
+        });
+
+        it("returns empty object when provider returns null", async () => {
+            const provider = (() => null) as unknown as TraceContextProvider;
+            const ctx = await getTraceContext(provider);
+            expect(ctx).toEqual({});
         });
     });
 
     describe("TelemetryConfig env var mapping", () => {
         it("sets correct env vars for full telemetry config", async () => {
-            // Simulate what client.ts does with telemetry config
             const telemetry = {
                 otlpEndpoint: "http://localhost:4318",
                 filePath: "/tmp/traces.jsonl",
@@ -54,7 +72,6 @@ describe("telemetry", () => {
 
             const env: Record<string, string | undefined> = {};
 
-            // Mirror the logic in client.ts startCLIServer
             if (telemetry) {
                 const t = telemetry;
                 env.COPILOT_OTEL_ENABLED = "true";

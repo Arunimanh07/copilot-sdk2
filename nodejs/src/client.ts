@@ -26,7 +26,7 @@ import {
 import { createServerRpc } from "./generated/rpc.js";
 import { getSdkProtocolVersion } from "./sdkProtocolVersion.js";
 import { CopilotSession, NO_RESULT_PERMISSION_V2_ERROR } from "./session.js";
-import { getTraceContext, withTraceContext } from "./telemetry.js";
+import { getTraceContext } from "./telemetry.js";
 import type {
     ConnectionState,
     CopilotClientOptions,
@@ -48,6 +48,7 @@ import type {
     ToolCallRequestPayload,
     ToolCallResponsePayload,
     ToolResultObject,
+    TraceContextProvider,
     TypedSessionLifecycleHandler,
 } from "./types.js";
 
@@ -145,7 +146,13 @@ export class CopilotClient {
     private options: Required<
         Omit<
             CopilotClientOptions,
-            "cliPath" | "cliUrl" | "githubToken" | "useLoggedInUser" | "onListModels" | "telemetry"
+            | "cliPath"
+            | "cliUrl"
+            | "githubToken"
+            | "useLoggedInUser"
+            | "onListModels"
+            | "telemetry"
+            | "onGetTraceContext"
         >
     > & {
         cliPath?: string;
@@ -157,6 +164,7 @@ export class CopilotClient {
     private isExternalServer: boolean = false;
     private forceStopping: boolean = false;
     private onListModels?: () => Promise<ModelInfo[]> | ModelInfo[];
+    private onGetTraceContext?: TraceContextProvider;
     private modelsCache: ModelInfo[] | null = null;
     private modelsCacheLock: Promise<void> = Promise.resolve();
     private sessionLifecycleHandlers: Set<SessionLifecycleHandler> = new Set();
@@ -235,6 +243,7 @@ export class CopilotClient {
         }
 
         this.onListModels = options.onListModels;
+        this.onGetTraceContext = options.onGetTraceContext;
 
         this.options = {
             cliPath: options.cliUrl ? undefined : options.cliPath || getBundledCliPath(),
@@ -560,7 +569,12 @@ export class CopilotClient {
 
         // Create and register the session before issuing the RPC so that
         // events emitted by the CLI (e.g. session.start) are not dropped.
-        const session = new CopilotSession(sessionId, this.connection!);
+        const session = new CopilotSession(
+            sessionId,
+            this.connection!,
+            undefined,
+            this.onGetTraceContext
+        );
         session.registerTools(config.tools);
         session.registerPermissionHandler(config.onPermissionRequest);
         if (config.onUserInputRequest) {
@@ -576,7 +590,7 @@ export class CopilotClient {
 
         try {
             const response = await this.connection!.sendRequest("session.create", {
-                ...(await getTraceContext()),
+                ...(await getTraceContext(this.onGetTraceContext)),
                 model: config.model,
                 sessionId,
                 clientName: config.clientName,
@@ -661,7 +675,12 @@ export class CopilotClient {
 
         // Create and register the session before issuing the RPC so that
         // events emitted by the CLI (e.g. session.start) are not dropped.
-        const session = new CopilotSession(sessionId, this.connection!);
+        const session = new CopilotSession(
+            sessionId,
+            this.connection!,
+            undefined,
+            this.onGetTraceContext
+        );
         session.registerTools(config.tools);
         session.registerPermissionHandler(config.onPermissionRequest);
         if (config.onUserInputRequest) {
@@ -677,7 +696,7 @@ export class CopilotClient {
 
         try {
             const response = await this.connection!.sendRequest("session.resume", {
-                ...(await getTraceContext()),
+                ...(await getTraceContext(this.onGetTraceContext)),
                 sessionId,
                 clientName: config.clientName,
                 model: config.model,
@@ -1586,17 +1605,17 @@ export class CopilotClient {
         }
 
         try {
+            const traceparent = (params as { traceparent?: string }).traceparent;
+            const tracestate = (params as { tracestate?: string }).tracestate;
             const invocation = {
                 sessionId: params.sessionId,
                 toolCallId: params.toolCallId,
                 toolName: params.toolName,
                 arguments: params.arguments,
+                traceparent,
+                tracestate,
             };
-            const traceparent = (params as { traceparent?: string }).traceparent;
-            const tracestate = (params as { tracestate?: string }).tracestate;
-            const result = await withTraceContext(traceparent, tracestate, () =>
-                handler(params.arguments, invocation)
-            );
+            const result = await handler(params.arguments, invocation);
             return { result: this.normalizeToolResultV2(result) };
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);

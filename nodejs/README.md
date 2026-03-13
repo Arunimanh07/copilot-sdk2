@@ -85,6 +85,7 @@ new CopilotClient(options?: CopilotClientOptions)
 - `githubToken?: string` - GitHub token for authentication. When provided, takes priority over other auth methods.
 - `useLoggedInUser?: boolean` - Whether to use logged-in user for authentication (default: true, but false when `githubToken` is provided). Cannot be used with `cliUrl`.
 - `telemetry?: TelemetryConfig` - OpenTelemetry configuration for the CLI process. Providing this object enables telemetry — no separate flag needed. See [Telemetry](#telemetry) below.
+- `onGetTraceContext?: TraceContextProvider` - Advanced: callback for linking your application's own OpenTelemetry spans into the same distributed trace as the CLI's spans. Not needed for normal telemetry collection. See [Telemetry](#telemetry) below.
 
 #### Methods
 
@@ -604,7 +605,7 @@ const session = await client.createSession({
 
 ## Telemetry
 
-The SDK supports OpenTelemetry for distributed tracing. Provide a `telemetry` config to enable trace export and automatic W3C Trace Context propagation.
+The SDK supports OpenTelemetry for distributed tracing. Provide a `telemetry` config to enable trace export from the CLI process — this is all most users need:
 
 ```typescript
 const client = new CopilotClient({
@@ -614,6 +615,8 @@ const client = new CopilotClient({
 });
 ```
 
+With just this configuration, the CLI emits spans for every session, message, and tool call to your collector. No additional dependencies or setup required.
+
 **TelemetryConfig options:**
 
 - `otlpEndpoint?: string` - OTLP HTTP endpoint URL
@@ -622,9 +625,28 @@ const client = new CopilotClient({
 - `sourceName?: string` - Instrumentation scope name
 - `captureContent?: boolean` - Whether to capture message content
 
-Trace context (`traceparent`/`tracestate`) is automatically propagated between the SDK and CLI on `session.create`, `session.resume`, and `session.send` calls, and inbound when the CLI invokes tool handlers.
+### Advanced: Trace Context Propagation
 
-Optional peer dependency: `@opentelemetry/api`
+> **You don't need this for normal telemetry collection.** The `telemetry` config above is sufficient to get full traces from the CLI.
+
+`onGetTraceContext` is only needed if your application creates its own OpenTelemetry spans and you want them to appear in the **same distributed trace** as the CLI's spans — for example, to nest a "handle tool call" span inside the CLI's "execute tool" span, or to show the SDK call as a child of your application's request-handling span.
+
+If you're already using `@opentelemetry/api` in your app and want this linkage, provide a callback:
+
+```typescript
+import { propagation, context } from "@opentelemetry/api";
+
+const client = new CopilotClient({
+  telemetry: { otlpEndpoint: "http://localhost:4318" },
+  onGetTraceContext: () => {
+    const carrier: Record<string, string> = {};
+    propagation.inject(context.active(), carrier);
+    return carrier;
+  },
+});
+```
+
+Inbound trace context from the CLI is available on the `ToolInvocation` object passed to tool handlers as `traceparent` and `tracestate` fields. See the [OpenTelemetry guide](../docs/observability/opentelemetry.md) for a full wire-up example.
 
 ## User Input Requests
 

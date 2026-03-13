@@ -46,6 +46,8 @@ export type {
     SystemMessageConfig,
     SystemMessageReplaceConfig,
     TelemetryConfig,
+    TraceContext,
+    TraceContextProvider,
     Tool,
     ToolHandler,
     ToolInvocation,
