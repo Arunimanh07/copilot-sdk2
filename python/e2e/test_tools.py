@@ -157,7 +157,7 @@ class TestTools:
             {"tools": [safe_lookup], "on_permission_request": tracking_handler}
         )
 
-        await session.send({"prompt": "Use safe_lookup to look up 'test123'"})
+        await session.send("Use safe_lookup to look up 'test123'")
         assistant_message = await get_final_assistant_message(session)
         assert "RESULT: test123" in assistant_message.data.content
         assert not did_run_permission_request
