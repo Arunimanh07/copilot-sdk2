@@ -79,15 +79,15 @@ session = await client.create_session({
     "on_permission_request": lambda req, inv: PermissionRequestResult(kind="approved"),
 })
 
-await session.send({
-    "prompt": "Describe what you see in this image",
-    "attachments": [
+await session.send(
+    "Describe what you see in this image",
+    attachments=[
         {
             "type": "file",
             "path": "/absolute/path/to/screenshot.png",
         },
     ],
-})
+)
 ```
 
 </details>
@@ -269,9 +269,9 @@ session = await client.create_session({
 })
 
 base64_image_data = "..."  # your base64-encoded image
-await session.send({
-    "prompt": "Describe what you see in this image",
-    "attachments": [
+await session.send(
+    "Describe what you see in this image",
+    attachments=[
         {
             "type": "blob",
             "data": base64_image_data,
@@ -279,7 +279,7 @@ await session.send({
             "displayName": "screenshot.png",
         },
     ],
-})
+)
 ```
 
 </details>

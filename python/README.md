@@ -7,9 +7,9 @@ Python SDK for programmatic control of GitHub Copilot CLI via JSON-RPC.
 ## Installation
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[telemetry,dev]"
 # or
-uv pip install -e ".[dev]"
+uv pip install -e ".[telemetry,dev]"
 ```
 
 ## Run the Sample
@@ -47,7 +47,7 @@ async def main():
     session.on(on_event)
 
     # Send a message and wait for completion
-    await session.send({"prompt": "What is 2+2?"})
+    await session.send("What is 2+2?")
     await done.wait()
 
     # Clean up
@@ -61,7 +61,7 @@ Sessions also support the `async with` context manager pattern for automatic cle
 
 ```python
 async with await client.create_session({"model": "gpt-5"}) as session:
-    await session.send({"prompt": "What is 2+2?"})
+    await session.send("What is 2+2?")
     # session is automatically disconnected when leaving the block
 ```
 
@@ -91,7 +91,7 @@ def on_event(event):
     print(f"Event: {event['type']}")
 
 session.on(on_event)
-await session.send({"prompt": "Hello!"})
+await session.send("Hello!")
 
 # ... wait for events ...
 
@@ -267,33 +267,33 @@ The SDK supports image attachments via the `attachments` parameter. You can atta
 
 ```python
 # File attachment — runtime reads from disk
-await session.send({
-    "prompt": "What's in this image?",
-    "attachments": [
+await session.send(
+    "What's in this image?",
+    attachments=[
         {
             "type": "file",
             "path": "/path/to/image.jpg",
         }
-    ]
-})
+    ],
+)
 
 # Blob attachment — provide base64 data directly
-await session.send({
-    "prompt": "What's in this image?",
-    "attachments": [
+await session.send(
+    "What's in this image?",
+    attachments=[
         {
             "type": "blob",
             "data": base64_image_data,
             "mimeType": "image/png",
         }
-    ]
-})
+    ],
+)
 ```
 
 Supported image formats include JPG, PNG, GIF, and other common image types. The agent's `view` tool can also read images directly from the filesystem, so you can also ask questions like:
 
 ```python
-await session.send({"prompt": "What does the most recent jpg in this directory portray?"})
+await session.send("What does the most recent jpg in this directory portray?")
 ```
 
 ## Streaming
@@ -338,7 +338,7 @@ async def main():
             done.set()
 
     session.on(on_event)
-    await session.send({"prompt": "Tell me a short story"})
+    await session.send("Tell me a short story")
     await done.wait()  # Wait for streaming to complete
 
     await session.disconnect()
@@ -415,7 +415,7 @@ session = await client.create_session({
     },
 })
 
-await session.send({"prompt": "Hello!"})
+await session.send("Hello!")
 ```
 
 **Example with custom OpenAI-compatible API:**
