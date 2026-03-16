@@ -9,6 +9,7 @@ import asyncio
 import inspect
 import threading
 from collections.abc import Callable
+from types import TracebackType
 from typing import Any, Literal, cast
 
 from .generated.rpc import (
@@ -98,6 +99,7 @@ class CopilotSession:
         self._hooks: SessionHooks | None = None
         self._hooks_lock = threading.Lock()
         self._rpc: SessionRpc | None = None
+        self._destroyed = False
 
     @property
     def rpc(self) -> SessionRpc:
@@ -673,20 +675,33 @@ class CopilotSession:
 
         After calling this method, the session object can no longer be used.
 
+        This method is idempotent—calling it multiple times is safe and will
+        not raise an error if the session is already disconnected.
+
         Raises:
-            Exception: If the connection fails.
+            Exception: If the connection fails (on first disconnect call).
 
         Example:
             >>> # Clean up when done — session can still be resumed later
             >>> await session.disconnect()
         """
-        await self._client.request("session.destroy", {"sessionId": self.session_id})
+        # Ensure that the check and update of _destroyed are atomic so that
+        # only the first caller proceeds to send the destroy RPC.
         with self._event_handlers_lock:
-            self._event_handlers.clear()
-        with self._tool_handlers_lock:
-            self._tool_handlers.clear()
-        with self._permission_handler_lock:
-            self._permission_handler = None
+            if self._destroyed:
+                return
+            self._destroyed = True
+
+        try:
+            await self._client.request("session.destroy", {"sessionId": self.session_id})
+        finally:
+            # Clear handlers even if the request fails.
+            with self._event_handlers_lock:
+                self._event_handlers.clear()
+            with self._tool_handlers_lock:
+                self._tool_handlers.clear()
+            with self._permission_handler_lock:
+                self._permission_handler = None
 
     async def destroy(self) -> None:
         """
@@ -709,11 +724,32 @@ class CopilotSession:
         await self.disconnect()
 
     async def __aenter__(self) -> "CopilotSession":
-        """Enable use as an async context manager."""
+        """
+        Enter the async context manager.
+
+        Returns the session instance, ready for use. The session must already be
+        created (via CopilotClient.create_session or resume_session).
+
+        Returns:
+            The CopilotSession instance.
+
+        Example:
+            >>> async with await client.create_session() as session:
+            ...     await session.send("Hello!")
+        """
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Disconnect the session when exiting the context manager."""
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_val: BaseException | None = None,
+        exc_tb: TracebackType | None = None,
+    ) -> None:
+        """
+        Exit the async context manager.
+
+        Automatically disconnects the session and releases all associated resources.
+        """
         await self.disconnect()
 
     async def abort(self) -> None:
