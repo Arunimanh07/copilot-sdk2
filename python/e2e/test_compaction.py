@@ -17,7 +17,7 @@ class TestCompaction:
     ):
         # Create session with very low compaction thresholds to trigger compaction quickly
         session = await ctx.client.create_session(
-            PermissionHandler.approve_all,
+            on_permission_request=PermissionHandler.approve_all,
             infinite_sessions={
                 "enabled": True,
                 # Trigger background compaction at 0.5% context usage (~1000 tokens)
@@ -68,7 +68,7 @@ class TestCompaction:
         self, ctx: E2ETestContext
     ):
         session = await ctx.client.create_session(
-            PermissionHandler.approve_all,
+            on_permission_request=PermissionHandler.approve_all,
             infinite_sessions={"enabled": False},
         )
 

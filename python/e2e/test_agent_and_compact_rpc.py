@@ -21,6 +21,14 @@ class TestAgentSelectionRpc:
             session = await client.create_session(
                 on_permission_request=PermissionHandler.approve_all,
                 custom_agents=[
+                    {
+                        "name": "test-agent",
+                        "display_name": "Test Agent",
+                        "description": "A test agent",
+                        "prompt": "You are a test agent.",
+                    },
+                    {
+                        "name": "another-agent",
                         "display_name": "Another Agent",
                         "description": "Another test agent",
                         "prompt": "You are another agent.",
