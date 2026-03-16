@@ -39,7 +39,7 @@ type SessionStartHandler = (
 
 <!-- docs-validate: hidden -->
 ```python
-from copilot.types import SessionStartHookInput, HookInvocation, SessionStartHookOutput
+from copilot.session import SessionStartHookInput, SessionStartHookOutput
 from typing import Callable, Awaitable
 
 SessionStartHandler = Callable[
@@ -249,7 +249,7 @@ type SessionEndHandler = (
 
 <!-- docs-validate: hidden -->
 ```python
-from copilot.types import SessionEndHookInput, HookInvocation
+from copilot.session import SessionEndHookInput
 from typing import Callable, Awaitable
 
 SessionEndHandler = Callable[

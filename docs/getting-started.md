@@ -129,7 +129,8 @@ Create `main.py`:
 
 ```python
 import asyncio
-from copilot import CopilotClient, PermissionHandler
+from copilot import CopilotClient
+from copilot.session import PermissionHandler
 
 async def main():
     client = CopilotClient()
@@ -277,7 +278,8 @@ Update `main.py`:
 ```python
 import asyncio
 import sys
-from copilot import CopilotClient, PermissionHandler
+from copilot import CopilotClient
+from copilot.session import PermissionHandler
 from copilot.generated.session_events import SessionEventType
 
 async def main():
@@ -657,7 +659,8 @@ Update `main.py`:
 import asyncio
 import random
 import sys
-from copilot import CopilotClient, PermissionHandler
+from copilot import CopilotClient
+from copilot.session import PermissionHandler
 from copilot.tools import define_tool
 from copilot.generated.session_events import SessionEventType
 from pydantic import BaseModel, Field
@@ -930,7 +933,8 @@ Create `weather_assistant.py`:
 import asyncio
 import random
 import sys
-from copilot import CopilotClient, PermissionHandler
+from copilot import CopilotClient
+from copilot.session import PermissionHandler
 from copilot.tools import define_tool
 from copilot.generated.session_events import SessionEventType
 from pydantic import BaseModel, Field
@@ -1306,7 +1310,8 @@ const session = await client.createSession({ onPermissionRequest: approveAll });
 <summary><strong>Python</strong></summary>
 
 ```python
-from copilot import CopilotClient, PermissionHandler
+from copilot import CopilotClient
+from copilot.session import PermissionHandler
 
 client = CopilotClient({
     "cli_url": "localhost:4321"

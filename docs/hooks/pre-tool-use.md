@@ -35,7 +35,7 @@ type PreToolUseHandler = (
 
 <!-- docs-validate: hidden -->
 ```python
-from copilot.types import PreToolUseHookInput, HookInvocation, PreToolUseHookOutput
+from copilot.session import PreToolUseHookInput, PreToolUseHookOutput
 from typing import Callable, Awaitable
 
 PreToolUseHandler = Callable[

@@ -12,6 +12,8 @@ Example:
     ...     await session.send("Hello!")
 """
 
+from __future__ import annotations
+
 import asyncio
 import inspect
 import os
@@ -22,36 +24,619 @@ import sys
 import threading
 import uuid
 from collections.abc import Awaitable, Callable
+from dataclasses import KW_ONLY, dataclass, field
 from pathlib import Path
-from typing import Any, cast, overload
+from typing import Any, Literal, TypedDict, cast, overload
 
 from .generated.rpc import ServerRpc
 from .generated.session_events import PermissionRequest, session_event_from_dict
 from .jsonrpc import JsonRpcClient, ProcessExitedError
 from .sdk_protocol_version import get_sdk_protocol_version
-from .session import CopilotSession
-from .telemetry import get_trace_context, trace_context
-from .types import (
-    ConnectionState,
+from .session import (
+    CopilotSession,
     CustomAgentConfig,
-    ExternalServerConfig,
-    GetAuthStatusResponse,
-    GetStatusResponse,
-    ModelInfo,
-    PingResponse,
     ProviderConfig,
     ResumeSessionConfig,
     SessionConfig,
-    SessionLifecycleEvent,
-    SessionLifecycleEventType,
-    SessionLifecycleHandler,
-    SessionListFilter,
-    SessionMetadata,
-    StopError,
-    SubprocessConfig,
-    ToolInvocation,
-    ToolResult,
 )
+from .telemetry import get_trace_context, trace_context
+from .tools import ToolInvocation, ToolResult
+
+# ============================================================================
+# Connection Types
+# ============================================================================
+
+ConnectionState = Literal["disconnected", "connecting", "connected", "error"]
+
+LogLevel = Literal["none", "error", "warning", "info", "debug", "all"]
+
+
+class TelemetryConfig(TypedDict, total=False):
+    """Configuration for OpenTelemetry integration with the Copilot CLI."""
+
+    otlp_endpoint: str
+    """OTLP HTTP endpoint URL for trace/metric export. Sets OTEL_EXPORTER_OTLP_ENDPOINT."""
+    file_path: str
+    """File path for JSON-lines trace output. Sets COPILOT_OTEL_FILE_EXPORTER_PATH."""
+    exporter_type: str
+    """Exporter backend type: "otlp-http" or "file". Sets COPILOT_OTEL_EXPORTER_TYPE."""
+    source_name: str
+    """Instrumentation scope name. Sets COPILOT_OTEL_SOURCE_NAME."""
+    capture_content: bool
+    """Whether to capture message content. Sets OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT."""  # noqa: E501
+
+
+@dataclass
+class SubprocessConfig:
+    """Config for spawning a local Copilot CLI subprocess.
+
+    Example:
+        >>> config = SubprocessConfig(github_token="ghp_...")
+        >>> client = CopilotClient(config)
+
+        >>> # Custom CLI path with TCP transport
+        >>> config = SubprocessConfig(
+        ...     cli_path="/usr/local/bin/copilot",
+        ...     use_stdio=False,
+        ...     log_level="debug",
+        ... )
+    """
+
+    cli_path: str | None = None
+    """Path to the Copilot CLI executable. ``None`` uses the bundled binary."""
+
+    cli_args: list[str] = field(default_factory=list)
+    """Extra arguments passed to the CLI executable (inserted before SDK-managed args)."""
+
+    _: KW_ONLY
+
+    cwd: str | None = None
+    """Working directory for the CLI process. ``None`` uses the current directory."""
+
+    use_stdio: bool = True
+    """Use stdio transport (``True``, default) or TCP (``False``)."""
+
+    port: int = 0
+    """TCP port for the CLI server (only when ``use_stdio=False``). 0 means random."""
+
+    log_level: LogLevel = "info"
+    """Log level for the CLI process."""
+
+    env: dict[str, str] | None = None
+    """Environment variables for the CLI process. ``None`` inherits the current env."""
+
+    github_token: str | None = None
+    """GitHub token for authentication. Takes priority over other auth methods."""
+
+    use_logged_in_user: bool | None = None
+    """Use the logged-in user for authentication.
+
+    ``None`` (default) resolves to ``True`` unless ``github_token`` is set.
+    """
+
+    telemetry: TelemetryConfig | None = None
+    """OpenTelemetry configuration. Providing this enables telemetry — no separate flag needed."""
+
+
+@dataclass
+class ExternalServerConfig:
+    """Config for connecting to an existing Copilot CLI server over TCP.
+
+    Example:
+        >>> config = ExternalServerConfig(url="localhost:3000")
+        >>> client = CopilotClient(config)
+    """
+
+    url: str
+    """Server URL. Supports ``"host:port"``, ``"http://host:port"``, or just ``"port"``."""
+
+
+# ============================================================================
+# Response Types
+# ============================================================================
+
+
+@dataclass
+class PingResponse:
+    """Response from ping"""
+
+    message: str  # Echo message with "pong: " prefix
+    timestamp: int  # Server timestamp in milliseconds
+    protocolVersion: int  # Protocol version for SDK compatibility
+
+    @staticmethod
+    def from_dict(obj: Any) -> PingResponse:
+        assert isinstance(obj, dict)
+        message = obj.get("message")
+        timestamp = obj.get("timestamp")
+        protocolVersion = obj.get("protocolVersion")
+        if message is None or timestamp is None or protocolVersion is None:
+            raise ValueError(
+                f"Missing required fields in PingResponse: message={message}, "
+                f"timestamp={timestamp}, protocolVersion={protocolVersion}"
+            )
+        return PingResponse(str(message), int(timestamp), int(protocolVersion))
+
+    def to_dict(self) -> dict:
+        result: dict = {}
+        result["message"] = self.message
+        result["timestamp"] = self.timestamp
+        result["protocolVersion"] = self.protocolVersion
+        return result
+
+
+@dataclass
+class StopError(Exception):
+    """Error that occurred during client stop cleanup."""
+
+    message: str  # Error message describing what failed during cleanup
+
+    def __post_init__(self) -> None:
+        Exception.__init__(self, self.message)
+
+    @staticmethod
+    def from_dict(obj: Any) -> StopError:
+        assert isinstance(obj, dict)
+        message = obj.get("message")
+        if message is None:
+            raise ValueError("Missing required field 'message' in StopError")
+        return StopError(str(message))
+
+    def to_dict(self) -> dict:
+        result: dict = {}
+        result["message"] = self.message
+        return result
+
+
+@dataclass
+class GetStatusResponse:
+    """Response from status.get"""
+
+    version: str  # Package version (e.g., "1.0.0")
+    protocolVersion: int  # Protocol version for SDK compatibility
+
+    @staticmethod
+    def from_dict(obj: Any) -> GetStatusResponse:
+        assert isinstance(obj, dict)
+        version = obj.get("version")
+        protocolVersion = obj.get("protocolVersion")
+        if version is None or protocolVersion is None:
+            raise ValueError(
+                f"Missing required fields in GetStatusResponse: version={version}, "
+                f"protocolVersion={protocolVersion}"
+            )
+        return GetStatusResponse(str(version), int(protocolVersion))
+
+    def to_dict(self) -> dict:
+        result: dict = {}
+        result["version"] = self.version
+        result["protocolVersion"] = self.protocolVersion
+        return result
+
+
+@dataclass
+class GetAuthStatusResponse:
+    """Response from auth.getStatus"""
+
+    isAuthenticated: bool  # Whether the user is authenticated
+    authType: str | None = None  # Authentication type
+    host: str | None = None  # GitHub host URL
+    login: str | None = None  # User login name
+    statusMessage: str | None = None  # Human-readable status message
+
+    @staticmethod
+    def from_dict(obj: Any) -> GetAuthStatusResponse:
+        assert isinstance(obj, dict)
+        isAuthenticated = obj.get("isAuthenticated")
+        if isAuthenticated is None:
+            raise ValueError("Missing required field 'isAuthenticated' in GetAuthStatusResponse")
+        authType = obj.get("authType")
+        host = obj.get("host")
+        login = obj.get("login")
+        statusMessage = obj.get("statusMessage")
+        return GetAuthStatusResponse(
+            isAuthenticated=bool(isAuthenticated),
+            authType=authType,
+            host=host,
+            login=login,
+            statusMessage=statusMessage,
+        )
+
+    def to_dict(self) -> dict:
+        result: dict = {}
+        result["isAuthenticated"] = self.isAuthenticated
+        if self.authType is not None:
+            result["authType"] = self.authType
+        if self.host is not None:
+            result["host"] = self.host
+        if self.login is not None:
+            result["login"] = self.login
+        if self.statusMessage is not None:
+            result["statusMessage"] = self.statusMessage
+        return result
+
+
+# ============================================================================
+# Model Types
+# ============================================================================
+
+
+@dataclass
+class ModelVisionLimits:
+    """Vision-specific limits"""
+
+    supported_media_types: list[str] | None = None
+    max_prompt_images: int | None = None
+    max_prompt_image_size: int | None = None
+
+    @staticmethod
+    def from_dict(obj: Any) -> ModelVisionLimits:
+        assert isinstance(obj, dict)
+        supported_media_types = obj.get("supported_media_types")
+        max_prompt_images = obj.get("max_prompt_images")
+        max_prompt_image_size = obj.get("max_prompt_image_size")
+        return ModelVisionLimits(
+            supported_media_types=supported_media_types,
+            max_prompt_images=max_prompt_images,
+            max_prompt_image_size=max_prompt_image_size,
+        )
+
+    def to_dict(self) -> dict:
+        result: dict = {}
+        if self.supported_media_types is not None:
+            result["supported_media_types"] = self.supported_media_types
+        if self.max_prompt_images is not None:
+            result["max_prompt_images"] = self.max_prompt_images
+        if self.max_prompt_image_size is not None:
+            result["max_prompt_image_size"] = self.max_prompt_image_size
+        return result
+
+
+@dataclass
+class ModelLimits:
+    """Model limits"""
+
+    max_prompt_tokens: int | None = None
+    max_context_window_tokens: int | None = None
+    vision: ModelVisionLimits | None = None
+
+    @staticmethod
+    def from_dict(obj: Any) -> ModelLimits:
+        assert isinstance(obj, dict)
+        max_prompt_tokens = obj.get("max_prompt_tokens")
+        max_context_window_tokens = obj.get("max_context_window_tokens")
+        vision_dict = obj.get("vision")
+        vision = ModelVisionLimits.from_dict(vision_dict) if vision_dict else None
+        return ModelLimits(
+            max_prompt_tokens=max_prompt_tokens,
+            max_context_window_tokens=max_context_window_tokens,
+            vision=vision,
+        )
+
+    def to_dict(self) -> dict:
+        result: dict = {}
+        if self.max_prompt_tokens is not None:
+            result["max_prompt_tokens"] = self.max_prompt_tokens
+        if self.max_context_window_tokens is not None:
+            result["max_context_window_tokens"] = self.max_context_window_tokens
+        if self.vision is not None:
+            result["vision"] = self.vision.to_dict()
+        return result
+
+
+@dataclass
+class ModelSupports:
+    """Model support flags"""
+
+    vision: bool
+    reasoning_effort: bool = False  # Whether this model supports reasoning effort
+
+    @staticmethod
+    def from_dict(obj: Any) -> ModelSupports:
+        assert isinstance(obj, dict)
+        vision = obj.get("vision")
+        if vision is None:
+            raise ValueError("Missing required field 'vision' in ModelSupports")
+        reasoning_effort = obj.get("reasoningEffort", False)
+        return ModelSupports(vision=bool(vision), reasoning_effort=bool(reasoning_effort))
+
+    def to_dict(self) -> dict:
+        result: dict = {}
+        result["vision"] = self.vision
+        result["reasoningEffort"] = self.reasoning_effort
+        return result
+
+
+@dataclass
+class ModelCapabilities:
+    """Model capabilities and limits"""
+
+    supports: ModelSupports
+    limits: ModelLimits
+
+    @staticmethod
+    def from_dict(obj: Any) -> ModelCapabilities:
+        assert isinstance(obj, dict)
+        supports_dict = obj.get("supports")
+        limits_dict = obj.get("limits")
+        if supports_dict is None or limits_dict is None:
+            raise ValueError(
+                f"Missing required fields in ModelCapabilities: supports={supports_dict}, "
+                f"limits={limits_dict}"
+            )
+        supports = ModelSupports.from_dict(supports_dict)
+        limits = ModelLimits.from_dict(limits_dict)
+        return ModelCapabilities(supports=supports, limits=limits)
+
+    def to_dict(self) -> dict:
+        result: dict = {}
+        result["supports"] = self.supports.to_dict()
+        result["limits"] = self.limits.to_dict()
+        return result
+
+
+@dataclass
+class ModelPolicy:
+    """Model policy state"""
+
+    state: str  # "enabled", "disabled", or "unconfigured"
+    terms: str
+
+    @staticmethod
+    def from_dict(obj: Any) -> ModelPolicy:
+        assert isinstance(obj, dict)
+        state = obj.get("state")
+        terms = obj.get("terms")
+        if state is None or terms is None:
+            raise ValueError(
+                f"Missing required fields in ModelPolicy: state={state}, terms={terms}"
+            )
+        return ModelPolicy(state=str(state), terms=str(terms))
+
+    def to_dict(self) -> dict:
+        result: dict = {}
+        result["state"] = self.state
+        result["terms"] = self.terms
+        return result
+
+
+@dataclass
+class ModelBilling:
+    """Model billing information"""
+
+    multiplier: float
+
+    @staticmethod
+    def from_dict(obj: Any) -> ModelBilling:
+        assert isinstance(obj, dict)
+        multiplier = obj.get("multiplier")
+        if multiplier is None:
+            raise ValueError("Missing required field 'multiplier' in ModelBilling")
+        return ModelBilling(multiplier=float(multiplier))
+
+    def to_dict(self) -> dict:
+        result: dict = {}
+        result["multiplier"] = self.multiplier
+        return result
+
+
+@dataclass
+class ModelInfo:
+    """Information about an available model"""
+
+    id: str  # Model identifier (e.g., "claude-sonnet-4.5")
+    name: str  # Display name
+    capabilities: ModelCapabilities  # Model capabilities and limits
+    policy: ModelPolicy | None = None  # Policy state
+    billing: ModelBilling | None = None  # Billing information
+    # Supported reasoning effort levels (only present if model supports reasoning effort)
+    supported_reasoning_efforts: list[str] | None = None
+    # Default reasoning effort level (only present if model supports reasoning effort)
+    default_reasoning_effort: str | None = None
+
+    @staticmethod
+    def from_dict(obj: Any) -> ModelInfo:
+        assert isinstance(obj, dict)
+        id = obj.get("id")
+        name = obj.get("name")
+        capabilities_dict = obj.get("capabilities")
+        if id is None or name is None or capabilities_dict is None:
+            raise ValueError(
+                f"Missing required fields in ModelInfo: id={id}, name={name}, "
+                f"capabilities={capabilities_dict}"
+            )
+        capabilities = ModelCapabilities.from_dict(capabilities_dict)
+        policy_dict = obj.get("policy")
+        policy = ModelPolicy.from_dict(policy_dict) if policy_dict else None
+        billing_dict = obj.get("billing")
+        billing = ModelBilling.from_dict(billing_dict) if billing_dict else None
+        supported_reasoning_efforts = obj.get("supportedReasoningEfforts")
+        default_reasoning_effort = obj.get("defaultReasoningEffort")
+        return ModelInfo(
+            id=str(id),
+            name=str(name),
+            capabilities=capabilities,
+            policy=policy,
+            billing=billing,
+            supported_reasoning_efforts=supported_reasoning_efforts,
+            default_reasoning_effort=default_reasoning_effort,
+        )
+
+    def to_dict(self) -> dict:
+        result: dict = {}
+        result["id"] = self.id
+        result["name"] = self.name
+        result["capabilities"] = self.capabilities.to_dict()
+        if self.policy is not None:
+            result["policy"] = self.policy.to_dict()
+        if self.billing is not None:
+            result["billing"] = self.billing.to_dict()
+        if self.supported_reasoning_efforts is not None:
+            result["supportedReasoningEfforts"] = self.supported_reasoning_efforts
+        if self.default_reasoning_effort is not None:
+            result["defaultReasoningEffort"] = self.default_reasoning_effort
+        return result
+
+
+# ============================================================================
+# Session Metadata Types
+# ============================================================================
+
+
+@dataclass
+class SessionContext:
+    """Working directory context for a session"""
+
+    cwd: str  # Working directory where the session was created
+    gitRoot: str | None = None  # Git repository root (if in a git repo)
+    repository: str | None = None  # GitHub repository in "owner/repo" format
+    branch: str | None = None  # Current git branch
+
+    @staticmethod
+    def from_dict(obj: Any) -> SessionContext:
+        assert isinstance(obj, dict)
+        cwd = obj.get("cwd")
+        if cwd is None:
+            raise ValueError("Missing required field 'cwd' in SessionContext")
+        return SessionContext(
+            cwd=str(cwd),
+            gitRoot=obj.get("gitRoot"),
+            repository=obj.get("repository"),
+            branch=obj.get("branch"),
+        )
+
+    def to_dict(self) -> dict:
+        result: dict = {"cwd": self.cwd}
+        if self.gitRoot is not None:
+            result["gitRoot"] = self.gitRoot
+        if self.repository is not None:
+            result["repository"] = self.repository
+        if self.branch is not None:
+            result["branch"] = self.branch
+        return result
+
+
+@dataclass
+class SessionListFilter:
+    """Filter options for listing sessions"""
+
+    cwd: str | None = None  # Filter by exact cwd match
+    gitRoot: str | None = None  # Filter by git root
+    repository: str | None = None  # Filter by repository (owner/repo format)
+    branch: str | None = None  # Filter by branch
+
+    def to_dict(self) -> dict:
+        result: dict = {}
+        if self.cwd is not None:
+            result["cwd"] = self.cwd
+        if self.gitRoot is not None:
+            result["gitRoot"] = self.gitRoot
+        if self.repository is not None:
+            result["repository"] = self.repository
+        if self.branch is not None:
+            result["branch"] = self.branch
+        return result
+
+
+@dataclass
+class SessionMetadata:
+    """Metadata about a session"""
+
+    sessionId: str  # Session identifier
+    startTime: str  # ISO 8601 timestamp when session was created
+    modifiedTime: str  # ISO 8601 timestamp when session was last modified
+    isRemote: bool  # Whether the session is remote
+    summary: str | None = None  # Optional summary of the session
+    context: SessionContext | None = None  # Working directory context
+
+    @staticmethod
+    def from_dict(obj: Any) -> SessionMetadata:
+        assert isinstance(obj, dict)
+        sessionId = obj.get("sessionId")
+        startTime = obj.get("startTime")
+        modifiedTime = obj.get("modifiedTime")
+        isRemote = obj.get("isRemote")
+        if sessionId is None or startTime is None or modifiedTime is None or isRemote is None:
+            raise ValueError(
+                f"Missing required fields in SessionMetadata: sessionId={sessionId}, "
+                f"startTime={startTime}, modifiedTime={modifiedTime}, isRemote={isRemote}"
+            )
+        summary = obj.get("summary")
+        context_dict = obj.get("context")
+        context = SessionContext.from_dict(context_dict) if context_dict else None
+        return SessionMetadata(
+            sessionId=str(sessionId),
+            startTime=str(startTime),
+            modifiedTime=str(modifiedTime),
+            isRemote=bool(isRemote),
+            summary=summary,
+            context=context,
+        )
+
+    def to_dict(self) -> dict:
+        result: dict = {}
+        result["sessionId"] = self.sessionId
+        result["startTime"] = self.startTime
+        result["modifiedTime"] = self.modifiedTime
+        result["isRemote"] = self.isRemote
+        if self.summary is not None:
+            result["summary"] = self.summary
+        if self.context is not None:
+            result["context"] = self.context.to_dict()
+        return result
+
+
+# ============================================================================
+# Session Lifecycle Types (for TUI+server mode)
+# ============================================================================
+
+SessionLifecycleEventType = Literal[
+    "session.created",
+    "session.deleted",
+    "session.updated",
+    "session.foreground",
+    "session.background",
+]
+
+
+@dataclass
+class SessionLifecycleEventMetadata:
+    """Metadata for session lifecycle events."""
+
+    startTime: str
+    modifiedTime: str
+    summary: str | None = None
+
+    @staticmethod
+    def from_dict(data: dict) -> SessionLifecycleEventMetadata:
+        return SessionLifecycleEventMetadata(
+            startTime=data.get("startTime", ""),
+            modifiedTime=data.get("modifiedTime", ""),
+            summary=data.get("summary"),
+        )
+
+
+@dataclass
+class SessionLifecycleEvent:
+    """Session lifecycle event notification."""
+
+    type: SessionLifecycleEventType
+    sessionId: str
+    metadata: SessionLifecycleEventMetadata | None = None
+
+    @staticmethod
+    def from_dict(data: dict) -> SessionLifecycleEvent:
+        metadata = None
+        if "metadata" in data and data["metadata"]:
+            metadata = SessionLifecycleEventMetadata.from_dict(data["metadata"])
+        return SessionLifecycleEvent(
+            type=data.get("type", "session.updated"),
+            sessionId=data.get("sessionId", ""),
+            metadata=metadata,
+        )
+
+
+SessionLifecycleHandler = Callable[[SessionLifecycleEvent], None]
 
 HandlerUnsubcribe = Callable[[], None]
 
@@ -840,7 +1425,7 @@ class CopilotClient:
         """
         return self._state
 
-    async def ping(self, message: str | None = None) -> "PingResponse":
+    async def ping(self, message: str | None = None) -> PingResponse:
         """
         Send a ping request to the server to verify connectivity.
 
@@ -863,7 +1448,7 @@ class CopilotClient:
         result = await self._client.request("ping", {"message": message})
         return PingResponse.from_dict(result)
 
-    async def get_status(self) -> "GetStatusResponse":
+    async def get_status(self) -> GetStatusResponse:
         """
         Get CLI status including version and protocol information.
 
@@ -883,7 +1468,7 @@ class CopilotClient:
         result = await self._client.request("status.get", {})
         return GetStatusResponse.from_dict(result)
 
-    async def get_auth_status(self) -> "GetAuthStatusResponse":
+    async def get_auth_status(self) -> GetAuthStatusResponse:
         """
         Get current authentication status.
 
@@ -904,7 +1489,7 @@ class CopilotClient:
         result = await self._client.request("auth.getStatus", {})
         return GetAuthStatusResponse.from_dict(result)
 
-    async def list_models(self) -> list["ModelInfo"]:
+    async def list_models(self) -> list[ModelInfo]:
         """
         List available models with their metadata.
 
@@ -954,9 +1539,7 @@ class CopilotClient:
 
             return list(models)  # Return a copy to prevent cache mutation
 
-    async def list_sessions(
-        self, filter: "SessionListFilter | None" = None
-    ) -> list["SessionMetadata"]:
+    async def list_sessions(self, filter: SessionListFilter | None = None) -> list[SessionMetadata]:
         """
         List all available sessions known to the server.
 
@@ -977,7 +1560,7 @@ class CopilotClient:
             >>> for session in sessions:
             ...     print(f"Session: {session.sessionId}")
             >>> # Filter sessions by repository
-            >>> from copilot import SessionListFilter
+            >>> from copilot.client import SessionListFilter
             >>> filtered = await client.list_sessions(SessionListFilter(repository="owner/repo"))
         """
         if not self._client:

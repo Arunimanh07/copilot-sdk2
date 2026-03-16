@@ -35,7 +35,7 @@ type ErrorOccurredHandler = (
 
 <!-- docs-validate: hidden -->
 ```python
-from copilot.types import ErrorOccurredHookInput, HookInvocation, ErrorOccurredHookOutput
+from copilot.session import ErrorOccurredHookInput, ErrorOccurredHookOutput
 from typing import Callable, Awaitable
 
 ErrorOccurredHandler = Callable[

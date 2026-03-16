@@ -205,7 +205,8 @@ session = await client.create_session({
 For users who prefer manual schema definition:
 
 ```python
-from copilot import CopilotClient, Tool
+from copilot import CopilotClient
+from copilot.tools import Tool
 
 async def lookup_issue(invocation):
     issue_id = invocation["arguments"]["id"]

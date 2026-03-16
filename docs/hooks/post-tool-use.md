@@ -35,7 +35,7 @@ type PostToolUseHandler = (
 
 <!-- docs-validate: hidden -->
 ```python
-from copilot.types import PostToolUseHookInput, HookInvocation, PostToolUseHookOutput
+from copilot.session import PostToolUseHookInput, PostToolUseHookOutput
 from typing import Callable, Awaitable
 
 PostToolUseHandler = Callable[
