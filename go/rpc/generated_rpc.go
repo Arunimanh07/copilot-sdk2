@@ -4,283 +4,291 @@
 package rpc
 
 import (
-	"context"
-	"encoding/json"
+    "context"
+    "encoding/json"
 
-	"github.com/github/copilot-sdk/go/internal/jsonrpc2"
+    "github.com/github/copilot-sdk/go/internal/jsonrpc2"
 )
 
 type PingResult struct {
-	// Echoed message (or default greeting)
-	Message string `json:"message"`
-	// Server protocol version number
-	ProtocolVersion float64 `json:"protocolVersion"`
-	// Server timestamp in milliseconds
-	Timestamp float64 `json:"timestamp"`
+	// Echoed message (or default greeting)        
+	Message                                string  `json:"message"`
+	// Server protocol version number              
+	ProtocolVersion                        float64 `json:"protocolVersion"`
+	// Server timestamp in milliseconds            
+	Timestamp                              float64 `json:"timestamp"`
 }
 
 type PingParams struct {
-	// Optional message to echo back
-	Message *string `json:"message,omitempty"`
+	// Optional message to echo back        
+	Message                         *string `json:"message,omitempty"`
 }
 
 type ModelsListResult struct {
-	// List of available models with full metadata
-	Models []Model `json:"models"`
+	// List of available models with full metadata        
+	Models                                        []Model `json:"models"`
 }
 
 type Model struct {
-	// Billing information
-	Billing *Billing `json:"billing,omitempty"`
-	// Model capabilities and limits
-	Capabilities Capabilities `json:"capabilities"`
-	// Default reasoning effort level (only present if model supports reasoning effort)
-	DefaultReasoningEffort *string `json:"defaultReasoningEffort,omitempty"`
-	// Model identifier (e.g., "claude-sonnet-4.5")
-	ID string `json:"id"`
-	// Display name
-	Name string `json:"name"`
-	// Policy state (if applicable)
-	Policy *Policy `json:"policy,omitempty"`
-	// Supported reasoning effort levels (only present if model supports reasoning effort)
-	SupportedReasoningEfforts []string `json:"supportedReasoningEfforts,omitempty"`
+	// Billing information                                                                             
+	Billing                                                                               *Billing     `json:"billing,omitempty"`
+	// Model capabilities and limits                                                                   
+	Capabilities                                                                          Capabilities `json:"capabilities"`
+	// Default reasoning effort level (only present if model supports reasoning effort)                
+	DefaultReasoningEffort                                                                *string      `json:"defaultReasoningEffort,omitempty"`
+	// Model identifier (e.g., "claude-sonnet-4.5")                                                    
+	ID                                                                                    string       `json:"id"`
+	// Display name                                                                                    
+	Name                                                                                  string       `json:"name"`
+	// Policy state (if applicable)                                                                    
+	Policy                                                                                *Policy      `json:"policy,omitempty"`
+	// Supported reasoning effort levels (only present if model supports reasoning effort)             
+	SupportedReasoningEfforts                                                             []string     `json:"supportedReasoningEfforts,omitempty"`
 }
 
 // Billing information
 type Billing struct {
-	// Billing cost multiplier relative to the base rate
-	Multiplier float64 `json:"multiplier"`
+	// Billing cost multiplier relative to the base rate        
+	Multiplier                                          float64 `json:"multiplier"`
 }
 
 // Model capabilities and limits
 type Capabilities struct {
-	// Token limits for prompts, outputs, and context window
-	Limits Limits `json:"limits"`
-	// Feature flags indicating what the model supports
-	Supports Supports `json:"supports"`
+	// Token limits for prompts, outputs, and context window         
+	Limits                                                  Limits   `json:"limits"`
+	// Feature flags indicating what the model supports              
+	Supports                                                Supports `json:"supports"`
 }
 
 // Token limits for prompts, outputs, and context window
 type Limits struct {
-	// Maximum total context window size in tokens
-	MaxContextWindowTokens float64 `json:"max_context_window_tokens"`
-	// Maximum number of output/completion tokens
-	MaxOutputTokens *float64 `json:"max_output_tokens,omitempty"`
-	// Maximum number of prompt/input tokens
-	MaxPromptTokens *float64 `json:"max_prompt_tokens,omitempty"`
+	// Maximum total context window size in tokens         
+	MaxContextWindowTokens                        float64  `json:"max_context_window_tokens"`
+	// Maximum number of output/completion tokens          
+	MaxOutputTokens                               *float64 `json:"max_output_tokens,omitempty"`
+	// Maximum number of prompt/input tokens               
+	MaxPromptTokens                               *float64 `json:"max_prompt_tokens,omitempty"`
 }
 
 // Feature flags indicating what the model supports
 type Supports struct {
-	// Whether this model supports reasoning effort configuration
-	ReasoningEffort *bool `json:"reasoningEffort,omitempty"`
-	// Whether this model supports vision/image input
-	Vision *bool `json:"vision,omitempty"`
+	// Whether this model supports reasoning effort configuration      
+	ReasoningEffort                                              *bool `json:"reasoningEffort,omitempty"`
+	// Whether this model supports vision/image input                  
+	Vision                                                       *bool `json:"vision,omitempty"`
 }
 
 // Policy state (if applicable)
 type Policy struct {
-	// Current policy state for this model
-	State string `json:"state"`
-	// Usage terms or conditions for this model
-	Terms string `json:"terms"`
+	// Current policy state for this model            
+	State                                      string `json:"state"`
+	// Usage terms or conditions for this model       
+	Terms                                      string `json:"terms"`
 }
 
 type ToolsListResult struct {
-	// List of available built-in tools with metadata
-	Tools []Tool `json:"tools"`
+	// List of available built-in tools with metadata       
+	Tools                                            []Tool `json:"tools"`
 }
 
 type Tool struct {
-	// Description of what the tool does
-	Description string `json:"description"`
-	// Optional instructions for how to use this tool effectively
-	Instructions *string `json:"instructions,omitempty"`
-	// Tool identifier (e.g., "bash", "grep", "str_replace_editor")
-	Name string `json:"name"`
-	// Optional namespaced name for declarative filtering (e.g., "playwright/navigate" for MCP
-	// tools)
-	NamespacedName *string `json:"namespacedName,omitempty"`
-	// JSON Schema for the tool's input parameters
-	Parameters map[string]interface{} `json:"parameters,omitempty"`
+	// Description of what the tool does                                                                             
+	Description                                                                               string                 `json:"description"`
+	// Optional instructions for how to use this tool effectively                                                    
+	Instructions                                                                              *string                `json:"instructions,omitempty"`
+	// Tool identifier (e.g., "bash", "grep", "str_replace_editor")                                                  
+	Name                                                                                      string                 `json:"name"`
+	// Optional namespaced name for declarative filtering (e.g., "playwright/navigate" for MCP                       
+	// tools)                                                                                                        
+	NamespacedName                                                                            *string                `json:"namespacedName,omitempty"`
+	// JSON Schema for the tool's input parameters                                                                   
+	Parameters                                                                                map[string]interface{} `json:"parameters,omitempty"`
 }
 
 type ToolsListParams struct {
-	// Optional model ID — when provided, the returned tool list reflects model-specific
-	// overrides
-	Model *string `json:"model,omitempty"`
+	// Optional model ID — when provided, the returned tool list reflects model-specific        
+	// overrides                                                                                
+	Model                                                                               *string `json:"model,omitempty"`
 }
 
 type AccountGetQuotaResult struct {
-	// Quota snapshots keyed by type (e.g., chat, completions, premium_interactions)
-	QuotaSnapshots map[string]QuotaSnapshot `json:"quotaSnapshots"`
+	// Quota snapshots keyed by type (e.g., chat, completions, premium_interactions)                         
+	QuotaSnapshots                                                                  map[string]QuotaSnapshot `json:"quotaSnapshots"`
 }
 
 type QuotaSnapshot struct {
-	// Number of requests included in the entitlement
-	EntitlementRequests float64 `json:"entitlementRequests"`
-	// Number of overage requests made this period
-	Overage float64 `json:"overage"`
-	// Whether pay-per-request usage is allowed when quota is exhausted
-	OverageAllowedWithExhaustedQuota bool `json:"overageAllowedWithExhaustedQuota"`
-	// Percentage of entitlement remaining
-	RemainingPercentage float64 `json:"remainingPercentage"`
-	// Date when the quota resets (ISO 8601)
-	ResetDate *string `json:"resetDate,omitempty"`
-	// Number of requests used so far this period
-	UsedRequests float64 `json:"usedRequests"`
+	// Number of requests included in the entitlement                          
+	EntitlementRequests                                                float64 `json:"entitlementRequests"`
+	// Number of overage requests made this period                             
+	Overage                                                            float64 `json:"overage"`
+	// Whether pay-per-request usage is allowed when quota is exhausted        
+	OverageAllowedWithExhaustedQuota                                   bool    `json:"overageAllowedWithExhaustedQuota"`
+	// Percentage of entitlement remaining                                     
+	RemainingPercentage                                                float64 `json:"remainingPercentage"`
+	// Date when the quota resets (ISO 8601)                                   
+	ResetDate                                                          *string `json:"resetDate,omitempty"`
+	// Number of requests used so far this period                              
+	UsedRequests                                                       float64 `json:"usedRequests"`
 }
 
 type SessionModelGetCurrentResult struct {
-	// Currently active model identifier
-	ModelID *string `json:"modelId,omitempty"`
+	// Currently active model identifier        
+	ModelID                             *string `json:"modelId,omitempty"`
 }
 
 type SessionModelSwitchToResult struct {
-	// Currently active model identifier after the switch
-	ModelID *string `json:"modelId,omitempty"`
+	// Currently active model identifier after the switch        
+	ModelID                                              *string `json:"modelId,omitempty"`
 }
 
 type SessionModelSwitchToParams struct {
-	// Model identifier to switch to
-	ModelID string `json:"modelId"`
-	// Reasoning effort level to use for the model
-	ReasoningEffort *string `json:"reasoningEffort,omitempty"`
+	// Model identifier to switch to                      
+	ModelID                                       string  `json:"modelId"`
+	// Reasoning effort level to use for the model        
+	ReasoningEffort                               *string `json:"reasoningEffort,omitempty"`
 }
 
 type SessionModeGetResult struct {
-	// The current agent mode.
-	Mode Mode `json:"mode"`
+	// The current agent mode.     
+	Mode                      Mode `json:"mode"`
 }
 
 type SessionModeSetResult struct {
-	// The agent mode after switching.
-	Mode Mode `json:"mode"`
+	// The agent mode after switching.     
+	Mode                              Mode `json:"mode"`
 }
 
 type SessionModeSetParams struct {
-	// The mode to switch to. Valid values: "interactive", "plan", "autopilot".
-	Mode Mode `json:"mode"`
+	// The mode to switch to. Valid values: "interactive", "plan", "autopilot".     
+	Mode                                                                       Mode `json:"mode"`
 }
 
 type SessionPlanReadResult struct {
-	// The content of the plan file, or null if it does not exist
-	Content *string `json:"content"`
-	// Whether the plan file exists in the workspace
-	Exists bool `json:"exists"`
-	// Absolute file path of the plan file, or null if workspace is not enabled
-	Path *string `json:"path"`
+	// The content of the plan file, or null if it does not exist                      
+	Content                                                                    *string `json:"content"`
+	// Whether the plan file exists in the workspace                                   
+	Exists                                                                     bool    `json:"exists"`
+	// Absolute file path of the plan file, or null if workspace is not enabled        
+	Path                                                                       *string `json:"path"`
 }
 
 type SessionPlanUpdateResult struct {
 }
 
 type SessionPlanUpdateParams struct {
-	// The new content for the plan file
-	Content string `json:"content"`
+	// The new content for the plan file       
+	Content                             string `json:"content"`
 }
 
 type SessionPlanDeleteResult struct {
 }
 
 type SessionWorkspaceListFilesResult struct {
-	// Relative file paths in the workspace files directory
-	Files []string `json:"files"`
+	// Relative file paths in the workspace files directory         
+	Files                                                  []string `json:"files"`
 }
 
 type SessionWorkspaceReadFileResult struct {
-	// File content as a UTF-8 string
-	Content string `json:"content"`
+	// File content as a UTF-8 string       
+	Content                          string `json:"content"`
 }
 
 type SessionWorkspaceReadFileParams struct {
-	// Relative path within the workspace files directory
-	Path string `json:"path"`
+	// Relative path within the workspace files directory       
+	Path                                                 string `json:"path"`
 }
 
 type SessionWorkspaceCreateFileResult struct {
 }
 
 type SessionWorkspaceCreateFileParams struct {
-	// File content to write as a UTF-8 string
-	Content string `json:"content"`
-	// Relative path within the workspace files directory
-	Path string `json:"path"`
+	// File content to write as a UTF-8 string                  
+	Content                                              string `json:"content"`
+	// Relative path within the workspace files directory       
+	Path                                                 string `json:"path"`
 }
 
+// Experimental: SessionFleetStartResult is part of an experimental API and may change or be removed.
 type SessionFleetStartResult struct {
-	// Whether fleet mode was successfully activated
-	Started bool `json:"started"`
+	// Whether fleet mode was successfully activated     
+	Started                                         bool `json:"started"`
 }
 
+// Experimental: SessionFleetStartParams is part of an experimental API and may change or be removed.
 type SessionFleetStartParams struct {
-	// Optional user prompt to combine with fleet instructions
-	Prompt *string `json:"prompt,omitempty"`
+	// Optional user prompt to combine with fleet instructions        
+	Prompt                                                    *string `json:"prompt,omitempty"`
 }
 
+// Experimental: SessionAgentListResult is part of an experimental API and may change or be removed.
 type SessionAgentListResult struct {
-	// Available custom agents
-	Agents []AgentElement `json:"agents"`
+	// Available custom agents               
+	Agents                    []AgentElement `json:"agents"`
 }
 
 type AgentElement struct {
-	// Description of the agent's purpose
-	Description string `json:"description"`
-	// Human-readable display name
-	DisplayName string `json:"displayName"`
-	// Unique identifier of the custom agent
-	Name string `json:"name"`
+	// Description of the agent's purpose          
+	Description                             string `json:"description"`
+	// Human-readable display name                 
+	DisplayName                             string `json:"displayName"`
+	// Unique identifier of the custom agent       
+	Name                                    string `json:"name"`
 }
 
+// Experimental: SessionAgentGetCurrentResult is part of an experimental API and may change or be removed.
 type SessionAgentGetCurrentResult struct {
-	// Currently selected custom agent, or null if using the default agent
-	Agent *SessionAgentGetCurrentResultAgent `json:"agent"`
+	// Currently selected custom agent, or null if using the default agent                                   
+	Agent                                                                 *SessionAgentGetCurrentResultAgent `json:"agent"`
 }
 
 type SessionAgentGetCurrentResultAgent struct {
-	// Description of the agent's purpose
-	Description string `json:"description"`
-	// Human-readable display name
-	DisplayName string `json:"displayName"`
-	// Unique identifier of the custom agent
-	Name string `json:"name"`
+	// Description of the agent's purpose          
+	Description                             string `json:"description"`
+	// Human-readable display name                 
+	DisplayName                             string `json:"displayName"`
+	// Unique identifier of the custom agent       
+	Name                                    string `json:"name"`
 }
 
+// Experimental: SessionAgentSelectResult is part of an experimental API and may change or be removed.
 type SessionAgentSelectResult struct {
-	// The newly selected custom agent
-	Agent SessionAgentSelectResultAgent `json:"agent"`
+	// The newly selected custom agent                              
+	Agent                             SessionAgentSelectResultAgent `json:"agent"`
 }
 
 // The newly selected custom agent
 type SessionAgentSelectResultAgent struct {
-	// Description of the agent's purpose
-	Description string `json:"description"`
-	// Human-readable display name
-	DisplayName string `json:"displayName"`
-	// Unique identifier of the custom agent
-	Name string `json:"name"`
+	// Description of the agent's purpose          
+	Description                             string `json:"description"`
+	// Human-readable display name                 
+	DisplayName                             string `json:"displayName"`
+	// Unique identifier of the custom agent       
+	Name                                    string `json:"name"`
 }
 
+// Experimental: SessionAgentSelectParams is part of an experimental API and may change or be removed.
 type SessionAgentSelectParams struct {
-	// Name of the custom agent to select
-	Name string `json:"name"`
+	// Name of the custom agent to select       
+	Name                                 string `json:"name"`
 }
 
+// Experimental: SessionAgentDeselectResult is part of an experimental API and may change or be removed.
 type SessionAgentDeselectResult struct {
 }
 
+// Experimental: SessionCompactionCompactResult is part of an experimental API and may change or be removed.
 type SessionCompactionCompactResult struct {
-	// Number of messages removed during compaction
-	MessagesRemoved float64 `json:"messagesRemoved"`
-	// Whether compaction completed successfully
-	Success bool `json:"success"`
-	// Number of tokens freed by compaction
-	TokensRemoved float64 `json:"tokensRemoved"`
+	// Number of messages removed during compaction        
+	MessagesRemoved                                float64 `json:"messagesRemoved"`
+	// Whether compaction completed successfully           
+	Success                                        bool    `json:"success"`
+	// Number of tokens freed by compaction                
+	TokensRemoved                                  float64 `json:"tokensRemoved"`
 }
 
 type SessionToolsHandlePendingToolCallResult struct {
-	// Whether the tool call result was handled successfully
-	Success bool `json:"success"`
+	// Whether the tool call result was handled successfully     
+	Success                                                 bool `json:"success"`
 }
 
 type SessionToolsHandlePendingToolCallParams struct {
@@ -297,8 +305,8 @@ type ResultResult struct {
 }
 
 type SessionPermissionsHandlePendingPermissionRequestResult struct {
-	// Whether the permission request was handled successfully
-	Success bool `json:"success"`
+	// Whether the permission request was handled successfully     
+	Success                                                   bool `json:"success"`
 }
 
 type SessionPermissionsHandlePendingPermissionRequestParams struct {
@@ -315,44 +323,44 @@ type SessionPermissionsHandlePendingPermissionRequestParamsResult struct {
 }
 
 type SessionLogResult struct {
-	// The unique identifier of the emitted session event
-	EventID string `json:"eventId"`
+	// The unique identifier of the emitted session event       
+	EventID                                              string `json:"eventId"`
 }
 
 type SessionLogParams struct {
-	// When true, the message is transient and not persisted to the session event log on disk
-	Ephemeral *bool `json:"ephemeral,omitempty"`
-	// Log severity level. Determines how the message is displayed in the timeline. Defaults to
-	// "info".
-	Level *Level `json:"level,omitempty"`
-	// Human-readable message
-	Message string `json:"message"`
+	// When true, the message is transient and not persisted to the session event log on disk         
+	Ephemeral                                                                                  *bool  `json:"ephemeral,omitempty"`
+	// Log severity level. Determines how the message is displayed in the timeline. Defaults to       
+	// "info".                                                                                        
+	Level                                                                                      *Level `json:"level,omitempty"`
+	// Human-readable message                                                                         
+	Message                                                                                    string `json:"message"`
 }
 
 type SessionShellExecResult struct {
-	// Unique identifier for tracking streamed output
-	ProcessID string `json:"processId"`
+	// Unique identifier for tracking streamed output       
+	ProcessID                                        string `json:"processId"`
 }
 
 type SessionShellExecParams struct {
-	// Shell command to execute
-	Command string `json:"command"`
-	// Working directory (defaults to session working directory)
-	Cwd *string `json:"cwd,omitempty"`
-	// Timeout in milliseconds (default: 30000)
-	Timeout *float64 `json:"timeout,omitempty"`
+	// Shell command to execute                                          
+	Command                                                     string   `json:"command"`
+	// Working directory (defaults to session working directory)         
+	Cwd                                                         *string  `json:"cwd,omitempty"`
+	// Timeout in milliseconds (default: 30000)                          
+	Timeout                                                     *float64 `json:"timeout,omitempty"`
 }
 
 type SessionShellKillResult struct {
-	// Whether the signal was sent successfully
-	Killed bool `json:"killed"`
+	// Whether the signal was sent successfully     
+	Killed                                     bool `json:"killed"`
 }
 
 type SessionShellKillParams struct {
-	// Process identifier returned by shell.exec
-	ProcessID string `json:"processId"`
-	// Signal to send (default: SIGTERM)
-	Signal *Signal `json:"signal,omitempty"`
+	// Process identifier returned by shell.exec        
+	ProcessID                                   string  `json:"processId"`
+	// Signal to send (default: SIGTERM)                
+	Signal                                      *Signal `json:"signal,omitempty"`
 }
 
 // The current agent mode.
@@ -402,490 +410,364 @@ type ResultUnion struct {
 	String       *string
 }
 
-type ServerModelsRpcApi struct{ client *jsonrpc2.Client }
+
+type ServerModelsRpcApi struct { client *jsonrpc2.Client }
 
 func (a *ServerModelsRpcApi) List(ctx context.Context) (*ModelsListResult, error) {
-	raw, err := a.client.Request("models.list", map[string]interface{}{})
-	if err != nil {
-		return nil, err
-	}
-	var result ModelsListResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    raw, err := a.client.Request("models.list", map[string]interface{}{})
+    if err != nil { return nil, err }
+    var result ModelsListResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
-type ServerToolsRpcApi struct{ client *jsonrpc2.Client }
+type ServerToolsRpcApi struct { client *jsonrpc2.Client }
 
 func (a *ServerToolsRpcApi) List(ctx context.Context, params *ToolsListParams) (*ToolsListResult, error) {
-	raw, err := a.client.Request("tools.list", params)
-	if err != nil {
-		return nil, err
-	}
-	var result ToolsListResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    raw, err := a.client.Request("tools.list", params)
+    if err != nil { return nil, err }
+    var result ToolsListResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
-type ServerAccountRpcApi struct{ client *jsonrpc2.Client }
+type ServerAccountRpcApi struct { client *jsonrpc2.Client }
 
 func (a *ServerAccountRpcApi) GetQuota(ctx context.Context) (*AccountGetQuotaResult, error) {
-	raw, err := a.client.Request("account.getQuota", map[string]interface{}{})
-	if err != nil {
-		return nil, err
-	}
-	var result AccountGetQuotaResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    raw, err := a.client.Request("account.getQuota", map[string]interface{}{})
+    if err != nil { return nil, err }
+    var result AccountGetQuotaResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
 // ServerRpc provides typed server-scoped RPC methods.
 type ServerRpc struct {
-	client  *jsonrpc2.Client
-	Models  *ServerModelsRpcApi
-	Tools   *ServerToolsRpcApi
-	Account *ServerAccountRpcApi
+    client *jsonrpc2.Client
+    Models *ServerModelsRpcApi
+    Tools *ServerToolsRpcApi
+    Account *ServerAccountRpcApi
 }
 
 func (a *ServerRpc) Ping(ctx context.Context, params *PingParams) (*PingResult, error) {
-	raw, err := a.client.Request("ping", params)
-	if err != nil {
-		return nil, err
-	}
-	var result PingResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    raw, err := a.client.Request("ping", params)
+    if err != nil { return nil, err }
+    var result PingResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
 func NewServerRpc(client *jsonrpc2.Client) *ServerRpc {
-	return &ServerRpc{client: client,
-		Models:  &ServerModelsRpcApi{client: client},
-		Tools:   &ServerToolsRpcApi{client: client},
-		Account: &ServerAccountRpcApi{client: client},
-	}
+    return &ServerRpc{client: client,
+        Models: &ServerModelsRpcApi{client: client},
+        Tools: &ServerToolsRpcApi{client: client},
+        Account: &ServerAccountRpcApi{client: client},
+    }
 }
 
-type ModelRpcApi struct {
-	client    *jsonrpc2.Client
-	sessionID string
-}
+type ModelRpcApi struct { client *jsonrpc2.Client; sessionID string }
 
 func (a *ModelRpcApi) GetCurrent(ctx context.Context) (*SessionModelGetCurrentResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	raw, err := a.client.Request("session.model.getCurrent", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionModelGetCurrentResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    raw, err := a.client.Request("session.model.getCurrent", req)
+    if err != nil { return nil, err }
+    var result SessionModelGetCurrentResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
 func (a *ModelRpcApi) SwitchTo(ctx context.Context, params *SessionModelSwitchToParams) (*SessionModelSwitchToResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	if params != nil {
-		req["modelId"] = params.ModelID
-		if params.ReasoningEffort != nil {
-			req["reasoningEffort"] = *params.ReasoningEffort
-		}
-	}
-	raw, err := a.client.Request("session.model.switchTo", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionModelSwitchToResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    if params != nil {
+        req["modelId"] = params.ModelID
+        if params.ReasoningEffort != nil {
+            req["reasoningEffort"] = *params.ReasoningEffort
+        }
+    }
+    raw, err := a.client.Request("session.model.switchTo", req)
+    if err != nil { return nil, err }
+    var result SessionModelSwitchToResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
-type ModeRpcApi struct {
-	client    *jsonrpc2.Client
-	sessionID string
-}
+type ModeRpcApi struct { client *jsonrpc2.Client; sessionID string }
 
 func (a *ModeRpcApi) Get(ctx context.Context) (*SessionModeGetResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	raw, err := a.client.Request("session.mode.get", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionModeGetResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    raw, err := a.client.Request("session.mode.get", req)
+    if err != nil { return nil, err }
+    var result SessionModeGetResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
 func (a *ModeRpcApi) Set(ctx context.Context, params *SessionModeSetParams) (*SessionModeSetResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	if params != nil {
-		req["mode"] = params.Mode
-	}
-	raw, err := a.client.Request("session.mode.set", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionModeSetResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    if params != nil {
+        req["mode"] = params.Mode
+    }
+    raw, err := a.client.Request("session.mode.set", req)
+    if err != nil { return nil, err }
+    var result SessionModeSetResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
-type PlanRpcApi struct {
-	client    *jsonrpc2.Client
-	sessionID string
-}
+type PlanRpcApi struct { client *jsonrpc2.Client; sessionID string }
 
 func (a *PlanRpcApi) Read(ctx context.Context) (*SessionPlanReadResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	raw, err := a.client.Request("session.plan.read", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionPlanReadResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    raw, err := a.client.Request("session.plan.read", req)
+    if err != nil { return nil, err }
+    var result SessionPlanReadResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
 func (a *PlanRpcApi) Update(ctx context.Context, params *SessionPlanUpdateParams) (*SessionPlanUpdateResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	if params != nil {
-		req["content"] = params.Content
-	}
-	raw, err := a.client.Request("session.plan.update", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionPlanUpdateResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    if params != nil {
+        req["content"] = params.Content
+    }
+    raw, err := a.client.Request("session.plan.update", req)
+    if err != nil { return nil, err }
+    var result SessionPlanUpdateResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
 func (a *PlanRpcApi) Delete(ctx context.Context) (*SessionPlanDeleteResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	raw, err := a.client.Request("session.plan.delete", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionPlanDeleteResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    raw, err := a.client.Request("session.plan.delete", req)
+    if err != nil { return nil, err }
+    var result SessionPlanDeleteResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
-type WorkspaceRpcApi struct {
-	client    *jsonrpc2.Client
-	sessionID string
-}
+type WorkspaceRpcApi struct { client *jsonrpc2.Client; sessionID string }
 
 func (a *WorkspaceRpcApi) ListFiles(ctx context.Context) (*SessionWorkspaceListFilesResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	raw, err := a.client.Request("session.workspace.listFiles", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionWorkspaceListFilesResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    raw, err := a.client.Request("session.workspace.listFiles", req)
+    if err != nil { return nil, err }
+    var result SessionWorkspaceListFilesResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
 func (a *WorkspaceRpcApi) ReadFile(ctx context.Context, params *SessionWorkspaceReadFileParams) (*SessionWorkspaceReadFileResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	if params != nil {
-		req["path"] = params.Path
-	}
-	raw, err := a.client.Request("session.workspace.readFile", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionWorkspaceReadFileResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    if params != nil {
+        req["path"] = params.Path
+    }
+    raw, err := a.client.Request("session.workspace.readFile", req)
+    if err != nil { return nil, err }
+    var result SessionWorkspaceReadFileResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
 func (a *WorkspaceRpcApi) CreateFile(ctx context.Context, params *SessionWorkspaceCreateFileParams) (*SessionWorkspaceCreateFileResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	if params != nil {
-		req["path"] = params.Path
-		req["content"] = params.Content
-	}
-	raw, err := a.client.Request("session.workspace.createFile", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionWorkspaceCreateFileResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    if params != nil {
+        req["path"] = params.Path
+        req["content"] = params.Content
+    }
+    raw, err := a.client.Request("session.workspace.createFile", req)
+    if err != nil { return nil, err }
+    var result SessionWorkspaceCreateFileResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
-type FleetRpcApi struct {
-	client    *jsonrpc2.Client
-	sessionID string
-}
+// Experimental: FleetRpcApi contains experimental APIs that may change or be removed.
+type FleetRpcApi struct { client *jsonrpc2.Client; sessionID string }
 
 func (a *FleetRpcApi) Start(ctx context.Context, params *SessionFleetStartParams) (*SessionFleetStartResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	if params != nil {
-		if params.Prompt != nil {
-			req["prompt"] = *params.Prompt
-		}
-	}
-	raw, err := a.client.Request("session.fleet.start", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionFleetStartResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    if params != nil {
+        if params.Prompt != nil {
+            req["prompt"] = *params.Prompt
+        }
+    }
+    raw, err := a.client.Request("session.fleet.start", req)
+    if err != nil { return nil, err }
+    var result SessionFleetStartResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
-type AgentRpcApi struct {
-	client    *jsonrpc2.Client
-	sessionID string
-}
+// Experimental: AgentRpcApi contains experimental APIs that may change or be removed.
+type AgentRpcApi struct { client *jsonrpc2.Client; sessionID string }
 
 func (a *AgentRpcApi) List(ctx context.Context) (*SessionAgentListResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	raw, err := a.client.Request("session.agent.list", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionAgentListResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    raw, err := a.client.Request("session.agent.list", req)
+    if err != nil { return nil, err }
+    var result SessionAgentListResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
 func (a *AgentRpcApi) GetCurrent(ctx context.Context) (*SessionAgentGetCurrentResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	raw, err := a.client.Request("session.agent.getCurrent", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionAgentGetCurrentResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    raw, err := a.client.Request("session.agent.getCurrent", req)
+    if err != nil { return nil, err }
+    var result SessionAgentGetCurrentResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
 func (a *AgentRpcApi) Select(ctx context.Context, params *SessionAgentSelectParams) (*SessionAgentSelectResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	if params != nil {
-		req["name"] = params.Name
-	}
-	raw, err := a.client.Request("session.agent.select", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionAgentSelectResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    if params != nil {
+        req["name"] = params.Name
+    }
+    raw, err := a.client.Request("session.agent.select", req)
+    if err != nil { return nil, err }
+    var result SessionAgentSelectResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
 func (a *AgentRpcApi) Deselect(ctx context.Context) (*SessionAgentDeselectResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	raw, err := a.client.Request("session.agent.deselect", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionAgentDeselectResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    raw, err := a.client.Request("session.agent.deselect", req)
+    if err != nil { return nil, err }
+    var result SessionAgentDeselectResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
-type CompactionRpcApi struct {
-	client    *jsonrpc2.Client
-	sessionID string
-}
+// Experimental: CompactionRpcApi contains experimental APIs that may change or be removed.
+type CompactionRpcApi struct { client *jsonrpc2.Client; sessionID string }
 
 func (a *CompactionRpcApi) Compact(ctx context.Context) (*SessionCompactionCompactResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	raw, err := a.client.Request("session.compaction.compact", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionCompactionCompactResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    raw, err := a.client.Request("session.compaction.compact", req)
+    if err != nil { return nil, err }
+    var result SessionCompactionCompactResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
-type ToolsRpcApi struct {
-	client    *jsonrpc2.Client
-	sessionID string
-}
+type ToolsRpcApi struct { client *jsonrpc2.Client; sessionID string }
 
 func (a *ToolsRpcApi) HandlePendingToolCall(ctx context.Context, params *SessionToolsHandlePendingToolCallParams) (*SessionToolsHandlePendingToolCallResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	if params != nil {
-		req["requestId"] = params.RequestID
-		if params.Result != nil {
-			req["result"] = *params.Result
-		}
-		if params.Error != nil {
-			req["error"] = *params.Error
-		}
-	}
-	raw, err := a.client.Request("session.tools.handlePendingToolCall", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionToolsHandlePendingToolCallResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    if params != nil {
+        req["requestId"] = params.RequestID
+        if params.Result != nil {
+            req["result"] = *params.Result
+        }
+        if params.Error != nil {
+            req["error"] = *params.Error
+        }
+    }
+    raw, err := a.client.Request("session.tools.handlePendingToolCall", req)
+    if err != nil { return nil, err }
+    var result SessionToolsHandlePendingToolCallResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
-type PermissionsRpcApi struct {
-	client    *jsonrpc2.Client
-	sessionID string
-}
+type PermissionsRpcApi struct { client *jsonrpc2.Client; sessionID string }
 
 func (a *PermissionsRpcApi) HandlePendingPermissionRequest(ctx context.Context, params *SessionPermissionsHandlePendingPermissionRequestParams) (*SessionPermissionsHandlePendingPermissionRequestResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	if params != nil {
-		req["requestId"] = params.RequestID
-		req["result"] = params.Result
-	}
-	raw, err := a.client.Request("session.permissions.handlePendingPermissionRequest", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionPermissionsHandlePendingPermissionRequestResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    if params != nil {
+        req["requestId"] = params.RequestID
+        req["result"] = params.Result
+    }
+    raw, err := a.client.Request("session.permissions.handlePendingPermissionRequest", req)
+    if err != nil { return nil, err }
+    var result SessionPermissionsHandlePendingPermissionRequestResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
-type ShellRpcApi struct {
-	client    *jsonrpc2.Client
-	sessionID string
-}
+type ShellRpcApi struct { client *jsonrpc2.Client; sessionID string }
 
 func (a *ShellRpcApi) Exec(ctx context.Context, params *SessionShellExecParams) (*SessionShellExecResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	if params != nil {
-		req["command"] = params.Command
-		if params.Cwd != nil {
-			req["cwd"] = *params.Cwd
-		}
-		if params.Timeout != nil {
-			req["timeout"] = *params.Timeout
-		}
-	}
-	raw, err := a.client.Request("session.shell.exec", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionShellExecResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    if params != nil {
+        req["command"] = params.Command
+        if params.Cwd != nil {
+            req["cwd"] = *params.Cwd
+        }
+        if params.Timeout != nil {
+            req["timeout"] = *params.Timeout
+        }
+    }
+    raw, err := a.client.Request("session.shell.exec", req)
+    if err != nil { return nil, err }
+    var result SessionShellExecResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
 func (a *ShellRpcApi) Kill(ctx context.Context, params *SessionShellKillParams) (*SessionShellKillResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	if params != nil {
-		req["processId"] = params.ProcessID
-		if params.Signal != nil {
-			req["signal"] = *params.Signal
-		}
-	}
-	raw, err := a.client.Request("session.shell.kill", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionShellKillResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    if params != nil {
+        req["processId"] = params.ProcessID
+        if params.Signal != nil {
+            req["signal"] = *params.Signal
+        }
+    }
+    raw, err := a.client.Request("session.shell.kill", req)
+    if err != nil { return nil, err }
+    var result SessionShellKillResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
 // SessionRpc provides typed session-scoped RPC methods.
 type SessionRpc struct {
-	client      *jsonrpc2.Client
-	sessionID   string
-	Model       *ModelRpcApi
-	Mode        *ModeRpcApi
-	Plan        *PlanRpcApi
-	Workspace   *WorkspaceRpcApi
-	Fleet       *FleetRpcApi
-	Agent       *AgentRpcApi
-	Compaction  *CompactionRpcApi
-	Tools       *ToolsRpcApi
-	Permissions *PermissionsRpcApi
-	Shell       *ShellRpcApi
+    client *jsonrpc2.Client
+    sessionID string
+    Model *ModelRpcApi
+    Mode *ModeRpcApi
+    Plan *PlanRpcApi
+    Workspace *WorkspaceRpcApi
+    Fleet *FleetRpcApi
+    Agent *AgentRpcApi
+    Compaction *CompactionRpcApi
+    Tools *ToolsRpcApi
+    Permissions *PermissionsRpcApi
+    Shell *ShellRpcApi
 }
 
 func (a *SessionRpc) Log(ctx context.Context, params *SessionLogParams) (*SessionLogResult, error) {
-	req := map[string]interface{}{"sessionId": a.sessionID}
-	if params != nil {
-		req["message"] = params.Message
-		if params.Level != nil {
-			req["level"] = *params.Level
-		}
-		if params.Ephemeral != nil {
-			req["ephemeral"] = *params.Ephemeral
-		}
-	}
-	raw, err := a.client.Request("session.log", req)
-	if err != nil {
-		return nil, err
-	}
-	var result SessionLogResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+    req := map[string]interface{}{"sessionId": a.sessionID}
+    if params != nil {
+        req["message"] = params.Message
+        if params.Level != nil {
+            req["level"] = *params.Level
+        }
+        if params.Ephemeral != nil {
+            req["ephemeral"] = *params.Ephemeral
+        }
+    }
+    raw, err := a.client.Request("session.log", req)
+    if err != nil { return nil, err }
+    var result SessionLogResult
+    if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+    return &result, nil
 }
 
 func NewSessionRpc(client *jsonrpc2.Client, sessionID string) *SessionRpc {
-	return &SessionRpc{client: client, sessionID: sessionID,
-		Model:       &ModelRpcApi{client: client, sessionID: sessionID},
-		Mode:        &ModeRpcApi{client: client, sessionID: sessionID},
-		Plan:        &PlanRpcApi{client: client, sessionID: sessionID},
-		Workspace:   &WorkspaceRpcApi{client: client, sessionID: sessionID},
-		Fleet:       &FleetRpcApi{client: client, sessionID: sessionID},
-		Agent:       &AgentRpcApi{client: client, sessionID: sessionID},
-		Compaction:  &CompactionRpcApi{client: client, sessionID: sessionID},
-		Tools:       &ToolsRpcApi{client: client, sessionID: sessionID},
-		Permissions: &PermissionsRpcApi{client: client, sessionID: sessionID},
-		Shell:       &ShellRpcApi{client: client, sessionID: sessionID},
-	}
+    return &SessionRpc{client: client, sessionID: sessionID,
+        Model: &ModelRpcApi{client: client, sessionID: sessionID},
+        Mode: &ModeRpcApi{client: client, sessionID: sessionID},
+        Plan: &PlanRpcApi{client: client, sessionID: sessionID},
+        Workspace: &WorkspaceRpcApi{client: client, sessionID: sessionID},
+        Fleet: &FleetRpcApi{client: client, sessionID: sessionID},
+        Agent: &AgentRpcApi{client: client, sessionID: sessionID},
+        Compaction: &CompactionRpcApi{client: client, sessionID: sessionID},
+        Tools: &ToolsRpcApi{client: client, sessionID: sessionID},
+        Permissions: &PermissionsRpcApi{client: client, sessionID: sessionID},
+        Shell: &ShellRpcApi{client: client, sessionID: sessionID},
+    }
 }

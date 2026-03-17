@@ -17,6 +17,7 @@ import {
     postProcessSchema,
     writeGeneratedFile,
     isRpcMethod,
+    isNodeFullyExperimental,
     type ApiSchema,
     type RpcMethod,
 } from "./utils.js";
@@ -168,9 +169,24 @@ async function generateRpc(schemaPath?: string): Promise<void> {
     lines.push(`)`);
     lines.push(``);
 
-    // Add quicktype-generated types (skip package line)
-    const qtLines = qtResult.lines.filter((l) => !l.startsWith("package "));
-    lines.push(...qtLines);
+    // Add quicktype-generated types (skip package line), annotating experimental types
+    const experimentalTypeNames = new Set<string>();
+    for (const method of allMethods) {
+        if (method.stability !== "experimental") continue;
+        experimentalTypeNames.add(toPascalCase(method.rpcMethod) + "Result");
+        const baseName = toPascalCase(method.rpcMethod);
+        if (combinedSchema.definitions![baseName + "Params"]) {
+            experimentalTypeNames.add(baseName + "Params");
+        }
+    }
+    let qtCode = qtResult.lines.filter((l) => !l.startsWith("package ")).join("\n");
+    for (const typeName of experimentalTypeNames) {
+        qtCode = qtCode.replace(
+            new RegExp(`^(type ${typeName} struct)`, "m"),
+            `// Experimental: ${typeName} is part of an experimental API and may change or be removed.\n$1`
+        );
+    }
+    lines.push(qtCode);
     lines.push(``);
 
     // Emit ServerRpc
@@ -201,11 +217,15 @@ function emitRpcWrapper(lines: string[], node: Record<string, unknown>, isSessio
         const prefix = isSession ? "" : "Server";
         const apiName = prefix + toPascalCase(groupName) + apiSuffix;
         const fields = isSession ? "client *jsonrpc2.Client; sessionID string" : "client *jsonrpc2.Client";
+        const groupExperimental = isNodeFullyExperimental(groupNode as Record<string, unknown>);
+        if (groupExperimental) {
+            lines.push(`// Experimental: ${apiName} contains experimental APIs that may change or be removed.`);
+        }
         lines.push(`type ${apiName} struct { ${fields} }`);
         lines.push(``);
         for (const [key, value] of Object.entries(groupNode as Record<string, unknown>)) {
             if (!isRpcMethod(value)) continue;
-            emitMethod(lines, apiName, key, value, isSession);
+            emitMethod(lines, apiName, key, value, isSession, groupExperimental);
         }
     }
 
@@ -224,7 +244,7 @@ function emitRpcWrapper(lines: string[], node: Record<string, unknown>, isSessio
     // Top-level methods (server only)
     for (const [key, value] of topLevelMethods) {
         if (!isRpcMethod(value)) continue;
-        emitMethod(lines, wrapperName, key, value, isSession);
+        emitMethod(lines, wrapperName, key, value, isSession, false);
     }
 
     // Constructor
@@ -244,7 +264,7 @@ function emitRpcWrapper(lines: string[], node: Record<string, unknown>, isSessio
     lines.push(``);
 }
 
-function emitMethod(lines: string[], receiver: string, name: string, method: RpcMethod, isSession: boolean): void {
+function emitMethod(lines: string[], receiver: string, name: string, method: RpcMethod, isSession: boolean, groupExperimental = false): void {
     const methodName = toPascalCase(name);
     const resultType = toPascalCase(method.rpcMethod) + "Result";
 
@@ -254,6 +274,9 @@ function emitMethod(lines: string[], receiver: string, name: string, method: Rpc
     const hasParams = isSession ? nonSessionParams.length > 0 : Object.keys(paramProps).length > 0;
     const paramsType = hasParams ? toPascalCase(method.rpcMethod) + "Params" : "";
 
+    if (method.stability === "experimental" && !groupExperimental) {
+        lines.push(`// Experimental: ${methodName} is an experimental API and may change or be removed in future versions.`);
+    }
     const sig = hasParams
         ? `func (a *${receiver}) ${methodName}(ctx context.Context, params *${paramsType}) (*${resultType}, error)`
         : `func (a *${receiver}) ${methodName}(ctx context.Context) (*${resultType}, error)`;
