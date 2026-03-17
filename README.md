@@ -20,6 +20,7 @@ The GitHub Copilot SDK exposes the same engine behind Copilot CLI: a production-
 | **Python**               | [`python/`](./python/)   | [Cookbook](https://github.com/github/awesome-copilot/blob/main/cookbook/copilot-sdk/python/README.md) | `pip install github-copilot-sdk`          |
 | **Go**                   | [`go/`](./go/)           | [Cookbook](https://github.com/github/awesome-copilot/blob/main/cookbook/copilot-sdk/go/README.md)     | `go get github.com/github/copilot-sdk/go` |
 | **.NET**                 | [`dotnet/`](./dotnet/)   | [Cookbook](https://github.com/github/awesome-copilot/blob/main/cookbook/copilot-sdk/dotnet/README.md) | `dotnet add package GitHub.Copilot.SDK`   |
+| **Java**                 | [`github/copilot-sdk-java`](https://github.com/github/copilot-sdk-java)   | WIP | `groupId:com.github // artifactId:copilot-sdk-java`   |
 
 See the individual SDK READMEs for installation, usage examples, and API reference.
 
@@ -97,6 +98,8 @@ Yes, check out the custom instructions for each SDK:
 - **[Python](https://github.com/github/awesome-copilot/blob/main/instructions/copilot-sdk-python.instructions.md)**
 - **[.NET](https://github.com/github/awesome-copilot/blob/main/instructions/copilot-sdk-csharp.instructions.md)**
 - **[Go](https://github.com/github/awesome-copilot/blob/main/instructions/copilot-sdk-go.instructions.md)**
+- **[Java](https://github.com/copilot-community-sdk/blob/main/instructions/copilot-sdk-java/copilot-sdk-go.instructions.md)**
+
 
 ### What models are supported?
 
@@ -127,12 +130,10 @@ Please use the [GitHub Issues](https://github.com/github/copilot-sdk/issues) pag
 
 | SDK           | Location                                                          |
 | --------------| ----------------------------------------------------------------- |
-| **Java**      | [copilot-community-sdk/copilot-sdk-java][sdk-java]                |
 | **Rust**      | [copilot-community-sdk/copilot-sdk-rust][sdk-rust]                |
 | **Clojure**   | [copilot-community-sdk/copilot-sdk-clojure][sdk-clojure]          |
 | **C++**       | [0xeb/copilot-sdk-cpp][sdk-cpp]                                   |
 
-[sdk-java]: https://github.com/copilot-community-sdk/copilot-sdk-java
 [sdk-rust]: https://github.com/copilot-community-sdk/copilot-sdk-rust
 [sdk-cpp]: https://github.com/0xeb/copilot-sdk-cpp
 [sdk-clojure]: https://github.com/copilot-community-sdk/copilot-sdk-clojure
