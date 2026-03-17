@@ -8,7 +8,7 @@
 
 Agents for every app.
 
-Embed Copilot's agentic workflows in your application—now available in Technical preview as a programmable SDK for Python, TypeScript, Go, and .NET.
+Embed Copilot's agentic workflows in your application—now available in Technical preview as a programmable SDK for Python, TypeScript, Go, .NET, and Java.
 
 The GitHub Copilot SDK exposes the same engine behind Copilot CLI: a production-tested agent runtime you can invoke programmatically. No need to build your own orchestration—you define agent behavior, Copilot handles planning, tool invocation, file edits, and more.
 
@@ -20,7 +20,7 @@ The GitHub Copilot SDK exposes the same engine behind Copilot CLI: a production-
 | **Python**               | [`python/`](./python/)   | [Cookbook](https://github.com/github/awesome-copilot/blob/main/cookbook/copilot-sdk/python/README.md) | `pip install github-copilot-sdk`          |
 | **Go**                   | [`go/`](./go/)           | [Cookbook](https://github.com/github/awesome-copilot/blob/main/cookbook/copilot-sdk/go/README.md)     | `go get github.com/github/copilot-sdk/go` |
 | **.NET**                 | [`dotnet/`](./dotnet/)   | [Cookbook](https://github.com/github/awesome-copilot/blob/main/cookbook/copilot-sdk/dotnet/README.md) | `dotnet add package GitHub.Copilot.SDK`   |
-| **Java**                 | [`github/copilot-sdk-java`](https://github.com/github/copilot-sdk-java)   | WIP | `groupId:com.github // artifactId:copilot-sdk-java`   |
+| **Java**                 | [`github/copilot-sdk-java`](https://github.com/github/copilot-sdk-java)   | WIP | See installation in the Java SDK README. |
 
 See the individual SDK READMEs for installation, usage examples, and API reference.
 
