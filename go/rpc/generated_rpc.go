@@ -292,16 +292,16 @@ type SessionToolsHandlePendingToolCallResult struct {
 }
 
 type SessionToolsHandlePendingToolCallParams struct {
-	Error *string `json:"error,omitempty"`
-	RequestID string `json:"requestId"`
-	Result *ResultUnion `json:"result"`
+	Error     *string      `json:"error,omitempty"`
+	RequestID string       `json:"requestId"`
+	Result    *ResultUnion `json:"result"`
 }
 
 type ResultResult struct {
-	Error *string `json:"error,omitempty"`
-	ResultType *string `json:"resultType,omitempty"`
-	TextResultForLlm string `json:"textResultForLlm"`
-	ToolTelemetry map[string]interface{} `json:"toolTelemetry,omitempty"`
+	Error            *string                `json:"error,omitempty"`
+	ResultType       *string                `json:"resultType,omitempty"`
+	TextResultForLlm string                 `json:"textResultForLlm"`
+	ToolTelemetry    map[string]interface{} `json:"toolTelemetry,omitempty"`
 }
 
 type SessionPermissionsHandlePendingPermissionRequestResult struct {
@@ -310,16 +310,16 @@ type SessionPermissionsHandlePendingPermissionRequestResult struct {
 }
 
 type SessionPermissionsHandlePendingPermissionRequestParams struct {
-	RequestID string `json:"requestId"`
-	Result SessionPermissionsHandlePendingPermissionRequestParamsResult `json:"result"`
+	RequestID string                                                       `json:"requestId"`
+	Result    SessionPermissionsHandlePendingPermissionRequestParamsResult `json:"result"`
 }
 
 type SessionPermissionsHandlePendingPermissionRequestParamsResult struct {
-	Kind Kind `json:"kind"`
-	Rules []interface{} `json:"rules,omitempty"`
-	Feedback *string `json:"feedback,omitempty"`
-	Message *string `json:"message,omitempty"`
-	Path *string `json:"path,omitempty"`
+	Kind     Kind          `json:"kind"`
+	Rules    []interface{} `json:"rules,omitempty"`
+	Feedback *string       `json:"feedback,omitempty"`
+	Message  *string       `json:"message,omitempty"`
+	Path     *string       `json:"path,omitempty"`
 }
 
 type SessionLogResult struct {
@@ -371,18 +371,18 @@ type SessionShellKillParams struct {
 type Mode string
 
 const (
-	Autopilot Mode = "autopilot"
+	Autopilot   Mode = "autopilot"
 	Interactive Mode = "interactive"
-	Plan Mode = "plan"
+	Plan        Mode = "plan"
 )
 
 type Kind string
 
 const (
-	Approved Kind = "approved"
-	DeniedByContentExclusionPolicy Kind = "denied-by-content-exclusion-policy"
-	DeniedByRules Kind = "denied-by-rules"
-	DeniedInteractivelyByUser Kind = "denied-interactively-by-user"
+	Approved                                       Kind = "approved"
+	DeniedByContentExclusionPolicy                 Kind = "denied-by-content-exclusion-policy"
+	DeniedByRules                                  Kind = "denied-by-rules"
+	DeniedInteractivelyByUser                      Kind = "denied-interactively-by-user"
 	DeniedNoApprovalRuleAndCouldNotRequestFromUser Kind = "denied-no-approval-rule-and-could-not-request-from-user"
 )
 
@@ -391,8 +391,8 @@ const (
 type Level string
 
 const (
-	Error Level = "error"
-	Info Level = "info"
+	Error   Level = "error"
+	Info    Level = "info"
 	Warning Level = "warning"
 )
 
@@ -400,14 +400,14 @@ const (
 type Signal string
 
 const (
-	Sigint Signal = "SIGINT"
+	Sigint  Signal = "SIGINT"
 	Sigkill Signal = "SIGKILL"
 	Sigterm Signal = "SIGTERM"
 )
 
 type ResultUnion struct {
 	ResultResult *ResultResult
-	String *string
+	String       *string
 }
 
 type ServerModelsRpcApi struct {

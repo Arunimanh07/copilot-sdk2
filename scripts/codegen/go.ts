@@ -182,11 +182,6 @@ async function generateRpc(schemaPath?: string): Promise<void> {
     let qtCode = qtResult.lines.filter((l) => !l.startsWith("package ")).join("\n");
     // Strip trailing whitespace from quicktype output (gofmt requirement)
     qtCode = qtCode.replace(/[ \t]+$/gm, "");
-    // Collapse quicktype's column-aligned struct fields to single-space separation.
-    // gofmt doesn't column-align fields that have comments between them, so the wide
-    // padding quicktype emits causes a gofmt diff. Apply to all capitalized field lines
-    // (only in quicktype output — hand-written code is emitted separately).
-    qtCode = qtCode.replace(/^(\t[A-Z].*)/gm, (_, line) => line.replace(/  +/g, " "));
     for (const typeName of experimentalTypeNames) {
         qtCode = qtCode.replace(
             new RegExp(`^(type ${typeName} struct)`, "m"),
