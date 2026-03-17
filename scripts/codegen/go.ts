@@ -319,9 +319,13 @@ function emitMethod(lines: string[], receiver: string, name: string, method: Rpc
         lines.push(`\traw, err := a.client.Request("${method.rpcMethod}", ${arg})`);
     }
 
-    lines.push(`\tif err != nil { return nil, err }`);
+    lines.push(`\tif err != nil {`);
+    lines.push(`\t\treturn nil, err`);
+    lines.push(`\t}`);
     lines.push(`\tvar result ${resultType}`);
-    lines.push(`\tif err := json.Unmarshal(raw, &result); err != nil { return nil, err }`);
+    lines.push(`\tif err := json.Unmarshal(raw, &result); err != nil {`);
+    lines.push(`\t\treturn nil, err`);
+    lines.push(`\t}`);
     lines.push(`\treturn &result, nil`);
     lines.push(`}`);
     lines.push(``);

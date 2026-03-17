@@ -415,9 +415,13 @@ type ServerModelsRpcApi struct { client *jsonrpc2.Client }
 
 func (a *ServerModelsRpcApi) List(ctx context.Context) (*ModelsListResult, error) {
 	raw, err := a.client.Request("models.list", map[string]interface{}{})
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result ModelsListResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -425,9 +429,13 @@ type ServerToolsRpcApi struct { client *jsonrpc2.Client }
 
 func (a *ServerToolsRpcApi) List(ctx context.Context, params *ToolsListParams) (*ToolsListResult, error) {
 	raw, err := a.client.Request("tools.list", params)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result ToolsListResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -435,9 +443,13 @@ type ServerAccountRpcApi struct { client *jsonrpc2.Client }
 
 func (a *ServerAccountRpcApi) GetQuota(ctx context.Context) (*AccountGetQuotaResult, error) {
 	raw, err := a.client.Request("account.getQuota", map[string]interface{}{})
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result AccountGetQuotaResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -451,9 +463,13 @@ type ServerRpc struct {
 
 func (a *ServerRpc) Ping(ctx context.Context, params *PingParams) (*PingResult, error) {
 	raw, err := a.client.Request("ping", params)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result PingResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -470,9 +486,13 @@ type ModelRpcApi struct { client *jsonrpc2.Client; sessionID string }
 func (a *ModelRpcApi) GetCurrent(ctx context.Context) (*SessionModelGetCurrentResult, error) {
 	req := map[string]interface{}{"sessionId": a.sessionID}
 	raw, err := a.client.Request("session.model.getCurrent", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionModelGetCurrentResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -485,9 +505,13 @@ func (a *ModelRpcApi) SwitchTo(ctx context.Context, params *SessionModelSwitchTo
 		}
 	}
 	raw, err := a.client.Request("session.model.switchTo", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionModelSwitchToResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -496,9 +520,13 @@ type ModeRpcApi struct { client *jsonrpc2.Client; sessionID string }
 func (a *ModeRpcApi) Get(ctx context.Context) (*SessionModeGetResult, error) {
 	req := map[string]interface{}{"sessionId": a.sessionID}
 	raw, err := a.client.Request("session.mode.get", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionModeGetResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -508,9 +536,13 @@ func (a *ModeRpcApi) Set(ctx context.Context, params *SessionModeSetParams) (*Se
 		req["mode"] = params.Mode
 	}
 	raw, err := a.client.Request("session.mode.set", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionModeSetResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -519,9 +551,13 @@ type PlanRpcApi struct { client *jsonrpc2.Client; sessionID string }
 func (a *PlanRpcApi) Read(ctx context.Context) (*SessionPlanReadResult, error) {
 	req := map[string]interface{}{"sessionId": a.sessionID}
 	raw, err := a.client.Request("session.plan.read", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionPlanReadResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -531,18 +567,26 @@ func (a *PlanRpcApi) Update(ctx context.Context, params *SessionPlanUpdateParams
 		req["content"] = params.Content
 	}
 	raw, err := a.client.Request("session.plan.update", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionPlanUpdateResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
 func (a *PlanRpcApi) Delete(ctx context.Context) (*SessionPlanDeleteResult, error) {
 	req := map[string]interface{}{"sessionId": a.sessionID}
 	raw, err := a.client.Request("session.plan.delete", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionPlanDeleteResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -551,9 +595,13 @@ type WorkspaceRpcApi struct { client *jsonrpc2.Client; sessionID string }
 func (a *WorkspaceRpcApi) ListFiles(ctx context.Context) (*SessionWorkspaceListFilesResult, error) {
 	req := map[string]interface{}{"sessionId": a.sessionID}
 	raw, err := a.client.Request("session.workspace.listFiles", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionWorkspaceListFilesResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -563,9 +611,13 @@ func (a *WorkspaceRpcApi) ReadFile(ctx context.Context, params *SessionWorkspace
 		req["path"] = params.Path
 	}
 	raw, err := a.client.Request("session.workspace.readFile", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionWorkspaceReadFileResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -576,9 +628,13 @@ func (a *WorkspaceRpcApi) CreateFile(ctx context.Context, params *SessionWorkspa
 		req["content"] = params.Content
 	}
 	raw, err := a.client.Request("session.workspace.createFile", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionWorkspaceCreateFileResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -593,9 +649,13 @@ func (a *FleetRpcApi) Start(ctx context.Context, params *SessionFleetStartParams
 		}
 	}
 	raw, err := a.client.Request("session.fleet.start", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionFleetStartResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -605,18 +665,26 @@ type AgentRpcApi struct { client *jsonrpc2.Client; sessionID string }
 func (a *AgentRpcApi) List(ctx context.Context) (*SessionAgentListResult, error) {
 	req := map[string]interface{}{"sessionId": a.sessionID}
 	raw, err := a.client.Request("session.agent.list", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionAgentListResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
 func (a *AgentRpcApi) GetCurrent(ctx context.Context) (*SessionAgentGetCurrentResult, error) {
 	req := map[string]interface{}{"sessionId": a.sessionID}
 	raw, err := a.client.Request("session.agent.getCurrent", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionAgentGetCurrentResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -626,18 +694,26 @@ func (a *AgentRpcApi) Select(ctx context.Context, params *SessionAgentSelectPara
 		req["name"] = params.Name
 	}
 	raw, err := a.client.Request("session.agent.select", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionAgentSelectResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
 func (a *AgentRpcApi) Deselect(ctx context.Context) (*SessionAgentDeselectResult, error) {
 	req := map[string]interface{}{"sessionId": a.sessionID}
 	raw, err := a.client.Request("session.agent.deselect", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionAgentDeselectResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -647,9 +723,13 @@ type CompactionRpcApi struct { client *jsonrpc2.Client; sessionID string }
 func (a *CompactionRpcApi) Compact(ctx context.Context) (*SessionCompactionCompactResult, error) {
 	req := map[string]interface{}{"sessionId": a.sessionID}
 	raw, err := a.client.Request("session.compaction.compact", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionCompactionCompactResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -667,9 +747,13 @@ func (a *ToolsRpcApi) HandlePendingToolCall(ctx context.Context, params *Session
 		}
 	}
 	raw, err := a.client.Request("session.tools.handlePendingToolCall", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionToolsHandlePendingToolCallResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -682,9 +766,13 @@ func (a *PermissionsRpcApi) HandlePendingPermissionRequest(ctx context.Context, 
 		req["result"] = params.Result
 	}
 	raw, err := a.client.Request("session.permissions.handlePendingPermissionRequest", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionPermissionsHandlePendingPermissionRequestResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -702,9 +790,13 @@ func (a *ShellRpcApi) Exec(ctx context.Context, params *SessionShellExecParams) 
 		}
 	}
 	raw, err := a.client.Request("session.shell.exec", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionShellExecResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -717,9 +809,13 @@ func (a *ShellRpcApi) Kill(ctx context.Context, params *SessionShellKillParams) 
 		}
 	}
 	raw, err := a.client.Request("session.shell.kill", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionShellKillResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
@@ -751,9 +847,13 @@ func (a *SessionRpc) Log(ctx context.Context, params *SessionLogParams) (*Sessio
 		}
 	}
 	raw, err := a.client.Request("session.log", req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var result SessionLogResult
-	if err := json.Unmarshal(raw, &result); err != nil { return nil, err }
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
 	return &result, nil
 }
 
