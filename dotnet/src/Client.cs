@@ -1303,11 +1303,8 @@ public sealed partial class CopilotClient : IDisposable, IAsyncDisposable
             var session = client.GetSession(sessionId);
             if (session != null && @event != null)
             {
-                var evt = SessionEvent.FromJson(@event.Value.GetRawText());
-                if (evt != null)
-                {
-                    session.DispatchEvent(evt);
-                }
+                var evt = SessionEvent.TryFromJson(@event.Value.GetRawText(), client._logger);
+                session.DispatchEvent(evt);
             }
         }
 
