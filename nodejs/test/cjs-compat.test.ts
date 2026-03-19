@@ -32,15 +32,11 @@ describe("Dual ESM/CJS build (#528)", () => {
             }
             console.log('CJS require: OK');
         `;
-        const output = execFileSync(
-            process.execPath,
-            ["--eval", script],
-            {
-                encoding: "utf-8",
-                timeout: 10000,
-                cwd: join(import.meta.dirname, ".."),
-            },
-        );
+        const output = execFileSync(process.execPath, ["--eval", script], {
+            encoding: "utf-8",
+            timeout: 10000,
+            cwd: join(import.meta.dirname, ".."),
+        });
         expect(output).toContain("CJS require: OK");
     });
 
@@ -55,15 +51,11 @@ describe("Dual ESM/CJS build (#528)", () => {
                 process.exit(1);
             }
         `;
-        const output = execFileSync(
-            process.execPath,
-            ["--eval", script],
-            {
-                encoding: "utf-8",
-                timeout: 10000,
-                cwd: join(import.meta.dirname, ".."),
-            },
-        );
+        const output = execFileSync(process.execPath, ["--eval", script], {
+            encoding: "utf-8",
+            timeout: 10000,
+            cwd: join(import.meta.dirname, ".."),
+        });
         expect(output).toContain("CopilotClient constructor: OK");
     });
 });

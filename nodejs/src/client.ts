@@ -119,7 +119,7 @@ function getBundledCliPath(): string {
     }
     throw new Error(
         `Could not find @github/copilot package. Searched ${searchPaths.length} paths. ` +
-            `Ensure it is installed, or pass cliPath/cliUrl to CopilotClient.`,
+            `Ensure it is installed, or pass cliPath/cliUrl to CopilotClient.`
     );
 }
 
