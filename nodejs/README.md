@@ -850,13 +850,18 @@ try {
 - Node.js >= 18.0.0
 - GitHub Copilot CLI installed and in PATH (or provide custom `cliPath`)
 
-### CJS Bundles (esbuild, VS Code extensions)
+### CJS / CommonJS Support
 
-The SDK is ESM-only. When loaded in a CJS-shimmed environment (e.g., a VS Code extension bundled with `esbuild format:"cjs"`), `getBundledCliPath()` resolves the CLI by walking `node_modules`. The `@github/copilot` package **must be present in `node_modules` at runtime** — do not externalize or exclude it from your bundle.
+The SDK ships both ESM and CJS builds. Node.js and bundlers (esbuild, webpack, etc.) automatically select the correct format via the `exports` field in `package.json`:
+
+- `import` / `from` → ESM (`dist/index.js`)
+- `require()` → CJS (`dist/cjs/index.cjs`)
+
+This means the SDK works out of the box in CJS environments such as VS Code extensions bundled with `esbuild format:"cjs"`.
 
 ### System-installed CLI (winget, brew, apt)
 
-If you installed the Copilot CLI separately rather than relying on the SDK's bundled copy, `getBundledCliPath()` will not find it (it only searches `node_modules`). Pass `cliPath` explicitly instead:
+If you installed the Copilot CLI separately rather than relying on the SDK's bundled copy, pass `cliPath` explicitly:
 
 ```typescript
 const client = new CopilotClient({

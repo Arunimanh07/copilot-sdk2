@@ -17,7 +17,7 @@ import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { Socket } from "node:net";
 import { dirname, join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import {
     createMessageConnection,
     MessageConnection,
@@ -93,19 +93,24 @@ function getNodeExecPath(): string {
  * Gets the path to the bundled CLI from the @github/copilot package.
  * Uses index.js directly rather than npm-loader.js (which spawns the native binary).
  *
- * The @github/copilot package only exposes an ESM-only "./sdk" export,
- * which breaks in CJS contexts (e.g., VS Code extensions bundled with esbuild).
- * Instead of resolving through the package's exports, we locate the package
- * root by walking module resolution paths and checking for its directory.
- * See: https://github.com/github/copilot-sdk/issues/528
+ * In ESM, uses import.meta.resolve directly. In CJS (e.g., VS Code extensions
+ * bundled with esbuild format:"cjs"), import.meta is empty so we fall back to
+ * walking node_modules to find the package.
  */
 function getBundledCliPath(): string {
-    // import.meta.url is defined in ESM; in CJS bundles (esbuild format:"cjs")
-    // it's undefined, so we fall back to __filename via pathToFileURL.
-    const require = createRequire(import.meta.url ?? pathToFileURL(__filename).href);
-    // The @github/copilot package has strict ESM-only exports, so require.resolve
-    // cannot resolve it. Instead, walk the module resolution paths to find it.
-    const searchPaths = require.resolve.paths("@github/copilot") ?? [];
+    if (typeof import.meta.resolve === "function") {
+        // ESM: resolve via import.meta.resolve
+        const sdkUrl = import.meta.resolve("@github/copilot/sdk");
+        const sdkPath = fileURLToPath(sdkUrl);
+        // sdkPath is like .../node_modules/@github/copilot/sdk/index.js
+        // Go up two levels to get the package root, then append index.js
+        return join(dirname(dirname(sdkPath)), "index.js");
+    }
+
+    // CJS fallback: the @github/copilot package has ESM-only exports so
+    // require.resolve cannot reach it. Walk the module search paths instead.
+    const req = createRequire(__filename);
+    const searchPaths = req.resolve.paths("@github/copilot") ?? [];
     for (const base of searchPaths) {
         const candidate = join(base, "@github", "copilot", "index.js");
         if (existsSync(candidate)) {
@@ -113,7 +118,8 @@ function getBundledCliPath(): string {
         }
     }
     throw new Error(
-        `Could not find @github/copilot package. Searched ${searchPaths.length} paths. Ensure it is installed.`
+        `Could not find @github/copilot package. Searched ${searchPaths.length} paths. ` +
+            `Ensure it is installed, or pass cliPath/cliUrl to CopilotClient.`,
     );
 }
 

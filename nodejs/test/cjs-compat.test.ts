@@ -1,10 +1,8 @@
 /**
- * CJS shimmed environment compatibility test
+ * Dual ESM/CJS build compatibility tests
  *
- * Verifies that getBundledCliPath() works when the ESM build is loaded in a
- * shimmed CJS environment (e.g., VS Code extensions bundled with esbuild
- * format:"cjs"). In these environments, import.meta.url may be undefined but
- * __filename is available via the CJS shim.
+ * Verifies that both the ESM and CJS builds exist and work correctly,
+ * so consumers using either module system get a working package.
  *
  * See: https://github.com/github/copilot-sdk/issues/528
  */
@@ -14,30 +12,43 @@ import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 
-const esmEntryPoint = join(import.meta.dirname, "../dist/index.js");
+const distDir = join(import.meta.dirname, "../dist");
 
-describe("CJS shimmed environment compatibility (#528)", () => {
+describe("Dual ESM/CJS build (#528)", () => {
     it("ESM dist file should exist", () => {
-        expect(existsSync(esmEntryPoint)).toBe(true);
+        expect(existsSync(join(distDir, "index.js"))).toBe(true);
     });
 
-    it("getBundledCliPath() should resolve in a CJS shimmed context", () => {
-        // Simulate what esbuild format:"cjs" does: __filename is defined,
-        // import.meta.url may be undefined. The SDK's fallback logic
-        // (import.meta.url ?? pathToFileURL(__filename).href) handles this.
-        //
-        // We test by requiring the ESM build via --input-type=module in a
-        // subprocess that has __filename available, verifying the constructor
-        // (which calls getBundledCliPath()) doesn't throw.
+    it("CJS dist file should exist", () => {
+        expect(existsSync(join(distDir, "cjs/index.js"))).toBe(true);
+    });
+
+    it("CJS build is requireable and exports CopilotClient", () => {
         const script = `
-            import { createRequire } from 'node:module';
-            const require = createRequire(import.meta.url);
-            const sdk = await import(${JSON.stringify(esmEntryPoint)});
+            const sdk = require(${JSON.stringify(join(distDir, "cjs/index.js"))});
             if (typeof sdk.CopilotClient !== 'function') {
+                console.error('CopilotClient is not a function');
                 process.exit(1);
             }
+            console.log('CJS require: OK');
+        `;
+        const output = execFileSync(
+            process.execPath,
+            ["--eval", script],
+            {
+                encoding: "utf-8",
+                timeout: 10000,
+                cwd: join(import.meta.dirname, ".."),
+            },
+        );
+        expect(output).toContain("CJS require: OK");
+    });
+
+    it("CopilotClient constructor works in CJS context", () => {
+        const script = `
+            const sdk = require(${JSON.stringify(join(distDir, "cjs/index.js"))});
             try {
-                const client = new sdk.CopilotClient({ cliUrl: "8080" });
+                const client = new sdk.CopilotClient({ cliUrl: "http://localhost:8080" });
                 console.log('CopilotClient constructor: OK');
             } catch (e) {
                 console.error('constructor failed:', e.message);
@@ -46,7 +57,7 @@ describe("CJS shimmed environment compatibility (#528)", () => {
         `;
         const output = execFileSync(
             process.execPath,
-            ["--input-type=module", "--eval", script],
+            ["--eval", script],
             {
                 encoding: "utf-8",
                 timeout: 10000,
