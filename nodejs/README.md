@@ -60,6 +60,9 @@ await client.stop();
 Sessions also support `Symbol.asyncDispose` for use with [`await using`](https://github.com/tc39/proposal-explicit-resource-management) (TypeScript 5.2+/Node.js 18.0+):
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 await using session = await client.createSession({ model: "gpt-5", onPermissionRequest: approveAll });
 // session is automatically disconnected when leaving scope
 ```

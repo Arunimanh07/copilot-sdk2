@@ -455,19 +455,17 @@ Some Copilot features may behave differently with BYOK:
 When using BYOK, the `model` parameter is **required**:
 
 ```typescript
-// ❌ Error: Model required with custom provider
 import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const client = new CopilotClient();
+
+// ❌ Error: Model required with custom provider
 const session = await client.createSession({
     provider: { type: "openai", baseUrl: "..." },
     onPermissionRequest: approveAll,
 });
 
 // ✅ Correct: Model specified
-import { CopilotClient, approveAll } from "@github/copilot-sdk";
-
-const client = new CopilotClient();
 const session = await client.createSession({
     model: "gpt-4",  // Required!
     provider: { type: "openai", baseUrl: "..." },

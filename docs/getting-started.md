@@ -249,7 +249,8 @@ const client = new CopilotClient();
 const session = await client.createSession({
     model: "gpt-4.1",
     streaming: true,
-}, onPermissionRequest: approveAll);
+    onPermissionRequest: approveAll
+});
 
 // Listen for response chunks
 session.on("assistant.message_delta", (event) => {
