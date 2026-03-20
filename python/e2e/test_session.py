@@ -88,20 +88,18 @@ class TestSessions:
         custom_tone = "Respond in a warm, professional tone. Be thorough in explanations."
         appended_content = "Always mention quarterly earnings."
         session = await ctx.client.create_session(
-            {
-                "system_message": {
-                    "mode": "customize",
-                    "sections": {
-                        "tone": {"action": "replace", "content": custom_tone},
-                        "code_change_rules": {"action": "remove"},
-                    },
-                    "content": appended_content,
+            on_permission_request=PermissionHandler.approve_all,
+            system_message={
+                "mode": "customize",
+                "sections": {
+                    "tone": {"action": "replace", "content": custom_tone},
+                    "code_change_rules": {"action": "remove"},
                 },
-                "on_permission_request": PermissionHandler.approve_all,
-            }
+                "content": appended_content,
+            },
         )
 
-        assistant_message = await session.send_and_wait({"prompt": "Who are you?"})
+        assistant_message = await session.send_and_wait("Who are you?")
         assert assistant_message is not None
 
         # Validate the system message sent to the model
