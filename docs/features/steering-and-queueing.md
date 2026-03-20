@@ -48,7 +48,7 @@ await client.start();
 
 const session = await client.createSession({
     model: "gpt-4.1",
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 
 // Start a long-running task
@@ -195,14 +195,14 @@ Queueing buffers messages to be processed sequentially after the current turn fi
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const client = new CopilotClient();
 await client.start();
 
 const session = await client.createSession({
     model: "gpt-4.1",
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 
 // Send an initial task
@@ -404,9 +404,12 @@ You can use both patterns together in a single session. Steering affects the cur
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     model: "gpt-4.1",
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 
 // Start a task

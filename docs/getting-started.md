@@ -243,7 +243,7 @@ Right now, you wait for the complete response before seeing anything. Let's make
 Update `index.ts`:
 
 ```typescript
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const client = new CopilotClient();
 const session = await client.createSession({
@@ -1206,6 +1206,9 @@ Now that you've got the basics, here are more powerful features to explore:
 MCP (Model Context Protocol) servers provide pre-built tools. Connect to GitHub's MCP server to give Copilot access to repositories, issues, and pull requests:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     mcpServers: {
         github: {
@@ -1213,7 +1216,7 @@ const session = await client.createSession({
             url: "https://api.githubcopilot.com/mcp/",
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -1224,6 +1227,9 @@ const session = await client.createSession({
 Define specialized AI personas for specific tasks:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     customAgents: [{
         name: "pr-reviewer",
@@ -1231,7 +1237,7 @@ const session = await client.createSession({
         description: "Reviews pull requests for best practices",
         prompt: "You are an expert code reviewer. Focus on security, performance, and maintainability.",
     }],
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -1242,11 +1248,14 @@ const session = await client.createSession({
 Control the AI's behavior and personality:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     systemMessage: {
         content: "You are a helpful assistant for our engineering team. Always be concise.",
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 

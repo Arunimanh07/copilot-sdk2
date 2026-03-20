@@ -279,6 +279,8 @@ flowchart TB
 
 ```typescript
 // Route sessions to CLI servers
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
 class CLILoadBalancer {
     private servers: string[];
     private currentIndex = 0;
@@ -310,6 +312,8 @@ class CLILoadBalancer {
     }
 }
 
+const client = new CopilotClient();
+
 const lb = new CLILoadBalancer([
     "cli-1:4321",
     "cli-2:4321",
@@ -323,7 +327,7 @@ app.post("/chat", async (req, res) => {
     const session = await client.createSession({
         sessionId: `user-${req.user.id}-chat`,
         model: "gpt-4.1",
-        onPermissionRequest: async () => ({ kind: "approved" }),
+        onPermissionRequest: approveAll,
     });
 
     const response = await session.sendAndWait({ prompt: req.body.message });
@@ -380,6 +384,10 @@ flowchart TB
 **Session lifecycle management** is key to vertical scaling:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
+
 // Limit concurrent active sessions
 class SessionManager {
     private activeSessions = new Map<string, Session>();
@@ -404,7 +412,7 @@ class SessionManager {
         const session = await client.createSession({
             sessionId,
             model: "gpt-4.1",
-            onPermissionRequest: async () => ({ kind: "approved" }),
+            onPermissionRequest: approveAll,
         });
 
         this.activeSessions.set(sessionId, session);
@@ -448,10 +456,13 @@ flowchart LR
 For stateless API endpoints where each request is independent:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 app.post("/api/analyze", async (req, res) => {
     const session = await client.createSession({
         model: "gpt-4.1",
-        onPermissionRequest: async () => ({ kind: "approved" }),
+        onPermissionRequest: approveAll,
     });
 
     try {
@@ -470,6 +481,9 @@ app.post("/api/analyze", async (req, res) => {
 For conversational interfaces or long-running workflows:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 // Create a resumable session
 app.post("/api/chat/start", async (req, res) => {
     const sessionId = `user-${req.user.id}-${Date.now()}`;
@@ -481,7 +495,7 @@ app.post("/api/chat/start", async (req, res) => {
             enabled: true,
             backgroundCompactionThreshold: 0.80,
         },
-        onPermissionRequest: async () => ({ kind: "approved" }),
+        onPermissionRequest: approveAll,
     });
 
     res.json({ sessionId });

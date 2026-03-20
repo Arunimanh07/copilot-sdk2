@@ -127,6 +127,9 @@ public delegate Task<SessionStartHookOutput?> SessionStartHandler(
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onSessionStart: async (input, invocation) => {
@@ -143,7 +146,7 @@ Package manager: ${projectInfo.packageManager}
       };
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
@@ -176,6 +179,9 @@ session = await client.create_session(on_permission_request=PermissionHandler.ap
 #### Handle Session Resume
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onSessionStart: async (input, invocation) => {
@@ -194,13 +200,16 @@ Session resumed. Previous context:
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 #### Load User Preferences
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onSessionStart: async () => {
@@ -223,7 +232,7 @@ const session = await client.createSession({
       };
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
@@ -343,6 +352,9 @@ public delegate Task<SessionEndHookOutput?> SessionEndHandler(
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const sessionStartTimes = new Map<string, number>();
 
 const session = await client.createSession({
@@ -365,7 +377,7 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
@@ -407,6 +419,9 @@ session = await client.create_session(on_permission_request=PermissionHandler.ap
 #### Clean Up Resources
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const sessionResources = new Map<string, { tempFiles: string[] }>();
 
 const session = await client.createSession({
@@ -430,13 +445,16 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 #### Save Session State for Resume
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onSessionEnd: async (input, invocation) => {
@@ -458,6 +476,9 @@ const session = await client.createSession({
 #### Log Session Summary
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const sessionData: Record<string, { prompts: number; tools: number; startTime: number }> = {};
 
 const session = await client.createSession({
@@ -493,7 +514,7 @@ Session Summary:
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 

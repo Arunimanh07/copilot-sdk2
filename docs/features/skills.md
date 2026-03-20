@@ -20,7 +20,7 @@ Specify directories containing skills when creating a session:
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const client = new CopilotClient();
 const session = await client.createSession({
@@ -29,7 +29,7 @@ const session = await client.createSession({
         "./skills/code-review",
         "./skills/documentation",
     ],
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 
 // Copilot now has access to skills in those directories
@@ -148,10 +148,13 @@ Disable specific skills while keeping others active:
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     skillDirectories: ["./skills"],
     disabledSkills: ["experimental-feature", "deprecated-tool"],
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -320,6 +323,9 @@ The markdown body contains the instructions that are injected into the session c
 Skills work alongside custom agents:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     skillDirectories: ["./skills/security"],
     customAgents: [{
@@ -327,7 +333,7 @@ const session = await client.createSession({
         description: "Security-focused code reviewer",
         prompt: "Focus on OWASP Top 10 vulnerabilities",
     }],
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -336,6 +342,9 @@ const session = await client.createSession({
 Skills can complement MCP server capabilities:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     skillDirectories: ["./skills/database"],
     mcpServers: {
@@ -346,7 +355,7 @@ const session = await client.createSession({
             tools: ["*"],
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 

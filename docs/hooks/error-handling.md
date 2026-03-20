@@ -128,6 +128,9 @@ Return `null` or `undefined` to use default error handling. Otherwise, return an
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onErrorOccurred: async (input, invocation) => {
@@ -137,7 +140,7 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
@@ -256,6 +259,9 @@ var session = await client.CreateSessionAsync(new SessionConfig
 
 ```typescript
 import { captureException } from "@sentry/node"; // or your monitoring service
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 
 const session = await client.createSession({
   hooks: {
@@ -275,13 +281,16 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### User-Friendly Error Messages
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const ERROR_MESSAGES: Record<string, string> = {
   "model_call": "There was an issue communicating with the AI model. Please try again.",
   "tool_execution": "A tool failed to execute. Please check your inputs and try again.",
@@ -303,13 +312,16 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Suppress Non-Critical Errors
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onErrorOccurred: async (input) => {
@@ -321,13 +333,16 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Add Recovery Context
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onErrorOccurred: async (input) => {
@@ -353,19 +368,22 @@ The tool failed. Here are some recovery suggestions:
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Track Error Patterns
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
 interface ErrorStats {
   count: number;
   lastOccurred: number;
   contexts: string[];
 }
 
+const client = new CopilotClient();
 const errorStats = new Map<string, ErrorStats>();
 
 const session = await client.createSession({
@@ -393,13 +411,16 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Alert on Critical Errors
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const CRITICAL_CONTEXTS = ["system", "model_call"];
 
 const session = await client.createSession({
@@ -418,13 +439,16 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Combine with Other Hooks for Context
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const sessionContext = new Map<string, { lastTool?: string; lastPrompt?: string }>();
 
 const session = await client.createSession({
@@ -459,7 +483,7 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 

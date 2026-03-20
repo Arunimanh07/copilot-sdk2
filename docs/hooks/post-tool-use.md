@@ -127,6 +127,9 @@ Return `null` or `undefined` to pass through the result unchanged. Otherwise, re
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onPostToolUse: async (input, invocation) => {
@@ -136,7 +139,7 @@ const session = await client.createSession({
       return null; // Pass through unchanged
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
@@ -254,6 +257,9 @@ var session = await client.CreateSessionAsync(new SessionConfig
 ### Redact Sensitive Data
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const SENSITIVE_PATTERNS = [
   /api[_-]?key["\s:=]+["']?[\w-]+["']?/gi,
   /password["\s:=]+["']?[\w-]+["']?/gi,
@@ -276,13 +282,16 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Truncate Large Results
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const MAX_RESULT_LENGTH = 10000;
 
 const session = await client.createSession({
@@ -303,13 +312,16 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Add Context Based on Results
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onPostToolUse: async (input) => {
@@ -330,13 +342,16 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Filter Error Stack Traces
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onPostToolUse: async (input) => {
@@ -353,13 +368,15 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Audit Trail for Compliance
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
 interface AuditEntry {
   timestamp: number;
   sessionId: string;
@@ -369,6 +386,7 @@ interface AuditEntry {
   success: boolean;
 }
 
+const client = new CopilotClient();
 const auditLog: AuditEntry[] = [];
 
 const session = await client.createSession({
@@ -389,13 +407,16 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Suppress Noisy Results
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const NOISY_TOOLS = ["list_directory", "search_codebase"];
 
 const session = await client.createSession({
@@ -417,7 +438,7 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 

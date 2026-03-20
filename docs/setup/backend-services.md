@@ -255,6 +255,9 @@ copilot --headless --port 4321
 Pass individual user tokens when creating sessions. See [GitHub OAuth](./github-oauth.md) for the full flow.
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 // Your API receives user tokens from your auth layer
 app.post("/chat", authMiddleware, async (req, res) => {
     const client = new CopilotClient({
@@ -266,7 +269,7 @@ app.post("/chat", authMiddleware, async (req, res) => {
     const session = await client.createSession({
         sessionId: `user-${req.user.id}-chat`,
         model: "gpt-4.1",
-        onPermissionRequest: async () => ({ kind: "approved" }),
+        onPermissionRequest: approveAll,
     });
 
     const response = await session.sendAndWait({
@@ -282,6 +285,8 @@ app.post("/chat", authMiddleware, async (req, res) => {
 Use your own API keys for the model provider. See [BYOK](../auth/byok.md) for details.
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
 const client = new CopilotClient({
     cliUrl: "localhost:4321",
 });
@@ -293,7 +298,7 @@ const session = await client.createSession({
         baseUrl: "https://api.openai.com/v1",
         apiKey: process.env.OPENAI_API_KEY,
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 

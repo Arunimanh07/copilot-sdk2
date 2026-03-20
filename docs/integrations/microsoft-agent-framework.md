@@ -159,8 +159,9 @@ You can also use Copilot SDK's native tool definition alongside MAF tools:
 <summary><strong>Node.js / TypeScript (standalone SDK)</strong></summary>
 
 ```typescript
-import { CopilotClient, DefineTool } from "@github/copilot-sdk";
+import { CopilotClient, DefineTool, approveAll } from "@github/copilot-sdk";
 
+const client = new CopilotClient();
 const getWeather = DefineTool({
     name: "GetWeather",
     description: "Get the current weather for a given location.",
@@ -168,11 +169,10 @@ const getWeather = DefineTool({
     execute: async ({ location }) => `The weather in ${location} is sunny, 25°C.`,
 });
 
-const client = new CopilotClient();
 const session = await client.createSession({
     model: "gpt-4.1",
     tools: [getWeather],
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 
 await session.sendAndWait({ prompt: "What's the weather like in Seattle?" });
@@ -351,13 +351,13 @@ You can also stream directly through the Copilot SDK without MAF:
 <summary><strong>Node.js / TypeScript (standalone SDK)</strong></summary>
 
 ```typescript
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const client = new CopilotClient();
 const session = await client.createSession({
     model: "gpt-4.1",
     streaming: true,
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 
 session.on("assistant.message_delta", (event) => {
@@ -401,12 +401,12 @@ Use the MAF wrapper when you need to compose Copilot with other providers in orc
 
 ```typescript
 // Standalone SDK — full control, simpler setup
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const client = new CopilotClient();
 const session = await client.createSession({
     model: "gpt-4.1",
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 const response = await session.sendAndWait({ prompt: "Explain this code" });
 ```

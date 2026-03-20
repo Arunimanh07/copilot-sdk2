@@ -192,11 +192,14 @@ The SDK picks these up automatically — no code changes needed.
 With the local CLI, sessions default to ephemeral. To create resumable sessions, provide your own session ID:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 // Create a named session
 const session = await client.createSession({
     sessionId: "my-project-analysis",
     model: "gpt-4.1",
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 
 // Later, resume it

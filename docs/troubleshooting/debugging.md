@@ -393,9 +393,12 @@ const client = new CopilotClient({
 
 1. **Verify tool registration:**
    ```typescript
+   import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+   const client = new CopilotClient();
    const session = await client.createSession({
      tools: [myTool],
-     onPermissionRequest: async () => ({ kind: "approved" }),
+     onPermissionRequest: approveAll,
    });
 
    // Check registered tools

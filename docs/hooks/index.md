@@ -171,6 +171,9 @@ This allows hooks to maintain state or perform session-specific logic.
 ### Logging All Tool Calls
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onPreToolUse: async (input) => {
@@ -182,13 +185,16 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Blocking Dangerous Tools
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const BLOCKED_TOOLS = ["shell", "bash", "exec"];
 
 const session = await client.createSession({
@@ -203,13 +209,16 @@ const session = await client.createSession({
       return { permissionDecision: "allow" };
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Adding User Context
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onSessionStart: async () => {
@@ -219,7 +228,7 @@ const session = await client.createSession({
       };
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 

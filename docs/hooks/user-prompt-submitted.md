@@ -125,6 +125,9 @@ Return `null` or `undefined` to use the prompt unchanged. Otherwise, return an o
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onUserPromptSubmitted: async (input, invocation) => {
@@ -132,7 +135,7 @@ const session = await client.createSession({
       return null; // Pass through unchanged
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
@@ -240,6 +243,9 @@ var session = await client.CreateSessionAsync(new SessionConfig
 ### Add Project Context
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onUserPromptSubmitted: async (input) => {
@@ -254,13 +260,16 @@ Framework: ${projectInfo.framework}
       };
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Expand Shorthand Commands
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const SHORTCUTS: Record<string, string> = {
   "/fix": "Please fix the errors in the code",
   "/explain": "Please explain this code in detail",
@@ -282,13 +291,16 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Content Filtering
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const BLOCKED_PATTERNS = [
   /password\s*[:=]/i,
   /api[_-]?key\s*[:=]/i,
@@ -310,13 +322,16 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Enforce Prompt Length Limits
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const MAX_PROMPT_LENGTH = 10000;
 
 const session = await client.createSession({
@@ -332,19 +347,22 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Add User Preferences
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
 interface UserPreferences {
   codeStyle: "concise" | "verbose";
   preferredLanguage: string;
   experienceLevel: "beginner" | "intermediate" | "expert";
 }
 
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onUserPromptSubmitted: async (input) => {
@@ -367,13 +385,16 @@ const session = await client.createSession({
       };
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Rate Limiting
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const promptTimestamps: number[] = [];
 const RATE_LIMIT = 10; // prompts
 const RATE_WINDOW = 60000; // 1 minute
@@ -399,13 +420,16 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Prompt Templates
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const TEMPLATES: Record<string, (args: string) => string> = {
   "bug:": (desc) => `I found a bug: ${desc}
 
@@ -436,7 +460,7 @@ const session = await client.createSession({
       return null;
     },
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 

@@ -217,6 +217,8 @@ const client = new CopilotClient({
 If you manage your own model provider keys, users don't need GitHub accounts at all:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
 const client = new CopilotClient({
     cliPath: path.join(__dirname, "vendor", "copilot"),
 });
@@ -228,7 +230,7 @@ const session = await client.createSession({
         baseUrl: "https://api.openai.com/v1",
         apiKey: process.env.OPENAI_API_KEY,
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -239,6 +241,8 @@ See the **[BYOK guide](../auth/byok.md)** for full details.
 Bundled apps typically want named sessions so users can resume conversations:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
 const client = new CopilotClient({
     cliPath: path.join(__dirname, "vendor", "copilot"),
 });
@@ -248,7 +252,7 @@ const sessionId = `project-${projectName}`;
 const session = await client.createSession({
     sessionId,
     model: "gpt-4.1",
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 
 // User closes app...

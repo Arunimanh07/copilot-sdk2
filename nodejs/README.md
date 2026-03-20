@@ -338,10 +338,13 @@ await session.send({ prompt: "What does the most recent jpg in this directory po
 Enable streaming to receive assistant response chunks as they're generated:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     model: "gpt-5",
     streaming: true,
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 
 // Wait for completion using typed event handlers
@@ -462,6 +465,9 @@ defineTool("safe_lookup", {
 Control the system prompt using `systemMessage` in session config:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     model: "gpt-5",
     systemMessage: {
@@ -472,7 +478,7 @@ const session = await client.createSession({
 </workflow_rules>
 `,
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -481,13 +487,16 @@ The SDK auto-injects environment context, tool instructions, and security guardr
 For full control (removes all guardrails), use `mode: "replace"`:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     model: "gpt-5",
     systemMessage: {
         mode: "replace",
         content: "You are a helpful assistant.",
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -496,8 +505,12 @@ const session = await client.createSession({
 By default, sessions use **infinite sessions** which automatically manage context window limits through background compaction and persist state to a workspace directory.
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
+
 // Default: infinite sessions enabled with default thresholds
-const session = await client.createSession({ model: "gpt-5",onPermissionRequest: async () => ({ kind: "approved" }), });
+const session = await client.createSession({ model: "gpt-5",onPermissionRequest: approveAll, });
 
 // Access the workspace path for checkpoints and files
 console.log(session.workspacePath);
@@ -511,7 +524,7 @@ const session = await client.createSession({
         backgroundCompactionThreshold: 0.80, // Start compacting at 80% context usage
         bufferExhaustionThreshold: 0.95, // Block at 95% until compaction completes
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 
 // Disable infinite sessions
@@ -530,8 +543,11 @@ When enabled, sessions emit compaction events:
 ### Multiple Sessions
 
 ```typescript
-const session1 = await client.createSession({ model: "gpt-5", onPermissionRequest: async () => ({ kind: "approved" }), });
-const session2 = await client.createSession({ model: "claude-sonnet-4.5", onPermissionRequest: async () => ({ kind: "approved" }), });
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
+const session1 = await client.createSession({ model: "gpt-5", onPermissionRequest: approveAll, });
+const session2 = await client.createSession({ model: "claude-sonnet-4.5", onPermissionRequest: approveAll, });
 
 // Both sessions are independent
 await session1.sendAndWait({ prompt: "Hello from session 1" });
@@ -541,10 +557,13 @@ await session2.sendAndWait({ prompt: "Hello from session 2" });
 ### Custom Session IDs
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     sessionId: "my-custom-session-id",
     model: "gpt-5",
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -579,6 +598,9 @@ The SDK supports custom OpenAI-compatible API providers (BYOK - Bring Your Own K
 **Example with Ollama:**
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     model: "deepseek-coder-v2:16b", // Required when using custom provider
     provider: {
@@ -586,7 +608,7 @@ const session = await client.createSession({
         baseUrl: "http://localhost:11434/v1", // Ollama endpoint
         // apiKey not required for Ollama
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 
 await session.sendAndWait({ prompt: "Hello!" });
@@ -595,6 +617,9 @@ await session.sendAndWait({ prompt: "Hello!" });
 **Example with custom OpenAI-compatible API:**
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     model: "gpt-4",
     provider: {
@@ -602,13 +627,16 @@ const session = await client.createSession({
         baseUrl: "https://my-api.example.com/v1",
         apiKey: process.env.MY_API_KEY,
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
 **Example with Azure OpenAI:**
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     model: "gpt-4",
     provider: {
@@ -619,7 +647,7 @@ const session = await client.createSession({
             apiVersion: "2024-10-21",
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -684,6 +712,7 @@ Use the built-in `approveAll` helper to allow every tool call without any checks
 ```typescript
 import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
+const client = new CopilotClient();
 const session = await client.createSession({
     model: "gpt-5",
     onPermissionRequest: approveAll,
@@ -695,8 +724,9 @@ const session = await client.createSession({
 Provide your own function to inspect each request and apply custom logic:
 
 ```typescript
-import type { PermissionRequest, PermissionRequestResult, approveAll } from "@github/copilot-sdk";
+import type { CopilotClient, PermissionRequest, PermissionRequestResult } from "@github/copilot-sdk";
 
+const client = new CopilotClient();
 const session = await client.createSession({
     model: "gpt-5",
     onPermissionRequest: (request: PermissionRequest, invocation): PermissionRequestResult => {
@@ -721,8 +751,7 @@ const session = await client.createSession({
         }
 
         return { kind: "approved" };
-    },
-    onPermissionRequest: approveAll
+    }
 });
 ```
 
@@ -741,6 +770,9 @@ const session = await client.createSession({
 Pass `onPermissionRequest` when resuming a session too — it is required:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.resumeSession("session-id", {
     onPermissionRequest: approveAll,
 });
@@ -755,6 +787,9 @@ To let a specific custom tool bypass the permission prompt entirely, set `skipPe
 Enable the agent to ask questions to the user using the `ask_user` tool by providing an `onUserInputRequest` handler:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     model: "gpt-5",
     onUserInputRequest: async (request, invocation) => {
@@ -773,7 +808,7 @@ const session = await client.createSession({
             wasFreeform: true, // Whether the answer was freeform (not from choices)
         };
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -782,6 +817,9 @@ const session = await client.createSession({
 Hook into session lifecycle events by providing handlers in the `hooks` configuration:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     model: "gpt-5",
     hooks: {
@@ -834,7 +872,7 @@ const session = await client.createSession({
             };
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 

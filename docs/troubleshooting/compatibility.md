@@ -189,6 +189,9 @@ The SDK uses a **deny-by-default** permission model. All permission requests (fi
 Instead of `--allow-all-paths` or `--yolo`, use the permission handler:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   onPermissionRequest: approveAll,
 });
@@ -213,13 +216,16 @@ Instead of `/compact`, configure automatic compaction or trigger it manually:
 
 ```typescript
 // Automatic compaction via config
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   infiniteSessions: {
     enabled: true,
     backgroundCompactionThreshold: 0.80,  // Start background compaction at 80% context utilization
     bufferExhaustionThreshold: 0.95,      // Block and compact at 95% context utilization
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 
 // Manual compaction (experimental)

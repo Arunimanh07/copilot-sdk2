@@ -266,6 +266,9 @@ const session = await client.resumeSession("user-123-task-456", {
 When using your own API keys, you must re-provide the provider configuration when resuming. API keys are never persisted to disk for security reasons.
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 // Original session with BYOK
 const session = await client.createSession({
   sessionId: "user-123-task-456",
@@ -276,7 +279,7 @@ const session = await client.createSession({
     apiKey: process.env.AZURE_OPENAI_KEY,
     deploymentId: "my-gpt-deployment",
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 
 // When resuming, you MUST re-provide the provider config
@@ -551,6 +554,9 @@ flowchart LR
 For workflows that might exceed context limits, enable infinite sessions with automatic compaction:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   sessionId: "long-workflow-123",
   infiniteSessions: {
@@ -558,7 +564,7 @@ const session = await client.createSession({
     backgroundCompactionThreshold: 0.80,  // Start compaction at 80% context
     bufferExhaustionThreshold: 0.95,      // Block at 95% if needed
   },
-  onPermissionRequest: async () => ({ kind: "approved" }),
+  onPermissionRequest: approveAll,
 });
 ```
 
