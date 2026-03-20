@@ -319,9 +319,16 @@ function emitRpcWrapper(lines: string[], node: Record<string, unknown>, isSessio
                 lines.push(`# Experimental: this API group is experimental and may change or be removed.`);
             }
             lines.push(`class ${apiName}:`);
-            lines.push(`    def __init__(self, client: "JsonRpcClient", session_id: str):`);
+            if (groupName === "shell") {
+                lines.push(`    def __init__(self, client: "JsonRpcClient", session_id: str, on_exec: Callable[[str], None] | None = None):`);
+            } else {
+                lines.push(`    def __init__(self, client: "JsonRpcClient", session_id: str):`);
+            }
             lines.push(`        self._client = client`);
             lines.push(`        self._session_id = session_id`);
+            if (groupName === "shell") {
+                lines.push(`        self._on_exec = on_exec`);
+            }
         } else {
             if (groupExperimental) {
                 lines.push(`# Experimental: this API group is experimental and may change or be removed.`);
@@ -342,11 +349,15 @@ function emitRpcWrapper(lines: string[], node: Record<string, unknown>, isSessio
     if (isSession) {
         lines.push(`class ${wrapperName}:`);
         lines.push(`    """Typed session-scoped RPC methods."""`);
-        lines.push(`    def __init__(self, client: "JsonRpcClient", session_id: str):`);
+        lines.push(`    def __init__(self, client: "JsonRpcClient", session_id: str, on_shell_exec: Callable[[str], None] | None = None):`);
         lines.push(`        self._client = client`);
         lines.push(`        self._session_id = session_id`);
         for (const [groupName] of groups) {
-            lines.push(`        self.${toSnakeCase(groupName)} = ${toPascalCase(groupName)}Api(client, session_id)`);
+            if (groupName === "shell") {
+                lines.push(`        self.${toSnakeCase(groupName)} = ${toPascalCase(groupName)}Api(client, session_id, on_shell_exec)`);
+            } else {
+                lines.push(`        self.${toSnakeCase(groupName)} = ${toPascalCase(groupName)}Api(client, session_id)`);
+            }
         }
     } else {
         lines.push(`class ${wrapperName}:`);
@@ -392,7 +403,14 @@ function emitMethod(lines: string[], name: string, method: RpcMethod, isSession:
         if (hasParams) {
             lines.push(`        params_dict = {k: v for k, v in params.to_dict().items() if v is not None}`);
             lines.push(`        params_dict["sessionId"] = self._session_id`);
-            lines.push(`        return ${resultType}.from_dict(await self._client.request("${method.rpcMethod}", params_dict, **_timeout_kwargs(timeout)))`);
+            if (method.rpcMethod === "session.shell.exec") {
+                lines.push(`        result = ${resultType}.from_dict(await self._client.request("${method.rpcMethod}", params_dict, **_timeout_kwargs(timeout)))`);
+                lines.push(`        if self._on_exec is not None:`);
+                lines.push(`            self._on_exec(result.process_id)`);
+                lines.push(`        return result`);
+            } else {
+                lines.push(`        return ${resultType}.from_dict(await self._client.request("${method.rpcMethod}", params_dict, **_timeout_kwargs(timeout)))`);
+            }
         } else {
             lines.push(`        return ${resultType}.from_dict(await self._client.request("${method.rpcMethod}", {"sessionId": self._session_id}, **_timeout_kwargs(timeout)))`);
         }

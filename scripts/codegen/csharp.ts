@@ -828,9 +828,11 @@ function emitSessionRpcClasses(node: Record<string, unknown>, classes: string[])
     const groups = Object.entries(node).filter(([, v]) => typeof v === "object" && v !== null && !isRpcMethod(v));
     const topLevelMethods = Object.entries(node).filter(([, v]) => isRpcMethod(v));
 
-    const srLines = [`/// <summary>Provides typed session-scoped RPC methods.</summary>`, `public class SessionRpc`, `{`, `    private readonly JsonRpc _rpc;`, `    private readonly string _sessionId;`, ""];
-    srLines.push(`    internal SessionRpc(JsonRpc rpc, string sessionId)`, `    {`, `        _rpc = rpc;`, `        _sessionId = sessionId;`);
-    for (const [groupName] of groups) srLines.push(`        ${toPascalCase(groupName)} = new ${toPascalCase(groupName)}Api(rpc, sessionId);`);
+    const srLines = [`/// <summary>Provides typed session-scoped RPC methods.</summary>`, `public class SessionRpc`, `{`, `    private readonly JsonRpc _rpc;`, `    private readonly string _sessionId;`, `    private readonly Action<string>? _onShellExec;`, ""];
+    srLines.push(`    internal SessionRpc(JsonRpc rpc, string sessionId, Action<string>? onShellExec = null)`, `    {`, `        _rpc = rpc;`, `        _sessionId = sessionId;`, `        _onShellExec = onShellExec;`);
+    for (const [groupName] of groups) srLines.push(
+        `        ${toPascalCase(groupName)} = new ${toPascalCase(groupName)}Api(rpc, sessionId${groupName === "shell" ? ", _onShellExec" : ""});`
+    );
     srLines.push(`    }`);
     for (const [groupName] of groups) srLines.push("", `    /// <summary>${toPascalCase(groupName)} APIs.</summary>`, `    public ${toPascalCase(groupName)}Api ${toPascalCase(groupName)} { get; }`);
 
@@ -896,15 +898,22 @@ function emitSessionMethod(key: string, method: RpcMethod, lines: string[], clas
 
     lines.push(`${indent}public async Task<${resultClassName}> ${methodName}Async(${sigParams.join(", ")})`);
     lines.push(`${indent}{`, `${indent}    var request = new ${requestClassName} { ${bodyAssignments.join(", ")} };`);
-    lines.push(`${indent}    return await CopilotClient.InvokeRpcAsync<${resultClassName}>(_rpc, "${method.rpcMethod}", [request], cancellationToken);`, `${indent}}`);
+    if (method.rpcMethod === "session.shell.exec") {
+        lines.push(`${indent}    var result = await CopilotClient.InvokeRpcAsync<${resultClassName}>(_rpc, "${method.rpcMethod}", [request], cancellationToken);`);
+        lines.push(`${indent}    _onExec?.Invoke(result.ProcessId);`);
+        lines.push(`${indent}    return result;`, `${indent}}`);
+    } else {
+        lines.push(`${indent}    return await CopilotClient.InvokeRpcAsync<${resultClassName}>(_rpc, "${method.rpcMethod}", [request], cancellationToken);`, `${indent}}`);
+    }
 }
 
 function emitSessionApiClass(className: string, node: Record<string, unknown>, classes: string[]): string {
     const displayName = className.replace(/Api$/, "");
     const groupExperimental = isNodeFullyExperimental(node);
     const experimentalAttr = groupExperimental ? `[Experimental(Diagnostics.Experimental)]\n` : "";
-    const lines = [`/// <summary>Provides session-scoped ${displayName} APIs.</summary>`, `${experimentalAttr}public class ${className}`, `{`, `    private readonly JsonRpc _rpc;`, `    private readonly string _sessionId;`, ""];
-    lines.push(`    internal ${className}(JsonRpc rpc, string sessionId)`, `    {`, `        _rpc = rpc;`, `        _sessionId = sessionId;`, `    }`);
+    const ctorSuffix = className === "ShellApi" ? ", Action<string>? onExec = null" : "";
+    const lines = [`/// <summary>Provides session-scoped ${displayName} APIs.</summary>`, `${experimentalAttr}public class ${className}`, `{`, `    private readonly JsonRpc _rpc;`, `    private readonly string _sessionId;`, ...(className === "ShellApi" ? [`    private readonly Action<string>? _onExec;`] : []), ""];
+    lines.push(`    internal ${className}(JsonRpc rpc, string sessionId${ctorSuffix})`, `    {`, `        _rpc = rpc;`, `        _sessionId = sessionId;`, ...(className === "ShellApi" ? [`        _onExec = onExec;`] : []), `    }`);
 
     for (const [key, value] of Object.entries(node)) {
         if (!isRpcMethod(value)) continue;

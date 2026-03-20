@@ -315,6 +315,9 @@ function emitRpcWrapper(lines: string[], node: Record<string, unknown>, isSessio
         if (isSession) {
             lines.push(`\tclient    *jsonrpc2.Client`);
             lines.push(`\tsessionID string`);
+            if (groupName === "shell") {
+                lines.push(`\tonExec    func(string)`);
+            }
         } else {
             lines.push(`\tclient *jsonrpc2.Client`);
         }
@@ -355,14 +358,22 @@ function emitRpcWrapper(lines: string[], node: Record<string, unknown>, isSessio
     const padKey = (name: string) => (name + ":").padEnd(maxKeyLen + 1); // +1 for min trailing space
 
     // Constructor
-    const ctorParams = isSession ? "client *jsonrpc2.Client, sessionID string" : "client *jsonrpc2.Client";
+    const ctorParams = isSession ? "client *jsonrpc2.Client, sessionID string, onShellExec ...func(string)" : "client *jsonrpc2.Client";
     const ctorFields = isSession ? "client: client, sessionID: sessionID," : "client: client,";
     lines.push(`func New${wrapperName}(${ctorParams}) *${wrapperName} {`);
+    if (isSession) {
+        lines.push(`\tvar shellExecHandler func(string)`);
+        lines.push(`\tif len(onShellExec) > 0 {`);
+        lines.push(`\t\tshellExecHandler = onShellExec[0]`);
+        lines.push(`\t}`);
+    }
     lines.push(`\treturn &${wrapperName}{${ctorFields}`);
     for (const [groupName] of groups) {
         const prefix = isSession ? "" : "Server";
         const apiInit = isSession
-            ? `&${toPascalCase(groupName)}${apiSuffix}{client: client, sessionID: sessionID}`
+            ? groupName === "shell"
+                ? `&${toPascalCase(groupName)}${apiSuffix}{client: client, sessionID: sessionID, onExec: shellExecHandler}`
+                : `&${toPascalCase(groupName)}${apiSuffix}{client: client, sessionID: sessionID}`
             : `&${prefix}${toPascalCase(groupName)}${apiSuffix}{client: client}`;
         lines.push(`\t\t${padKey(toPascalCase(groupName))}${apiInit},`);
     }
@@ -421,6 +432,11 @@ function emitMethod(lines: string[], receiver: string, name: string, method: Rpc
     lines.push(`\tif err := json.Unmarshal(raw, &result); err != nil {`);
     lines.push(`\t\treturn nil, err`);
     lines.push(`\t}`);
+    if (method.rpcMethod === "session.shell.exec") {
+        lines.push(`\tif a.onExec != nil {`);
+        lines.push(`\t\ta.onExec(result.ProcessID)`);
+        lines.push(`\t}`);
+    }
     lines.push(`\treturn &result, nil`);
     lines.push(`}`);
     lines.push(``);
