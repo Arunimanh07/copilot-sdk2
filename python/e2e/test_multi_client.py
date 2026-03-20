@@ -190,7 +190,6 @@ class TestMultiClientBroadcast:
     ):
         """Both clients see tool request and completion events."""
 
-
         class SeedParams(BaseModel):
             seed: str = Field(description="A seed value")
 
