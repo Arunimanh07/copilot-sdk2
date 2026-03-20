@@ -686,7 +686,7 @@ class CopilotSession:
                     transformed = callback(content)
                     if inspect.isawaitable(transformed):
                         transformed = await transformed
-                    result[section_id] = {"content": transformed}
+                    result[section_id] = {"content": str(transformed)}
                 except Exception:  # pylint: disable=broad-except
                     result[section_id] = {"content": content}
             else:
