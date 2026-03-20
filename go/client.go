@@ -482,6 +482,7 @@ func (c *Client) ensureConnected(ctx context.Context) error {
 //	        },
 //	    },
 //	})
+//
 // extractTransformCallbacks separates transform callbacks from a SystemMessageConfig,
 // returning a wire-safe config and a map of callbacks (nil if none).
 func extractTransformCallbacks(config *SystemMessageConfig) (*SystemMessageConfig, map[string]SectionTransformFn) {

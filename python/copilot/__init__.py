@@ -8,6 +8,7 @@ from .client import CopilotClient
 from .session import CopilotSession
 from .tools import define_tool
 from .types import (
+    SYSTEM_PROMPT_SECTIONS,
     Attachment,
     AzureProviderOptions,
     BlobAttachment,
@@ -30,7 +31,6 @@ from .types import (
     PermissionRequestResult,
     PingResponse,
     ProviderConfig,
-    SYSTEM_PROMPT_SECTIONS,
     SectionOverride,
     SectionOverrideAction,
     SectionTransformFn,
