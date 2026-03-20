@@ -1593,7 +1593,7 @@ class SessionUIElicitationResult:
     action: Action
     """The user's response: accept (submitted), decline (rejected), or cancel (dismissed)"""
 
-    content: Optional[dict[str, float | bool | list[str] | str]] = None
+    content: dict[str, float | bool | list[str] | str] | None = None
     """The form values submitted by the user (present when action is 'accept')"""
 
     @staticmethod
@@ -1696,7 +1696,7 @@ class PropertyType(Enum):
 @dataclass
 class Property:
     type: PropertyType
-    default: Optional[float | bool | list[str] | str] = None
+    default: float | bool | list[str] | str | None = None
     description: str | None = None
     enum: list[str] | None = None
     enum_names: list[str] | None = None

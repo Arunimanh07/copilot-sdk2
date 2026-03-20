@@ -32,12 +32,37 @@ import {
  * - Callable from collections.abc instead of typing
  * - Clean up unused typing imports
  */
+function replaceBalancedBrackets(code: string, prefix: string, replacer: (inner: string) => string): string {
+    let result = "";
+    let i = 0;
+    while (i < code.length) {
+        const idx = code.indexOf(prefix + "[", i);
+        if (idx === -1) {
+            result += code.slice(i);
+            break;
+        }
+        result += code.slice(i, idx);
+        const start = idx + prefix.length + 1; // after '['
+        let depth = 1;
+        let j = start;
+        while (j < code.length && depth > 0) {
+            if (code[j] === "[") depth++;
+            else if (code[j] === "]") depth--;
+            j++;
+        }
+        const inner = code.slice(start, j - 1);
+        result += replacer(inner);
+        i = j;
+    }
+    return result;
+}
+
 function modernizePython(code: string): string {
-    // Replace Optional[X] with X | None (handles nested brackets)
-    code = code.replace(/Optional\[([^\[\]]*(?:\[[^\[\]]*\])*[^\[\]]*)\]/g, "$1 | None");
+    // Replace Optional[X] with X | None (handles arbitrarily nested brackets)
+    code = replaceBalancedBrackets(code, "Optional", (inner) => `${inner} | None`);
 
     // Replace Union[X, Y] with X | Y
-    code = code.replace(/Union\[([^\[\]]*(?:\[[^\[\]]*\])*[^\[\]]*)\]/g, (_match, inner: string) => {
+    code = replaceBalancedBrackets(code, "Union", (inner) => {
         return inner.split(",").map((s: string) => s.trim()).join(" | ");
     });
 
