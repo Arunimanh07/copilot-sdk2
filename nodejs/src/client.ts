@@ -1075,6 +1075,55 @@ export class CopilotClient {
     }
 
     /**
+     * Gets metadata for a specific session by ID.
+     *
+     * This provides an efficient O(1) lookup of a single session's metadata
+     * instead of listing all sessions. Returns undefined if the session is not found.
+     *
+     * @param sessionId - The ID of the session to look up
+     * @returns A promise that resolves with the session metadata, or undefined if not found
+     * @throws Error if the client is not connected
+     *
+     * @example
+     * ```typescript
+     * const metadata = await client.getSessionMetadata("session-123");
+     * if (metadata) {
+     *   console.log(`Session started at: ${metadata.startTime}`);
+     * }
+     * ```
+     */
+    async getSessionMetadata(sessionId: string): Promise<SessionMetadata | undefined> {
+        if (!this.connection) {
+            throw new Error("Client not connected");
+        }
+
+        const response = await this.connection.sendRequest("session.getMetadata", { sessionId });
+        const { session } = response as {
+            session?: {
+                sessionId: string;
+                startTime: string;
+                modifiedTime: string;
+                summary?: string;
+                isRemote: boolean;
+                context?: SessionContext;
+            };
+        };
+
+        if (!session) {
+            return undefined;
+        }
+
+        return {
+            sessionId: session.sessionId,
+            startTime: new Date(session.startTime),
+            modifiedTime: new Date(session.modifiedTime),
+            summary: session.summary,
+            isRemote: session.isRemote,
+            context: session.context,
+        };
+    }
+
+    /**
      * Gets the foreground session ID in TUI+server mode.
      *
      * This returns the ID of the session currently displayed in the TUI.
