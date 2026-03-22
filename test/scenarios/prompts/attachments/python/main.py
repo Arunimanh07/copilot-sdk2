@@ -1,6 +1,7 @@
 import asyncio
 import os
-from copilot import CopilotClient, SubprocessConfig
+from copilot import CopilotClient
+from copilot.client import SubprocessConfig
 
 SYSTEM_PROMPT = """You are a helpful assistant. Answer questions about attached files concisely."""
 
@@ -24,10 +25,8 @@ async def main():
         sample_file = os.path.abspath(sample_file)
 
         response = await session.send_and_wait(
-            {
-                "prompt": "What languages are listed in the attached file?",
-                "attachments": [{"type": "file", "path": sample_file}],
-            }
+            "What languages are listed in the attached file?",
+            attachments=[{"type": "file", "path": sample_file}],
         )
 
         if response:

@@ -1,6 +1,7 @@
 import asyncio
 import os
-from copilot import CopilotClient, SubprocessConfig
+from copilot import CopilotClient
+from copilot.client import SubprocessConfig
 
 SYSTEM_PROMPT = """You are a minimal assistant with no tools available.
 You cannot execute code, read files, edit files, search, or perform any actions.
@@ -24,7 +25,7 @@ async def main():
         )
 
         response = await session.send_and_wait(
-            {"prompt": "Use the bash tool to run 'echo hello'."}
+            "Use the bash tool to run 'echo hello'."
         )
 
         if response:

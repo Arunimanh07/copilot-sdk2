@@ -5,7 +5,8 @@ import sys
 import urllib.request
 
 from flask import Flask, request, jsonify
-from copilot import CopilotClient, ExternalServerConfig
+from copilot import CopilotClient
+from copilot.client import ExternalServerConfig
 
 app = Flask(__name__)
 
@@ -18,7 +19,7 @@ async def ask_copilot(prompt: str) -> str:
     try:
         session = await client.create_session({"model": "claude-haiku-4.5"})
 
-        response = await session.send_and_wait({"prompt": prompt})
+        response = await session.send_and_wait(prompt)
 
         await session.disconnect()
 

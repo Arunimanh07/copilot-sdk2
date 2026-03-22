@@ -1,6 +1,7 @@
 import asyncio
 import os
-from copilot import CopilotClient, SubprocessConfig
+from copilot import CopilotClient
+from copilot.client import SubprocessConfig
 
 
 hook_log: list[str] = []
@@ -62,9 +63,7 @@ async def main():
         )
 
         response = await session.send_and_wait(
-            {
-                "prompt": "List the files in the current directory using the glob tool with pattern '*.md'.",
-            }
+            "List the files in the current directory using the glob tool with pattern '*.md'."
         )
 
         if response:

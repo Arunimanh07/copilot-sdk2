@@ -4,7 +4,7 @@ Tests for user input (ask_user) functionality
 
 import pytest
 
-from copilot import PermissionHandler
+from copilot.session import PermissionHandler
 
 from .testharness import E2ETestContext
 
@@ -30,19 +30,13 @@ class TestAskUser:
             }
 
         session = await ctx.client.create_session(
-            {
-                "on_user_input_request": on_user_input_request,
-                "on_permission_request": PermissionHandler.approve_all,
-            }
+            on_permission_request=PermissionHandler.approve_all,
+            on_user_input_request=on_user_input_request,
         )
 
         await session.send_and_wait(
-            {
-                "prompt": (
-                    "Ask me to choose between 'Option A' and 'Option B' using the ask_user "
-                    "tool. Wait for my response before continuing."
-                )
-            }
+            "Ask me to choose between 'Option A' and 'Option B' using the ask_user "
+            "tool. Wait for my response before continuing."
         )
 
         # Should have received at least one user input request
@@ -69,19 +63,13 @@ class TestAskUser:
             }
 
         session = await ctx.client.create_session(
-            {
-                "on_user_input_request": on_user_input_request,
-                "on_permission_request": PermissionHandler.approve_all,
-            }
+            on_permission_request=PermissionHandler.approve_all,
+            on_user_input_request=on_user_input_request,
         )
 
         await session.send_and_wait(
-            {
-                "prompt": (
-                    "Use the ask_user tool to ask me to pick between exactly two options: "
-                    "'Red' and 'Blue'. These should be provided as choices. Wait for my answer."
-                )
-            }
+            "Use the ask_user tool to ask me to pick between exactly two options: "
+            "'Red' and 'Blue'. These should be provided as choices. Wait for my answer."
         )
 
         # Should have received a request
@@ -110,19 +98,13 @@ class TestAskUser:
             }
 
         session = await ctx.client.create_session(
-            {
-                "on_user_input_request": on_user_input_request,
-                "on_permission_request": PermissionHandler.approve_all,
-            }
+            on_permission_request=PermissionHandler.approve_all,
+            on_user_input_request=on_user_input_request,
         )
 
         response = await session.send_and_wait(
-            {
-                "prompt": (
-                    "Ask me a question using ask_user and then include my answer in your "
-                    "response. The question should be 'What is your favorite color?'"
-                )
-            }
+            "Ask me a question using ask_user and then include my answer in your "
+            "response. The question should be 'What is your favorite color?'"
         )
 
         # Should have received a request

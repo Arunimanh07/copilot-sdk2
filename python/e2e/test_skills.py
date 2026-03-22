@@ -7,7 +7,7 @@ import shutil
 
 import pytest
 
-from copilot import PermissionHandler
+from copilot.session import PermissionHandler
 
 from .testharness import E2ETestContext
 
@@ -56,16 +56,13 @@ class TestSkillBehavior:
         """Test that skills are loaded and applied from skillDirectories"""
         skills_dir = create_skill_dir(ctx.work_dir)
         session = await ctx.client.create_session(
-            {
-                "skill_directories": [skills_dir],
-                "on_permission_request": PermissionHandler.approve_all,
-            }
+            on_permission_request=PermissionHandler.approve_all, skill_directories=[skills_dir]
         )
 
         assert session.session_id is not None
 
         # The skill instructs the model to include a marker - verify it appears
-        message = await session.send_and_wait({"prompt": "Say hello briefly using the test skill."})
+        message = await session.send_and_wait("Say hello briefly using the test skill.")
         assert message is not None
         assert SKILL_MARKER in message.data.content
 
@@ -77,17 +74,15 @@ class TestSkillBehavior:
         """Test that disabledSkills prevents skill from being applied"""
         skills_dir = create_skill_dir(ctx.work_dir)
         session = await ctx.client.create_session(
-            {
-                "skill_directories": [skills_dir],
-                "disabled_skills": ["test-skill"],
-                "on_permission_request": PermissionHandler.approve_all,
-            }
+            on_permission_request=PermissionHandler.approve_all,
+            skill_directories=[skills_dir],
+            disabled_skills=["test-skill"],
         )
 
         assert session.session_id is not None
 
         # The skill is disabled, so the marker should NOT appear
-        message = await session.send_and_wait({"prompt": "Say hello briefly using the test skill."})
+        message = await session.send_and_wait("Say hello briefly using the test skill.")
         assert message is not None
         assert SKILL_MARKER not in message.data.content
 
@@ -105,28 +100,26 @@ class TestSkillBehavior:
 
         # Create a session without skills first
         session1 = await ctx.client.create_session(
-            {"on_permission_request": PermissionHandler.approve_all}
+            on_permission_request=PermissionHandler.approve_all
         )
         session_id = session1.session_id
 
         # First message without skill - marker should not appear
-        message1 = await session1.send_and_wait({"prompt": "Say hi."})
+        message1 = await session1.send_and_wait("Say hi.")
         assert message1 is not None
         assert SKILL_MARKER not in message1.data.content
 
         # Resume with skillDirectories - skill should now be active
         session2 = await ctx.client.resume_session(
             session_id,
-            {
-                "skill_directories": [skills_dir],
-                "on_permission_request": PermissionHandler.approve_all,
-            },
+            on_permission_request=PermissionHandler.approve_all,
+            skill_directories=[skills_dir],
         )
 
         assert session2.session_id == session_id
 
         # Now the skill should be applied
-        message2 = await session2.send_and_wait({"prompt": "Say hello again using the test skill."})
+        message2 = await session2.send_and_wait("Say hello again using the test skill.")
         assert message2 is not None
         assert SKILL_MARKER in message2.data.content
 

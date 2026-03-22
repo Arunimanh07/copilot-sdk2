@@ -1,6 +1,7 @@
 import asyncio
 import os
-from copilot import CopilotClient, SubprocessConfig, define_tool
+from copilot import CopilotClient, define_tool
+from copilot.client import SubprocessConfig
 from pydantic import BaseModel, Field
 
 # In-memory virtual filesystem
@@ -53,22 +54,16 @@ async def main():
 
     try:
         session = await client.create_session(
-            {
-                "model": "claude-haiku-4.5",
-                "available_tools": [],
-                "tools": [create_file, read_file, list_files],
-                "on_permission_request": auto_approve_permission,
-                "hooks": {"on_pre_tool_use": auto_approve_tool},
-            }
+            on_permission_request=auto_approve_permission,
+            model="claude-haiku-4.5",
+            available_tools=[],
+            tools=[create_file, read_file, list_files],
+            hooks={"on_pre_tool_use": auto_approve_tool},
         )
 
         response = await session.send_and_wait(
-            {
-                "prompt": (
-                    "Create a file called plan.md with a brief 3-item project plan "
-                    "for building a CLI tool. Then read it back and tell me what you wrote."
-                )
-            }
+            "Create a file called plan.md with a brief 3-item project plan "
+            "for building a CLI tool. Then read it back and tell me what you wrote."
         )
 
         if response:

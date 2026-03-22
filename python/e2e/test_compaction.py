@@ -2,8 +2,8 @@
 
 import pytest
 
-from copilot import PermissionHandler
 from copilot.generated.session_events import SessionEventType
+from copilot.session import PermissionHandler
 
 from .testharness import E2ETestContext
 
@@ -17,16 +17,14 @@ class TestCompaction:
     ):
         # Create session with very low compaction thresholds to trigger compaction quickly
         session = await ctx.client.create_session(
-            {
-                "infinite_sessions": {
-                    "enabled": True,
-                    # Trigger background compaction at 0.5% context usage (~1000 tokens)
-                    "background_compaction_threshold": 0.005,
-                    # Block at 1% to ensure compaction runs
-                    "buffer_exhaustion_threshold": 0.01,
-                },
-                "on_permission_request": PermissionHandler.approve_all,
-            }
+            on_permission_request=PermissionHandler.approve_all,
+            infinite_sessions={
+                "enabled": True,
+                # Trigger background compaction at 0.5% context usage (~1000 tokens)
+                "background_compaction_threshold": 0.005,
+                # Block at 1% to ensure compaction runs
+                "buffer_exhaustion_threshold": 0.01,
+            },
         )
 
         compaction_start_events = []
@@ -41,13 +39,11 @@ class TestCompaction:
         session.on(on_event)
 
         # Send multiple messages to fill up the context window
-        await session.send_and_wait({"prompt": "Tell me a story about a dragon. Be detailed."})
+        await session.send_and_wait("Tell me a story about a dragon. Be detailed.")
         await session.send_and_wait(
-            {"prompt": "Continue the story with more details about the dragon's castle."}
+            "Continue the story with more details about the dragon's castle."
         )
-        await session.send_and_wait(
-            {"prompt": "Now describe the dragon's treasure in great detail."}
-        )
+        await session.send_and_wait("Now describe the dragon's treasure in great detail.")
 
         # Should have triggered compaction at least once
         assert len(compaction_start_events) >= 1, "Expected at least 1 compaction_start event"
@@ -62,7 +58,7 @@ class TestCompaction:
             assert last_complete.data.tokens_removed > 0, "Expected tokensRemoved > 0"
 
         # Verify the session still works after compaction
-        answer = await session.send_and_wait({"prompt": "What was the story about?"})
+        answer = await session.send_and_wait("What was the story about?")
         assert answer is not None
         assert answer.data.content is not None
         # Should remember it was about a dragon (context preserved via summary)
@@ -72,10 +68,8 @@ class TestCompaction:
         self, ctx: E2ETestContext
     ):
         session = await ctx.client.create_session(
-            {
-                "infinite_sessions": {"enabled": False},
-                "on_permission_request": PermissionHandler.approve_all,
-            }
+            on_permission_request=PermissionHandler.approve_all,
+            infinite_sessions={"enabled": False},
         )
 
         compaction_events = []
@@ -89,7 +83,7 @@ class TestCompaction:
 
         session.on(on_event)
 
-        await session.send_and_wait({"prompt": "What is 2+2?"})
+        await session.send_and_wait("What is 2+2?")
 
         # Should not have any compaction events when disabled
         assert len(compaction_events) == 0, "Expected no compaction events when disabled"

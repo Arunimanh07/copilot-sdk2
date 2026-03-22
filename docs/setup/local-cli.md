@@ -51,12 +51,12 @@ await client.stop();
 <summary><strong>Python</strong></summary>
 
 ```python
-from copilot import CopilotClient
+from copilot import CopilotClient, PermissionHandler
 
 client = CopilotClient()
 await client.start()
 
-session = await client.create_session({"model": "gpt-4.1"})
+session = await client.create_session(on_permission_request=PermissionHandler.approve_all, model="gpt-4.1")
 response = await session.send_and_wait({"prompt": "Hello!"})
 print(response.data.content)
 
@@ -166,8 +166,8 @@ const client = new CopilotClient({
     // Set log level for debugging
     logLevel: "debug",
 
-    // Pass extra CLI arguments
-    cliArgs: ["--disable-telemetry"],
+    // Pass extra CLI arguments (example: set a custom log directory)
+    cliArgs: ["--log-dir=/tmp/copilot-logs"],
 
     // Set working directory
     cwd: "/path/to/project",

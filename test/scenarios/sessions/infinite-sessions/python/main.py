@@ -1,6 +1,7 @@
 import asyncio
 import os
-from copilot import CopilotClient, SubprocessConfig
+from copilot import CopilotClient
+from copilot.client import SubprocessConfig
 
 
 async def main():
@@ -31,7 +32,7 @@ async def main():
         ]
 
         for prompt in prompts:
-            response = await session.send_and_wait({"prompt": prompt})
+            response = await session.send_and_wait(prompt)
             if response:
                 print(f"Q: {prompt}")
                 print(f"A: {response.data.content}\n")

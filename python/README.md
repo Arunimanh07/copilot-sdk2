@@ -7,9 +7,9 @@ Python SDK for programmatic control of GitHub Copilot CLI via JSON-RPC.
 ## Installation
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[telemetry,dev]"
 # or
-uv pip install -e ".[dev]"
+uv pip install -e ".[telemetry,dev]"
 ```
 
 ## Run the Sample
@@ -25,15 +25,18 @@ python chat.py
 
 ```python
 import asyncio
-from copilot import CopilotClient
+from copilot import CopilotClient, PermissionHandler
 
 async def main():
     # Create and start client
     client = CopilotClient()
     await client.start()
 
-    # Create a session
-    session = await client.create_session({"model": "gpt-5"})
+    # Create a session (on_permission_request is required)
+    session = await client.create_session({
+        "model": "gpt-5",
+        "on_permission_request": PermissionHandler.approve_all,
+    })
 
     # Wait for response using session.idle event
     done = asyncio.Event()
@@ -47,7 +50,7 @@ async def main():
     session.on(on_event)
 
     # Send a message and wait for completion
-    await session.send({"prompt": "What is 2+2?"})
+    await session.send("What is 2+2?")
     await done.wait()
 
     # Clean up
@@ -60,8 +63,11 @@ asyncio.run(main())
 Sessions also support the `async with` context manager pattern for automatic cleanup:
 
 ```python
-async with await client.create_session({"model": "gpt-5"}) as session:
-    await session.send({"prompt": "What is 2+2?"})
+async with await client.create_session({
+    "model": "gpt-5",
+    "on_permission_request": PermissionHandler.approve_all,
+}) as session:
+    await session.send("What is 2+2?")
     # session is automatically disconnected when leaving the block
 ```
 
@@ -91,7 +97,7 @@ def on_event(event):
     print(f"Event: {event['type']}")
 
 session.on(on_event)
-await session.send({"prompt": "Hello!"})
+await session.send("Hello!")
 
 # ... wait for events ...
 
@@ -144,6 +150,7 @@ CopilotClient(
 - `streaming` (bool): Enable streaming delta events
 - `provider` (dict): Custom API provider configuration (BYOK). See [Custom Providers](#custom-providers) section.
 - `infinite_sessions` (dict): Automatic context compaction configuration
+- `on_permission_request` (callable): **Required.** Handler called before each tool execution to approve or deny it. Use `PermissionHandler.approve_all` to allow everything, or provide a custom function for fine-grained control. See [Permission Handling](#permission-handling) section.
 - `on_user_input_request` (callable): Handler for user input requests from the agent (enables ask_user tool). See [User Input Requests](#user-input-requests) section.
 - `hooks` (dict): Hook handlers for session lifecycle events. See [Session Hooks](#session-hooks) section.
 
@@ -205,7 +212,8 @@ session = await client.create_session({
 For users who prefer manual schema definition:
 
 ```python
-from copilot import CopilotClient, Tool
+from copilot import CopilotClient
+from copilot.tools import Tool
 
 async def lookup_issue(invocation):
     issue_id = invocation["arguments"]["id"]
@@ -263,24 +271,37 @@ async def safe_lookup(params: LookupParams) -> str:
 
 ## Image Support
 
-The SDK supports image attachments via the `attachments` parameter. You can attach images by providing their file path:
+The SDK supports image attachments via the `attachments` parameter. You can attach images by providing their file path, or by passing base64-encoded data directly using a blob attachment:
 
 ```python
-await session.send({
-    "prompt": "What's in this image?",
-    "attachments": [
+# File attachment — runtime reads from disk
+await session.send(
+    "What's in this image?",
+    attachments=[
         {
             "type": "file",
             "path": "/path/to/image.jpg",
         }
-    ]
-})
+    ],
+)
+
+# Blob attachment — provide base64 data directly
+await session.send(
+    "What's in this image?",
+    attachments=[
+        {
+            "type": "blob",
+            "data": base64_image_data,
+            "mimeType": "image/png",
+        }
+    ],
+)
 ```
 
 Supported image formats include JPG, PNG, GIF, and other common image types. The agent's `view` tool can also read images directly from the filesystem, so you can also ask questions like:
 
 ```python
-await session.send({"prompt": "What does the most recent jpg in this directory portray?"})
+await session.send("What does the most recent jpg in this directory portray?")
 ```
 
 ## Streaming
@@ -325,7 +346,7 @@ async def main():
             done.set()
 
     session.on(on_event)
-    await session.send({"prompt": "Tell me a short story"})
+    await session.send("Tell me a short story")
     await done.wait()  # Wait for streaming to complete
 
     await session.disconnect()
@@ -402,7 +423,7 @@ session = await client.create_session({
     },
 })
 
-await session.send({"prompt": "Hello!"})
+await session.send("Hello!")
 ```
 
 **Example with custom OpenAI-compatible API:**
@@ -468,6 +489,91 @@ client = CopilotClient(SubprocessConfig(
 Trace context (`traceparent`/`tracestate`) is automatically propagated between the SDK and CLI on `create_session`, `resume_session`, and `send` calls, and inbound when the CLI invokes tool handlers.
 
 Install with telemetry extras: `pip install copilot-sdk[telemetry]` (provides `opentelemetry-api`)
+
+## Permission Handling
+
+An `on_permission_request` handler is **required** whenever you create or resume a session. The handler is called before the agent executes each tool (file writes, shell commands, custom tools, etc.) and must return a decision.
+
+### Approve All (simplest)
+
+Use the built-in `PermissionHandler.approve_all` helper to allow every tool call without any checks:
+
+```python
+from copilot import CopilotClient, PermissionHandler
+
+session = await client.create_session({
+    "model": "gpt-5",
+    "on_permission_request": PermissionHandler.approve_all,
+})
+```
+
+### Custom Permission Handler
+
+Provide your own function to inspect each request and apply custom logic (sync or async):
+
+```python
+from copilot import PermissionRequest, PermissionRequestResult
+
+def on_permission_request(request: PermissionRequest, invocation: dict) -> PermissionRequestResult:
+    # request.kind — what type of operation is being requested:
+    #   "shell"       — executing a shell command
+    #   "write"       — writing or editing a file
+    #   "read"        — reading a file
+    #   "mcp"         — calling an MCP tool
+    #   "custom-tool" — calling one of your registered tools
+    #   "url"         — fetching a URL
+    #   "memory"      — accessing or updating session/workspace memory
+    #   "hook"        — invoking a registered hook
+    # request.tool_call_id  — the tool call that triggered this request
+    # request.tool_name     — name of the tool (for custom-tool / mcp)
+    # request.file_name     — file being written (for write)
+    # request.full_command_text — full shell command (for shell)
+
+    if request.kind.value == "shell":
+        # Deny shell commands
+        return PermissionRequestResult(kind="denied-interactively-by-user")
+
+    return PermissionRequestResult(kind="approved")
+
+session = await client.create_session({
+    "model": "gpt-5",
+    "on_permission_request": on_permission_request,
+})
+```
+
+Async handlers are also supported:
+
+```python
+async def on_permission_request(request: PermissionRequest, invocation: dict) -> PermissionRequestResult:
+    # Simulate an async approval check (e.g., prompting a user over a network)
+    await asyncio.sleep(0)
+    return PermissionRequestResult(kind="approved")
+```
+
+### Permission Result Kinds
+
+| `kind` value | Meaning |
+|---|---------|
+| `"approved"` | Allow the tool to run |
+| `"denied-interactively-by-user"` | User explicitly denied the request |
+| `"denied-no-approval-rule-and-could-not-request-from-user"` | No approval rule matched and user could not be asked (default when no kind is specified) |
+| `"denied-by-rules"` | Denied by a policy rule |
+| `"denied-by-content-exclusion-policy"` | Denied due to a content exclusion policy |
+| `"no-result"` | Leave the request unanswered (not allowed for protocol v2 permission requests) |
+
+### Resuming Sessions
+
+Pass `on_permission_request` when resuming a session too — it is required:
+
+```python
+session = await client.resume_session("session-id", {
+    "on_permission_request": PermissionHandler.approve_all,
+})
+```
+
+### Per-Tool Skip Permission
+
+To let a specific custom tool bypass the permission prompt entirely, set `skip_permission=True` on the tool definition. See [Skipping Permission Prompts](#skipping-permission-prompts) under Tools.
 
 ## User Input Requests
 

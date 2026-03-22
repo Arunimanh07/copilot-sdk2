@@ -26,15 +26,16 @@ npm start
 ## Quick Start
 
 ```typescript
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 // Create and start client
 const client = new CopilotClient();
 await client.start();
 
-// Create a session
+// Create a session (onPermissionRequest is required)
 const session = await client.createSession({
     model: "gpt-5",
+    onPermissionRequest: approveAll,
 });
 
 // Wait for response using typed event handlers
@@ -59,7 +60,7 @@ await client.stop();
 Sessions also support `Symbol.asyncDispose` for use with [`await using`](https://github.com/tc39/proposal-explicit-resource-management) (TypeScript 5.2+/Node.js 18.0+):
 
 ```typescript
-await using session = await client.createSession({ model: "gpt-5" });
+await using session = await client.createSession({ model: "gpt-5", onPermissionRequest: approveAll });
 // session is automatically disconnected when leaving scope
 ```
 
@@ -114,6 +115,7 @@ Create a new conversation session.
 - `systemMessage?: SystemMessageConfig` - System message customization (see below)
 - `infiniteSessions?: InfiniteSessionConfig` - Configure automatic context compaction (see below)
 - `provider?: ProviderConfig` - Custom API provider configuration (BYOK - Bring Your Own Key). See [Custom Providers](#custom-providers) section.
+- `onPermissionRequest: PermissionHandler` - **Required.** Handler called before each tool execution to approve or deny it. Use `approveAll` to allow everything, or provide a custom function for fine-grained control. See [Permission Handling](#permission-handling) section.
 - `onUserInputRequest?: UserInputHandler` - Handler for user input requests from the agent. Enables the `ask_user` tool. See [User Input Requests](#user-input-requests) section.
 - `hooks?: SessionHooks` - Hook handlers for session lifecycle events. See [Session Hooks](#session-hooks) section.
 
@@ -298,15 +300,28 @@ See `SessionEvent` type in the source for full details.
 
 ## Image Support
 
-The SDK supports image attachments via the `attachments` parameter. You can attach images by providing their file path:
+The SDK supports image attachments via the `attachments` parameter. You can attach images by providing their file path, or by passing base64-encoded data directly using a blob attachment:
 
 ```typescript
+// File attachment — runtime reads from disk
 await session.send({
     prompt: "What's in this image?",
     attachments: [
         {
             type: "file",
             path: "/path/to/image.jpg",
+        },
+    ],
+});
+
+// Blob attachment — provide base64 data directly
+await session.send({
+    prompt: "What's in this image?",
+    attachments: [
+        {
+            type: "blob",
+            data: base64ImageData,
+            mimeType: "image/png",
         },
     ],
 });
@@ -458,7 +473,45 @@ const session = await client.createSession({
 });
 ```
 
-The SDK auto-injects environment context, tool instructions, and security guardrails. The default CLI persona is preserved, and your `content` is appended after SDK-managed sections. To change the persona or fully redefine the prompt, use `mode: "replace"`.
+The SDK auto-injects environment context, tool instructions, and security guardrails. The default CLI persona is preserved, and your `content` is appended after SDK-managed sections. To change the persona or fully redefine the prompt, use `mode: "replace"` or `mode: "customize"`.
+
+#### Customize Mode
+
+Use `mode: "customize"` to selectively override individual sections of the prompt while preserving the rest:
+
+```typescript
+import { SYSTEM_PROMPT_SECTIONS } from "@github/copilot-sdk";
+import type { SectionOverride, SystemPromptSection } from "@github/copilot-sdk";
+
+const session = await client.createSession({
+    model: "gpt-5",
+    systemMessage: {
+        mode: "customize",
+        sections: {
+            // Replace the tone/style section
+            tone: { action: "replace", content: "Respond in a warm, professional tone. Be thorough in explanations." },
+            // Remove coding-specific rules
+            code_change_rules: { action: "remove" },
+            // Append to existing guidelines
+            guidelines: { action: "append", content: "\n* Always cite data sources" },
+        },
+        // Additional instructions appended after all sections
+        content: "Focus on financial analysis and reporting.",
+    },
+});
+```
+
+Available section IDs: `identity`, `tone`, `tool_efficiency`, `environment_context`, `code_change_rules`, `guidelines`, `safety`, `tool_instructions`, `custom_instructions`, `last_instructions`. Use the `SYSTEM_PROMPT_SECTIONS` constant for descriptions of each section.
+
+Each section override supports four actions:
+- **`replace`** — Replace the section content entirely
+- **`remove`** — Remove the section from the prompt
+- **`append`** — Add content after the existing section
+- **`prepend`** — Add content before the existing section
+
+Unknown section IDs are handled gracefully: content from `replace`/`append`/`prepend` overrides is appended to additional instructions, and `remove` overrides are silently ignored.
+
+#### Replace Mode
 
 For full control (removes all guardrails), use `mode: "replace"`:
 
@@ -647,6 +700,82 @@ const client = new CopilotClient({
 ```
 
 Inbound trace context from the CLI is available on the `ToolInvocation` object passed to tool handlers as `traceparent` and `tracestate` fields. See the [OpenTelemetry guide](../docs/observability/opentelemetry.md) for a full wire-up example.
+
+## Permission Handling
+
+An `onPermissionRequest` handler is **required** whenever you create or resume a session. The handler is called before the agent executes each tool (file writes, shell commands, custom tools, etc.) and must return a decision.
+
+### Approve All (simplest)
+
+Use the built-in `approveAll` helper to allow every tool call without any checks:
+
+```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const session = await client.createSession({
+    model: "gpt-5",
+    onPermissionRequest: approveAll,
+});
+```
+
+### Custom Permission Handler
+
+Provide your own function to inspect each request and apply custom logic:
+
+```typescript
+import type { PermissionRequest, PermissionRequestResult } from "@github/copilot-sdk";
+
+const session = await client.createSession({
+    model: "gpt-5",
+    onPermissionRequest: (request: PermissionRequest, invocation): PermissionRequestResult => {
+        // request.kind — what type of operation is being requested:
+        //   "shell"       — executing a shell command
+        //   "write"       — writing or editing a file
+        //   "read"        — reading a file
+        //   "mcp"         — calling an MCP tool
+        //   "custom-tool" — calling one of your registered tools
+        //   "url"         — fetching a URL
+        //   "memory"      — storing or retrieving persistent session memory
+        //   "hook"        — invoking a server-side hook or integration
+        //   (additional kinds may be added; include a default case in handlers)
+        // request.toolCallId — the tool call that triggered this request
+        // request.toolName   — name of the tool (for custom-tool / mcp)
+        // request.fileName   — file being written (for write)
+        // request.fullCommandText — full shell command (for shell)
+
+        if (request.kind === "shell") {
+            // Deny shell commands
+            return { kind: "denied-interactively-by-user" };
+        }
+
+        return { kind: "approved" };
+    },
+});
+```
+
+### Permission Result Kinds
+
+| Kind | Meaning |
+|------|---------|
+| `"approved"` | Allow the tool to run |
+| `"denied-interactively-by-user"` | User explicitly denied the request |
+| `"denied-no-approval-rule-and-could-not-request-from-user"` | No approval rule matched and user could not be asked |
+| `"denied-by-rules"` | Denied by a policy rule |
+| `"denied-by-content-exclusion-policy"` | Denied due to a content exclusion policy |
+| `"no-result"` | Leave the request unanswered (only valid with protocol v1; rejected by protocol v2 servers) |
+### Resuming Sessions
+
+Pass `onPermissionRequest` when resuming a session too — it is required:
+
+```typescript
+const session = await client.resumeSession("session-id", {
+    onPermissionRequest: approveAll,
+});
+```
+
+### Per-Tool Skip Permission
+
+To let a specific custom tool bypass the permission prompt entirely, set `skipPermission: true` on the tool definition. See [Skipping Permission Prompts](#skipping-permission-prompts) under Tools.
 
 ## User Input Requests
 

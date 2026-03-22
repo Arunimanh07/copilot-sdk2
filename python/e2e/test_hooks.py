@@ -4,7 +4,7 @@ Tests for session hooks functionality
 
 import pytest
 
-from copilot import PermissionHandler
+from copilot.session import PermissionHandler
 
 from .testharness import E2ETestContext
 from .testharness.helper import write_file
@@ -24,18 +24,14 @@ class TestHooks:
             return {"permissionDecision": "allow"}
 
         session = await ctx.client.create_session(
-            {
-                "hooks": {"on_pre_tool_use": on_pre_tool_use},
-                "on_permission_request": PermissionHandler.approve_all,
-            }
+            on_permission_request=PermissionHandler.approve_all,
+            hooks={"on_pre_tool_use": on_pre_tool_use},
         )
 
         # Create a file for the model to read
         write_file(ctx.work_dir, "hello.txt", "Hello from the test!")
 
-        await session.send_and_wait(
-            {"prompt": "Read the contents of hello.txt and tell me what it says"}
-        )
+        await session.send_and_wait("Read the contents of hello.txt and tell me what it says")
 
         # Should have received at least one preToolUse hook call
         assert len(pre_tool_use_inputs) > 0
@@ -57,18 +53,14 @@ class TestHooks:
             return None
 
         session = await ctx.client.create_session(
-            {
-                "hooks": {"on_post_tool_use": on_post_tool_use},
-                "on_permission_request": PermissionHandler.approve_all,
-            }
+            on_permission_request=PermissionHandler.approve_all,
+            hooks={"on_post_tool_use": on_post_tool_use},
         )
 
         # Create a file for the model to read
         write_file(ctx.work_dir, "world.txt", "World from the test!")
 
-        await session.send_and_wait(
-            {"prompt": "Read the contents of world.txt and tell me what it says"}
-        )
+        await session.send_and_wait("Read the contents of world.txt and tell me what it says")
 
         # Should have received at least one postToolUse hook call
         assert len(post_tool_use_inputs) > 0
@@ -95,18 +87,16 @@ class TestHooks:
             return None
 
         session = await ctx.client.create_session(
-            {
-                "hooks": {
-                    "on_pre_tool_use": on_pre_tool_use,
-                    "on_post_tool_use": on_post_tool_use,
-                },
-                "on_permission_request": PermissionHandler.approve_all,
-            }
+            on_permission_request=PermissionHandler.approve_all,
+            hooks={
+                "on_pre_tool_use": on_pre_tool_use,
+                "on_post_tool_use": on_post_tool_use,
+            },
         )
 
         write_file(ctx.work_dir, "both.txt", "Testing both hooks!")
 
-        await session.send_and_wait({"prompt": "Read the contents of both.txt"})
+        await session.send_and_wait("Read the contents of both.txt")
 
         # Both hooks should have been called
         assert len(pre_tool_use_inputs) > 0
@@ -132,10 +122,8 @@ class TestHooks:
             return {"permissionDecision": "deny"}
 
         session = await ctx.client.create_session(
-            {
-                "hooks": {"on_pre_tool_use": on_pre_tool_use},
-                "on_permission_request": PermissionHandler.approve_all,
-            }
+            on_permission_request=PermissionHandler.approve_all,
+            hooks={"on_pre_tool_use": on_pre_tool_use},
         )
 
         # Create a file
@@ -143,7 +131,7 @@ class TestHooks:
         write_file(ctx.work_dir, "protected.txt", original_content)
 
         response = await session.send_and_wait(
-            {"prompt": "Edit protected.txt and replace 'Original' with 'Modified'"}
+            "Edit protected.txt and replace 'Original' with 'Modified'"
         )
 
         # The hook should have been called

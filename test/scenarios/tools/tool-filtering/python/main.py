@@ -1,6 +1,7 @@
 import asyncio
 import os
-from copilot import CopilotClient, SubprocessConfig
+from copilot import CopilotClient
+from copilot.client import SubprocessConfig
 
 SYSTEM_PROMPT = """You are a helpful assistant. You have access to a limited set of tools. When asked about your tools, list exactly which tools you have available."""
 
@@ -21,7 +22,7 @@ async def main():
         )
 
         response = await session.send_and_wait(
-            {"prompt": "What tools do you have available? List each one by name."}
+            "What tools do you have available? List each one by name."
         )
 
         if response:

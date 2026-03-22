@@ -129,16 +129,15 @@ Create `main.py`:
 
 ```python
 import asyncio
-from copilot import CopilotClient, PermissionHandler
+from copilot import CopilotClient
+from copilot.session import PermissionHandler
 
 async def main():
     client = CopilotClient()
     await client.start()
 
-    session = await client.create_session({
-        "model": "gpt-4.1",
-        "on_permission_request": PermissionHandler.approve_all,
-    })
+    session = await client.create_session(on_permission_request=PermissionHandler.approve_all, model="gpt-4.1")
+    response = await session.send_and_wait({"prompt": "What is 2 + 2?"})
 
     response = await session.send_and_wait({"prompt": "What is 2 + 2?"})
     print(response.data.content)
@@ -277,18 +276,15 @@ Update `main.py`:
 ```python
 import asyncio
 import sys
-from copilot import CopilotClient, PermissionHandler
+from copilot import CopilotClient
+from copilot.session import PermissionHandler
 from copilot.generated.session_events import SessionEventType
 
 async def main():
     client = CopilotClient()
     await client.start()
 
-    session = await client.create_session({
-        "model": "gpt-4.1",
-        "on_permission_request": PermissionHandler.approve_all,
-        "streaming": True,
-    })
+    session = await client.create_session(on_permission_request=PermissionHandler.approve_all, model="gpt-4.1", streaming=True)
 
     # Listen for response chunks
     def handle_event(event):
@@ -437,7 +433,7 @@ from copilot.generated.session_events import SessionEvent, SessionEventType
 
 client = CopilotClient()
 
-session = client.create_session({"on_permission_request": lambda req, inv: {"kind": "approved"}})
+session = client.create_session(on_permission_request=lambda req, inv: {"kind": "approved"})
 
 # Subscribe to all events
 unsubscribe = session.on(lambda event: print(f"Event: {event.type}"))
@@ -657,7 +653,8 @@ Update `main.py`:
 import asyncio
 import random
 import sys
-from copilot import CopilotClient, PermissionHandler
+from copilot import CopilotClient
+from copilot.session import PermissionHandler
 from copilot.tools import define_tool
 from copilot.generated.session_events import SessionEventType
 from pydantic import BaseModel, Field
@@ -680,12 +677,7 @@ async def main():
     client = CopilotClient()
     await client.start()
 
-    session = await client.create_session({
-        "model": "gpt-4.1",
-        "on_permission_request": PermissionHandler.approve_all,
-        "streaming": True,
-        "tools": [get_weather],
-    })
+    session = await client.create_session(on_permission_request=PermissionHandler.approve_all, model="gpt-4.1", streaming=True, tools=[get_weather])
 
     def handle_event(event):
         if event.type == SessionEventType.ASSISTANT_MESSAGE_DELTA:
@@ -930,7 +922,8 @@ Create `weather_assistant.py`:
 import asyncio
 import random
 import sys
-from copilot import CopilotClient, PermissionHandler
+from copilot import CopilotClient
+from copilot.session import PermissionHandler
 from copilot.tools import define_tool
 from copilot.generated.session_events import SessionEventType
 from pydantic import BaseModel, Field
@@ -950,12 +943,7 @@ async def main():
     client = CopilotClient()
     await client.start()
 
-    session = await client.create_session({
-        "model": "gpt-4.1",
-        "on_permission_request": PermissionHandler.approve_all,
-        "streaming": True,
-        "tools": [get_weather],
-    })
+    session = await client.create_session(on_permission_request=PermissionHandler.approve_all, model="gpt-4.1", streaming=True, tools=[get_weather])
 
     def handle_event(event):
         if event.type == SessionEventType.ASSISTANT_MESSAGE_DELTA:
@@ -1251,7 +1239,7 @@ const session = await client.createSession({
 
 ### Customize the System Message
 
-Control the AI's behavior and personality:
+Control the AI's behavior and personality by appending instructions:
 
 ```typescript
 const session = await client.createSession({
@@ -1260,6 +1248,28 @@ const session = await client.createSession({
     },
 });
 ```
+
+For more fine-grained control, use `mode: "customize"` to override individual sections of the system prompt while preserving the rest:
+
+```typescript
+const session = await client.createSession({
+    systemMessage: {
+        mode: "customize",
+        sections: {
+            tone: { action: "replace", content: "Respond in a warm, professional tone. Be thorough in explanations." },
+            code_change_rules: { action: "remove" },
+            guidelines: { action: "append", content: "\n* Always cite data sources" },
+        },
+        content: "Focus on financial analysis and reporting.",
+    },
+});
+```
+
+Available section IDs: `identity`, `tone`, `tool_efficiency`, `environment_context`, `code_change_rules`, `guidelines`, `safety`, `tool_instructions`, `custom_instructions`, `last_instructions`.
+
+Each override supports four actions: `replace`, `remove`, `append`, and `prepend`. Unknown section IDs are handled gracefully — content is appended to additional instructions and a warning is emitted; `remove` on unknown sections is silently ignored.
+
+See the language-specific SDK READMEs for examples in [TypeScript](../nodejs/README.md), [Python](../python/README.md), [Go](../go/README.md), and [C#](../dotnet/README.md).
 
 ---
 
@@ -1306,7 +1316,8 @@ const session = await client.createSession({ onPermissionRequest: approveAll });
 <summary><strong>Python</strong></summary>
 
 ```python
-from copilot import CopilotClient, PermissionHandler
+from copilot import CopilotClient
+from copilot.session import PermissionHandler
 
 client = CopilotClient({
     "cli_url": "localhost:4321"
@@ -1314,7 +1325,7 @@ client = CopilotClient({
 await client.start()
 
 # Use the client normally
-session = await client.create_session({"on_permission_request": PermissionHandler.approve_all})
+session = await client.create_session(on_permission_request=PermissionHandler.approve_all)
 # ...
 ```
 
@@ -1510,7 +1521,7 @@ Trace context is propagated automatically — no manual instrumentation is neede
 - **SDK → CLI**: `traceparent` and `tracestate` headers from the current span/activity are included in `session.create`, `session.resume`, and `session.send` RPC calls.
 - **CLI → SDK**: When the CLI invokes tool handlers, the trace context from the CLI's span is propagated so your tool code runs under the correct parent span.
 
-📖 **[OpenTelemetry Instrumentation Guide →](./observability/opentelemetry.md)** — detailed GenAI semantic conventions, event-to-attribute mapping, and complete examples.
+📖 **[OpenTelemetry Instrumentation Guide →](./observability/opentelemetry.md)** — TelemetryConfig options, trace context propagation, and per-language dependencies.
 
 ---
 
@@ -1525,7 +1536,7 @@ Trace context is propagated automatically — no manual instrumentation is neede
 - [Using MCP Servers](./features/mcp.md) - Integrate external tools via Model Context Protocol
 - [GitHub MCP Server Documentation](https://github.com/github/github-mcp-server)
 - [MCP Servers Directory](https://github.com/modelcontextprotocol/servers) - Explore more MCP servers
-- [OpenTelemetry Instrumentation](./observability/opentelemetry.md) - Add tracing to your SDK usage
+- [OpenTelemetry Instrumentation](./observability/opentelemetry.md) - TelemetryConfig, trace context propagation, and per-language dependencies
 
 ---
 

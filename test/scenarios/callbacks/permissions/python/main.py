@@ -1,6 +1,7 @@
 import asyncio
 import os
-from copilot import CopilotClient, SubprocessConfig
+from copilot import CopilotClient
+from copilot.client import SubprocessConfig
 
 # Track which tools requested permission
 permission_log: list[str] = []
@@ -31,9 +32,7 @@ async def main():
         )
 
         response = await session.send_and_wait(
-            {
-                "prompt": "List the files in the current directory using glob with pattern '*.md'."
-            }
+            "List the files in the current directory using glob with pattern '*.md'."
         )
 
         if response:

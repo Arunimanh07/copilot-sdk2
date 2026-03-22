@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from copilot import CustomAgentConfig, MCPServerConfig, PermissionHandler
+from copilot.session import CustomAgentConfig, MCPServerConfig, PermissionHandler
 
 from .testharness import E2ETestContext, get_final_assistant_message
 
@@ -33,13 +33,13 @@ class TestMCPServers:
         }
 
         session = await ctx.client.create_session(
-            {"mcp_servers": mcp_servers, "on_permission_request": PermissionHandler.approve_all}
+            on_permission_request=PermissionHandler.approve_all, mcp_servers=mcp_servers
         )
 
         assert session.session_id is not None
 
         # Simple interaction to verify session works
-        message = await session.send_and_wait({"prompt": "What is 2+2?"})
+        message = await session.send_and_wait("What is 2+2?")
         assert message is not None
         assert "4" in message.data.content
 
@@ -51,10 +51,10 @@ class TestMCPServers:
         """Test that MCP server configuration is accepted on session resume"""
         # Create a session first
         session1 = await ctx.client.create_session(
-            {"on_permission_request": PermissionHandler.approve_all}
+            on_permission_request=PermissionHandler.approve_all
         )
         session_id = session1.session_id
-        await session1.send_and_wait({"prompt": "What is 1+1?"})
+        await session1.send_and_wait("What is 1+1?")
 
         # Resume with MCP servers
         mcp_servers: dict[str, MCPServerConfig] = {
@@ -68,12 +68,13 @@ class TestMCPServers:
 
         session2 = await ctx.client.resume_session(
             session_id,
-            {"mcp_servers": mcp_servers, "on_permission_request": PermissionHandler.approve_all},
+            on_permission_request=PermissionHandler.approve_all,
+            mcp_servers=mcp_servers,
         )
 
         assert session2.session_id == session_id
 
-        message = await session2.send_and_wait({"prompt": "What is 3+3?"})
+        message = await session2.send_and_wait("What is 3+3?")
         assert message is not None
         assert "6" in message.data.content
 
@@ -95,19 +96,14 @@ class TestMCPServers:
         }
 
         session = await ctx.client.create_session(
-            {
-                "mcp_servers": mcp_servers,
-                "on_permission_request": PermissionHandler.approve_all,
-            }
+            on_permission_request=PermissionHandler.approve_all, mcp_servers=mcp_servers
         )
 
         assert session.session_id is not None
 
         message = await session.send_and_wait(
-            {
-                "prompt": "Use the env-echo/get_env tool to read the TEST_SECRET "
-                "environment variable. Reply with just the value, nothing else."
-            }
+            "Use the env-echo/get_env tool to read the TEST_SECRET "
+            "environment variable. Reply with just the value, nothing else."
         )
         assert message is not None
         assert "hunter2" in message.data.content
@@ -131,13 +127,13 @@ class TestCustomAgents:
         ]
 
         session = await ctx.client.create_session(
-            {"custom_agents": custom_agents, "on_permission_request": PermissionHandler.approve_all}
+            on_permission_request=PermissionHandler.approve_all, custom_agents=custom_agents
         )
 
         assert session.session_id is not None
 
         # Simple interaction to verify session works
-        message = await session.send_and_wait({"prompt": "What is 5+5?"})
+        message = await session.send_and_wait("What is 5+5?")
         assert message is not None
         assert "10" in message.data.content
 
@@ -149,10 +145,10 @@ class TestCustomAgents:
         """Test that custom agent configuration is accepted on session resume"""
         # Create a session first
         session1 = await ctx.client.create_session(
-            {"on_permission_request": PermissionHandler.approve_all}
+            on_permission_request=PermissionHandler.approve_all
         )
         session_id = session1.session_id
-        await session1.send_and_wait({"prompt": "What is 1+1?"})
+        await session1.send_and_wait("What is 1+1?")
 
         # Resume with custom agents
         custom_agents: list[CustomAgentConfig] = [
@@ -166,15 +162,13 @@ class TestCustomAgents:
 
         session2 = await ctx.client.resume_session(
             session_id,
-            {
-                "custom_agents": custom_agents,
-                "on_permission_request": PermissionHandler.approve_all,
-            },
+            on_permission_request=PermissionHandler.approve_all,
+            custom_agents=custom_agents,
         )
 
         assert session2.session_id == session_id
 
-        message = await session2.send_and_wait({"prompt": "What is 6+6?"})
+        message = await session2.send_and_wait("What is 6+6?")
         assert message is not None
         assert "12" in message.data.content
 
@@ -203,16 +197,14 @@ class TestCombinedConfiguration:
         ]
 
         session = await ctx.client.create_session(
-            {
-                "mcp_servers": mcp_servers,
-                "custom_agents": custom_agents,
-                "on_permission_request": PermissionHandler.approve_all,
-            }
+            on_permission_request=PermissionHandler.approve_all,
+            mcp_servers=mcp_servers,
+            custom_agents=custom_agents,
         )
 
         assert session.session_id is not None
 
-        await session.send({"prompt": "What is 7+7?"})
+        await session.send("What is 7+7?")
         message = await get_final_assistant_message(session)
         assert "14" in message.data.content
 
