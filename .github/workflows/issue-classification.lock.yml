@@ -26,16 +26,13 @@
 #   Includes:
 #     - shared/triage-classification.md
 #
-# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"12f34d1b615f6d2c818c92a7ea5e1e0341c99b045da5f3ff3fa716face091a61","compiler_version":"v0.62.5","strict":true,"agent_id":"copilot"}
+# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"b888316da8f1cb3cacd32dd6bb36c017218a6b4cba69c6484a9d0953f7846b38","compiler_version":"v0.62.5","strict":true,"agent_id":"copilot"}
 
 name: "Issue Classification Agent"
 "on":
   issues:
     types:
     - opened
-  push:
-    branches:
-    - mackinnonbuck/triage-agent
   # roles: all # Roles processed as role check in pre-activation job
   workflow_dispatch:
     inputs:

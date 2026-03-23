@@ -1,8 +1,6 @@
 ---
 description: Classifies newly opened issues with routing labels for the copilot-sdk repository
 on:
-  push:
-    branches: [mackinnonbuck/triage-agent]
   issues:
     types: [opened]
   workflow_dispatch:
