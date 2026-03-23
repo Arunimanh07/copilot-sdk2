@@ -966,7 +966,8 @@ func TestSetModelWithReasoningEffort(t *testing.T) {
 		}
 	})
 
-	if err := session.SetModel(t.Context(), "gpt-4.1", copilot.SetModelOptions{ReasoningEffort: "high"}); err != nil {
+	high := "high"
+	if err := session.SetModel(t.Context(), "gpt-4.1", &copilot.SetModelOptions{ReasoningEffort: &high}); err != nil {
 		t.Fatalf("SetModel returned error: %v", err)
 	}
 
