@@ -313,7 +313,7 @@ function emitRpcWrapper(lines: string[], node: Record<string, unknown>, isSessio
     lines.push(`}`);
     lines.push(``);
 
-    // Emit API type aliases for groups
+    // Emit API types for groups
     for (const [groupName, groupNode] of groups) {
         const prefix = isSession ? "" : "Server";
         const apiName = prefix + toPascalCase(groupName) + apiSuffix;

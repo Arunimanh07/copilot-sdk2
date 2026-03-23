@@ -268,9 +268,7 @@ func (c *Client) Request(method string, params any) (json.RawMessage, error) {
 // Notify sends a JSON-RPC notification (no response expected)
 func (c *Client) Notify(method string, params any) error {
 	var paramsData json.RawMessage
-	if params == nil {
-		paramsData = json.RawMessage("{}")
-	} else {
+	if params != nil {
 		var err error
 		paramsData, err = json.Marshal(params)
 		if err != nil {
