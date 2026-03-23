@@ -30,8 +30,8 @@ tools:
 safe-outputs:
   staged: true
   add-labels:
-    allowed: [bug, enhancement, question, documentation, other, ai-triaged, sdk/dotnet, sdk/go, sdk/nodejs, sdk/python]
-    max: 6
+    allowed: [bug, enhancement, question, documentation, other, ai-triaged]
+    max: 3
     target: triggering
 timeout-minutes: 10
 ---
@@ -52,7 +52,6 @@ Your **only** job is to apply labels. You do not post comments, close issues, or
 You must apply:
 - **Exactly one** classification label (`bug`, `enhancement`, `question`, `documentation`, or `other`)
 - **The `ai-triaged` label** (always, alongside the classification label)
-- **Zero or more SDK labels** (`sdk/nodejs`, `sdk/python`, `sdk/go`, `sdk/dotnet`) if the issue relates to specific language implementations
 
 {{#import shared/triage-classification.md}}
 

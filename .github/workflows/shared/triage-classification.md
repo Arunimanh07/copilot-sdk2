@@ -46,24 +46,12 @@ Examples:
 - "CI is failing on the main branch"
 - "License question about commercial use"
 
-## SDK-Specific Labels
-
-In addition to the classification label, apply **one or more** SDK labels if the issue relates to specific language implementations:
-
-- `sdk/nodejs` — Node.js/TypeScript SDK (`nodejs/` directory)
-- `sdk/python` — Python SDK (`python/` directory)
-- `sdk/go` — Go SDK (`go/` directory)
-- `sdk/dotnet` — .NET SDK (`dotnet/` directory)
-
-If the issue is cross-cutting (affects all SDKs or the shared infrastructure), do not apply any SDK label.
-
 ## Classification Guidelines
 
 1. **Read the full issue** — title, body, and any initial comments from the author.
 2. **Focus on the author's intent** — what are they trying to communicate? A bug report, a feature request, a question, or a documentation issue?
 3. **When in doubt between `bug` and `question`** — if the author is unsure whether something is a bug or they're using the SDK incorrectly, classify as `bug`. It's easier to reclassify later.
 4. **When in doubt between `enhancement` and `bug`** — if the author describes behavior they find undesirable but the SDK is working as designed, classify as `enhancement`.
-5. **Apply SDK labels generously** — if the issue mentions a specific language or SDK directory, apply the corresponding label even if the root cause might be elsewhere.
 6. **Apply exactly one classification label** — never apply two classification labels to the same issue.
 7. **Do not assess validity** — your role is to route the issue, not to judge whether it's valid, reproducible, or a duplicate. Downstream agents handle those determinations.
 
