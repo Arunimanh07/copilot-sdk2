@@ -869,13 +869,14 @@ describe("CopilotClient", () => {
             expect(session.capabilities).toEqual({ ui: { elicitation: true } });
         });
 
-        it("defaults capabilities to empty when not in response", async () => {
+        it("defaults capabilities when not injected", async () => {
             const client = new CopilotClient();
             await client.start();
             onTestFinished(() => client.forceStop());
 
             const session = await client.createSession({ onPermissionRequest: approveAll });
-            expect(session.capabilities).toEqual({});
+            // CLI returns actual capabilities (elicitation false in headless mode)
+            expect(session.capabilities.ui?.elicitation).toBe(false);
         });
 
         it("elicitation throws when capability is missing", async () => {

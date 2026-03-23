@@ -28,9 +28,14 @@ describe("Commands", async () => {
             onPermissionRequest: approveAll,
         });
 
-        // Collect events after session creation
-        const events: SessionEvent[] = [];
-        session1.on((event) => events.push(event));
+        type CommandsChangedEvent = Extract<SessionEvent, { type: "commands.changed" }>;
+
+        // Wait for the commands.changed event deterministically
+        const commandsChangedPromise = new Promise<CommandsChangedEvent>((resolve) => {
+            session1.on((event) => {
+                if (event.type === "commands.changed") resolve(event);
+            });
+        });
 
         // Client2 joins with commands
         const session2 = await client2.resumeSession(session1.sessionId, {
@@ -41,12 +46,9 @@ describe("Commands", async () => {
             disableResume: true,
         });
 
-        // Wait for events to propagate
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        const commandsChanged = events.filter((e) => e.type === "commands.changed");
-        expect(commandsChanged).toHaveLength(1);
-        expect(commandsChanged[0].data.commands).toEqual(
+        // Rely on default vitest timeout
+        const commandsChanged = await commandsChangedPromise;
+        expect(commandsChanged.data.commands).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({ name: "deploy", description: "Deploy the app" }),
             ]),

@@ -649,7 +649,7 @@ export class CopilotSession {
         if (options?.minLength != null) field.minLength = options.minLength;
         if (options?.maxLength != null) field.maxLength = options.maxLength;
         if (options?.format) field.format = options.format;
-        if (options?.default) field.default = options.default;
+        if (options?.default != null) field.default = options.default;
 
         const result = await this.rpc.ui.elicitation({
             message,
