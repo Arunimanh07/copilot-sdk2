@@ -1643,9 +1643,7 @@ class CopilotClient:
         sessions_data = response.get("sessions", [])
         return [SessionMetadata.from_dict(session) for session in sessions_data]
 
-    async def get_session_metadata(
-        self, session_id: str
-    ) -> "SessionMetadata | None":
+    async def get_session_metadata(self, session_id: str) -> "SessionMetadata | None":
         """
         Get metadata for a specific session by ID.
 
@@ -1669,9 +1667,7 @@ class CopilotClient:
         if not self._client:
             raise RuntimeError("Client not connected")
 
-        response = await self._client.request(
-            "session.getMetadata", {"sessionId": session_id}
-        )
+        response = await self._client.request("session.getMetadata", {"sessionId": session_id})
         session_data = response.get("session")
         if session_data is None:
             return None

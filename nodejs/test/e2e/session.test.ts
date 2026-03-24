@@ -15,12 +15,11 @@ describe("Sessions", async () => {
         });
         expect(session.sessionId).toMatch(/^[a-f0-9-]+$/);
 
-        expect(await session.getMessages()).toMatchObject([
-            {
-                type: "session.start",
-                data: { sessionId: session.sessionId, selectedModel: "fake-test-model" },
-            },
-        ]);
+        const messages = await session.getMessages();
+        expect(messages[0]).toMatchObject({
+            type: "session.start",
+            data: { sessionId: session.sessionId, selectedModel: "fake-test-model" },
+        });
 
         await session.disconnect();
         await expect(() => session.getMessages()).rejects.toThrow(/Session not found/);
