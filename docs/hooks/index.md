@@ -25,7 +25,7 @@ Hooks allow you to intercept and customize the behavior of Copilot sessions at k
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const client = new CopilotClient();
 
@@ -44,6 +44,7 @@ const session = await client.createSession({
       return { additionalContext: "User prefers concise answers." };
     },
   },
+  onPermissionRequest: approveAll
 });
 ```
 
@@ -170,6 +171,9 @@ This allows hooks to maintain state or perform session-specific logic.
 ### Logging All Tool Calls
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onPreToolUse: async (input) => {
@@ -181,12 +185,16 @@ const session = await client.createSession({
       return null;
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Blocking Dangerous Tools
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const BLOCKED_TOOLS = ["shell", "bash", "exec"];
 
 const session = await client.createSession({
@@ -201,12 +209,16 @@ const session = await client.createSession({
       return { permissionDecision: "allow" };
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Adding User Context
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onSessionStart: async () => {
@@ -216,6 +228,7 @@ const session = await client.createSession({
       };
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 

@@ -26,7 +26,7 @@ The key to resumable sessions is providing your own `session_id`. Without one, t
 ### TypeScript
 
 ```typescript
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const client = new CopilotClient();
 
@@ -34,6 +34,7 @@ const client = new CopilotClient();
 const session = await client.createSession({
   sessionId: "user-123-task-456",
   model: "gpt-5.2-codex",
+  onPermissionRequest: approveAll
 });
 
 // Do some work...
@@ -134,10 +135,10 @@ flowchart LR
     subgraph Day1["Day 1"]
         A1[Client A:<br/>createSession] --> A2[Work...]
     end
-    
+
     A2 --> S[(💾 Storage:<br/>~/.copilot/session-state/)]
     S --> B1
-    
+
     subgraph Day2["Day 2"]
         B1[Client B:<br/>resumeSession] --> B2[Continue]
     end
@@ -265,6 +266,9 @@ const session = await client.resumeSession("user-123-task-456", {
 When using your own API keys, you must re-provide the provider configuration when resuming. API keys are never persisted to disk for security reasons.
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 // Original session with BYOK
 const session = await client.createSession({
   sessionId: "user-123-task-456",
@@ -275,6 +279,7 @@ const session = await client.createSession({
     apiKey: process.env.AZURE_OPENAI_KEY,
     deploymentId: "my-gpt-deployment",
   },
+  onPermissionRequest: approveAll,
 });
 
 // When resuming, you MUST re-provide the provider config
@@ -376,7 +381,7 @@ const repoSessions = await client.listSessions({ repository: "owner/repo" });
 async function cleanupExpiredSessions(maxAgeMs: number) {
   const sessions = await client.listSessions();
   const now = Date.now();
-  
+
   for (const session of sessions) {
     const age = now - new Date(session.createdAt).getTime();
     if (age > maxAgeMs) {
@@ -398,7 +403,7 @@ When a task completes, disconnect from the session explicitly rather than waitin
 try {
   // Do work...
   await session.sendAndWait({ prompt: "Complete the task" });
-  
+
   // Task complete — release in-memory resources (session can be resumed later)
   await session.disconnect();
 } catch (error) {
@@ -495,11 +500,11 @@ async function resumeSessionWithAuth(
 ): Promise<Session> {
   // Parse user from session ID
   const [sessionUserId] = sessionId.split("-");
-  
+
   if (sessionUserId !== currentUserId) {
     throw new Error("Access denied: session belongs to another user");
   }
-  
+
   return client.resumeSession(sessionId);
 }
 ```
@@ -533,10 +538,10 @@ flowchart LR
     subgraph Before["Container A"]
         CLI1[CLI + Session X]
     end
-    
+
     CLI1 --> |persist| Azure[(☁️ Azure File Share)]
     Azure --> |restore| CLI2
-    
+
     subgraph After["Container B (restart)"]
         CLI2[CLI + Session X]
     end
@@ -549,6 +554,9 @@ flowchart LR
 For workflows that might exceed context limits, enable infinite sessions with automatic compaction:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   sessionId: "long-workflow-123",
   infiniteSessions: {
@@ -556,6 +564,7 @@ const session = await client.createSession({
     backgroundCompactionThreshold: 0.80,  // Start compaction at 80% context
     bufferExhaustionThreshold: 0.95,      // Block at 95% if needed
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
@@ -586,11 +595,11 @@ async function withSessionLock<T>(
 ): Promise<T> {
   const lockKey = `session-lock:${sessionId}`;
   const acquired = await redis.set(lockKey, "locked", "NX", "EX", 300);
-  
+
   if (!acquired) {
     throw new Error("Session is in use by another client");
   }
-  
+
   try {
     return await fn();
   } finally {

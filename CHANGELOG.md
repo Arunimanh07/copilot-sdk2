@@ -244,6 +244,10 @@ The Python SDK received a significant API surface overhaul in this release, repl
 SDK applications written against the v3 API now also work when connected to a v2 CLI server, with no code changes required. The SDK detects the server's protocol version and automatically adapts v2 `tool.call` and `permission.request` messages into the same user-facing handlers used by v3. ([#706](https://github.com/github/copilot-sdk/pull/706))
 
 ```ts
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
+
 const session = await client.createSession({
   tools: [myTool],           // unchanged — works with v2 and v3 servers
   onPermissionRequest: approveAll,
@@ -316,7 +320,9 @@ if result.Kind == copilot.PermissionKindApproved { /* ... */ }
 Applications can now override built-in tools such as `grep`, `edit_file`, or `read_file`. To do this, register a custom tool with the same name and set the override flag. Without the flag, the runtime will return an error if the name clashes with a built-in. ([#636](https://github.com/github/copilot-sdk/pull/636))
 
 ```ts
-import { defineTool } from "@github/copilot-sdk";
+import { CopilotClient, defineTool, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 
 const session = await client.createSession({
   tools: [defineTool("grep", {

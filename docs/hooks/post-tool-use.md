@@ -127,6 +127,9 @@ Return `null` or `undefined` to pass through the result unchanged. Otherwise, re
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onPostToolUse: async (input, invocation) => {
@@ -136,6 +139,7 @@ const session = await client.createSession({
       return null; // Pass through unchanged
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
@@ -253,6 +257,9 @@ var session = await client.CreateSessionAsync(new SessionConfig
 ### Redact Sensitive Data
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const SENSITIVE_PATTERNS = [
   /api[_-]?key["\s:=]+["']?[\w-]+["']?/gi,
   /password["\s:=]+["']?[\w-]+["']?/gi,
@@ -267,7 +274,7 @@ const session = await client.createSession({
         for (const pattern of SENSITIVE_PATTERNS) {
           redacted = redacted.replace(pattern, "[REDACTED]");
         }
-        
+
         if (redacted !== input.toolResult) {
           return { modifiedResult: redacted };
         }
@@ -275,19 +282,23 @@ const session = await client.createSession({
       return null;
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Truncate Large Results
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const MAX_RESULT_LENGTH = 10000;
 
 const session = await client.createSession({
   hooks: {
     onPostToolUse: async (input) => {
       const resultStr = JSON.stringify(input.toolResult);
-      
+
       if (resultStr.length > MAX_RESULT_LENGTH) {
         return {
           modifiedResult: {
@@ -301,12 +312,16 @@ const session = await client.createSession({
       return null;
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Add Context Based on Results
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onPostToolUse: async (input) => {
@@ -316,23 +331,27 @@ const session = await client.createSession({
           additionalContext: "Tip: If the file doesn't exist, consider creating it or checking the path.",
         };
       }
-      
+
       // If shell command failed, add debugging hint
       if (input.toolName === "shell" && input.toolResult?.exitCode !== 0) {
         return {
           additionalContext: "The command failed. Check if required dependencies are installed.",
         };
       }
-      
+
       return null;
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Filter Error Stack Traces
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onPostToolUse: async (input) => {
@@ -349,12 +368,15 @@ const session = await client.createSession({
       return null;
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Audit Trail for Compliance
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
 interface AuditEntry {
   timestamp: number;
   sessionId: string;
@@ -364,6 +386,7 @@ interface AuditEntry {
   success: boolean;
 }
 
+const client = new CopilotClient();
 const auditLog: AuditEntry[] = [];
 
 const session = await client.createSession({
@@ -377,19 +400,23 @@ const session = await client.createSession({
         result: input.toolResult,
         success: !input.toolResult?.error,
       });
-      
+
       // Optionally persist to database/file
       await saveAuditLog(auditLog);
-      
+
       return null;
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Suppress Noisy Results
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const NOISY_TOOLS = ["list_directory", "search_codebase"];
 
 const session = await client.createSession({
@@ -397,10 +424,10 @@ const session = await client.createSession({
     onPostToolUse: async (input) => {
       if (NOISY_TOOLS.includes(input.toolName)) {
         // Summarize instead of showing full result
-        const items = Array.isArray(input.toolResult) 
-          ? input.toolResult 
+        const items = Array.isArray(input.toolResult)
+          ? input.toolResult
           : input.toolResult?.items || [];
-        
+
         return {
           modifiedResult: {
             summary: `Found ${items.length} items`,
@@ -411,6 +438,7 @@ const session = await client.createSession({
       return null;
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 

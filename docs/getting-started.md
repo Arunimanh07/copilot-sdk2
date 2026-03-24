@@ -102,10 +102,10 @@ Create a new file and add the following code. This is the simplest way to use th
 Create `index.ts`:
 
 ```typescript
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const client = new CopilotClient();
-const session = await client.createSession({ model: "gpt-4.1" });
+const session = await client.createSession({ model: "gpt-4.1", onPermissionRequest: approveAll });
 
 const response = await session.sendAndWait({ prompt: "What is 2 + 2?" });
 console.log(response?.data.content);
@@ -244,12 +244,13 @@ Right now, you wait for the complete response before seeing anything. Let's make
 Update `index.ts`:
 
 ```typescript
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const client = new CopilotClient();
 const session = await client.createSession({
     model: "gpt-4.1",
     streaming: true,
+    onPermissionRequest: approveAll
 });
 
 // Listen for response chunks
@@ -597,7 +598,7 @@ Now for the powerful part. Let's give Copilot the ability to call your code by d
 Update `index.ts`:
 
 ```typescript
-import { CopilotClient, defineTool } from "@github/copilot-sdk";
+import { CopilotClient, defineTool, approveAll } from "@github/copilot-sdk";
 
 // Define a tool that Copilot can call
 const getWeather = defineTool("get_weather", {
@@ -624,6 +625,7 @@ const session = await client.createSession({
     model: "gpt-4.1",
     streaming: true,
     tools: [getWeather],
+    onPermissionRequest: approveAll
 });
 
 session.on("assistant.message_delta", (event) => {
@@ -848,7 +850,7 @@ Let's put it all together into a useful interactive assistant:
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
-import { CopilotClient, defineTool } from "@github/copilot-sdk";
+import { CopilotClient, defineTool, approveAll } from "@github/copilot-sdk";
 import * as readline from "readline";
 
 const getWeather = defineTool("get_weather", {
@@ -873,6 +875,7 @@ const session = await client.createSession({
     model: "gpt-4.1",
     streaming: true,
     tools: [getWeather],
+    onPermissionRequest: approveAll
 });
 
 session.on("assistant.message_delta", (event) => {
@@ -1208,6 +1211,9 @@ Now that you've got the basics, here are more powerful features to explore:
 MCP (Model Context Protocol) servers provide pre-built tools. Connect to GitHub's MCP server to give Copilot access to repositories, issues, and pull requests:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     mcpServers: {
         github: {
@@ -1215,6 +1221,7 @@ const session = await client.createSession({
             url: "https://api.githubcopilot.com/mcp/",
         },
     },
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -1225,6 +1232,9 @@ const session = await client.createSession({
 Define specialized AI personas for specific tasks:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     customAgents: [{
         name: "pr-reviewer",
@@ -1232,6 +1242,7 @@ const session = await client.createSession({
         description: "Reviews pull requests for best practices",
         prompt: "You are an expert code reviewer. Focus on security, performance, and maintainability.",
     }],
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -1242,10 +1253,14 @@ const session = await client.createSession({
 Control the AI's behavior and personality by appending instructions:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     systemMessage: {
         content: "You are a helpful assistant for our engineering team. Always be concise.",
     },
+    onPermissionRequest: approveAll,
 });
 ```
 

@@ -393,10 +393,14 @@ const client = new CopilotClient({
 
 1. **Verify tool registration:**
    ```typescript
+   import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+   const client = new CopilotClient();
    const session = await client.createSession({
      tools: [myTool],
+     onPermissionRequest: approveAll,
    });
-   
+
    // Check registered tools
    console.log("Registered tools:", session.getTools?.());
    ```
@@ -424,7 +428,7 @@ const client = new CopilotClient({
    handler: async (args) => {
      // Must return something JSON-serializable
      return { success: true, data: "result" };
-     
+
      // Don't return undefined or non-serializable objects
    }
    ```

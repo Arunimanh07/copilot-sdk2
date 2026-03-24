@@ -90,7 +90,7 @@ Restart=always
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const client = new CopilotClient({
     cliUrl: "localhost:4321",
@@ -99,6 +99,7 @@ const client = new CopilotClient({
 const session = await client.createSession({
     sessionId: `user-${userId}-${Date.now()}`,
     model: "gpt-4.1",
+    onPermissionRequest: approveAll
 });
 
 const response = await session.sendAndWait({ prompt: req.body.message });
@@ -254,6 +255,9 @@ copilot --headless --port 4321
 Pass individual user tokens when creating sessions. See [GitHub OAuth](./github-oauth.md) for the full flow.
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 // Your API receives user tokens from your auth layer
 app.post("/chat", authMiddleware, async (req, res) => {
     const client = new CopilotClient({
@@ -265,6 +269,7 @@ app.post("/chat", authMiddleware, async (req, res) => {
     const session = await client.createSession({
         sessionId: `user-${req.user.id}-chat`,
         model: "gpt-4.1",
+        onPermissionRequest: approveAll,
     });
 
     const response = await session.sendAndWait({
@@ -280,6 +285,8 @@ app.post("/chat", authMiddleware, async (req, res) => {
 Use your own API keys for the model provider. See [BYOK](../auth/byok.md) for details.
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
 const client = new CopilotClient({
     cliUrl: "localhost:4321",
 });
@@ -291,6 +298,7 @@ const session = await client.createSession({
         baseUrl: "https://api.openai.com/v1",
         apiKey: process.env.OPENAI_API_KEY,
     },
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -316,7 +324,7 @@ flowchart TB
 
 ```typescript
 import express from "express";
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const app = express();
 app.use(express.json());
@@ -337,6 +345,7 @@ app.post("/api/chat", async (req, res) => {
         session = await client.createSession({
             sessionId,
             model: "gpt-4.1",
+            onPermissionRequest: approveAll
         });
     }
 
@@ -353,7 +362,7 @@ app.listen(3000);
 ### Background Worker
 
 ```typescript
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const client = new CopilotClient({
     cliUrl: process.env.CLI_URL || "localhost:4321",
@@ -364,6 +373,7 @@ async function processJob(job: Job) {
     const session = await client.createSession({
         sessionId: `job-${job.id}`,
         model: "gpt-4.1",
+        onPermissionRequest: approveAll
     });
 
     const response = await session.sendAndWait({

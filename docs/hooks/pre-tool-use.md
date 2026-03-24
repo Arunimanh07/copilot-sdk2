@@ -136,6 +136,9 @@ Return `null` or `undefined` to allow the tool to execute with no changes. Other
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onPreToolUse: async (input, invocation) => {
@@ -144,6 +147,7 @@ const session = await client.createSession({
       return { permissionDecision: "allow" };
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
@@ -264,6 +268,9 @@ var session = await client.CreateSessionAsync(new SessionConfig
 ### Block Specific Tools
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const BLOCKED_TOOLS = ["shell", "bash", "write_file", "delete_file"];
 
 const session = await client.createSession({
@@ -278,12 +285,16 @@ const session = await client.createSession({
       return { permissionDecision: "allow" };
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Modify Tool Arguments
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onPreToolUse: async (input) => {
@@ -301,12 +312,16 @@ const session = await client.createSession({
       return { permissionDecision: "allow" };
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Restrict File Access to Specific Directories
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const ALLOWED_DIRECTORIES = ["/home/user/projects", "/tmp"];
 
 const session = await client.createSession({
@@ -314,10 +329,10 @@ const session = await client.createSession({
     onPreToolUse: async (input) => {
       if (input.toolName === "read_file" || input.toolName === "write_file") {
         const args = input.toolArgs as { path: string };
-        const isAllowed = ALLOWED_DIRECTORIES.some(dir => 
+        const isAllowed = ALLOWED_DIRECTORIES.some(dir =>
           args.path.startsWith(dir)
         );
-        
+
         if (!isAllowed) {
           return {
             permissionDecision: "deny",
@@ -328,12 +343,16 @@ const session = await client.createSession({
       return { permissionDecision: "allow" };
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Suppress Verbose Tool Output
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const VERBOSE_TOOLS = ["list_directory", "search_files"];
 
 const session = await client.createSession({
@@ -345,12 +364,16 @@ const session = await client.createSession({
       };
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Add Context Based on Tool
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onPreToolUse: async (input) => {
@@ -363,6 +386,7 @@ const session = await client.createSession({
       return { permissionDecision: "allow" };
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 

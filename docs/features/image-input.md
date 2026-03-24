@@ -41,14 +41,14 @@ Attach an image file to any message using the file attachment type. The path mus
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const client = new CopilotClient();
 await client.start();
 
 const session = await client.createSession({
     model: "gpt-4.1",
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 
 await session.send({
@@ -227,14 +227,14 @@ When you already have image data in memory (e.g., a screenshot captured by your 
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const client = new CopilotClient();
 await client.start();
 
 const session = await client.createSession({
     model: "gpt-4.1",
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 
 const base64ImageData = "..."; // your base64-encoded image

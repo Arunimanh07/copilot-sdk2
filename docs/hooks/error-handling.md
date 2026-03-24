@@ -128,6 +128,9 @@ Return `null` or `undefined` to use default error handling. Otherwise, return an
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onErrorOccurred: async (input, invocation) => {
@@ -137,6 +140,7 @@ const session = await client.createSession({
       return null;
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
@@ -255,6 +259,9 @@ var session = await client.CreateSessionAsync(new SessionConfig
 
 ```typescript
 import { captureException } from "@sentry/node"; // or your monitoring service
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 
 const session = await client.createSession({
   hooks: {
@@ -270,16 +277,20 @@ const session = await client.createSession({
           cwd: input.cwd,
         },
       });
-      
+
       return null;
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### User-Friendly Error Messages
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const ERROR_MESSAGES: Record<string, string> = {
   "model_call": "There was an issue communicating with the AI model. Please try again.",
   "tool_execution": "A tool failed to execute. Please check your inputs and try again.",
@@ -291,22 +302,26 @@ const session = await client.createSession({
   hooks: {
     onErrorOccurred: async (input) => {
       const friendlyMessage = ERROR_MESSAGES[input.errorContext];
-      
+
       if (friendlyMessage) {
         return {
           userNotification: friendlyMessage,
         };
       }
-      
+
       return null;
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Suppress Non-Critical Errors
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onErrorOccurred: async (input) => {
@@ -318,12 +333,16 @@ const session = await client.createSession({
       return null;
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Add Recovery Context
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
   hooks: {
     onErrorOccurred: async (input) => {
@@ -337,7 +356,7 @@ The tool failed. Here are some recovery suggestions:
           `.trim(),
         };
       }
-      
+
       if (input.errorContext === "model_call" && input.error.includes("rate")) {
         return {
           errorHandling: "retry",
@@ -345,55 +364,63 @@ The tool failed. Here are some recovery suggestions:
           userNotification: "Rate limit hit. Retrying...",
         };
       }
-      
+
       return null;
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Track Error Patterns
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
 interface ErrorStats {
   count: number;
   lastOccurred: number;
   contexts: string[];
 }
 
+const client = new CopilotClient();
 const errorStats = new Map<string, ErrorStats>();
 
 const session = await client.createSession({
   hooks: {
     onErrorOccurred: async (input, invocation) => {
       const key = `${input.errorContext}:${input.error.substring(0, 50)}`;
-      
+
       const existing = errorStats.get(key) || {
         count: 0,
         lastOccurred: 0,
         contexts: [],
       };
-      
+
       existing.count++;
       existing.lastOccurred = input.timestamp;
       existing.contexts.push(invocation.sessionId);
-      
+
       errorStats.set(key, existing);
-      
+
       // Alert if error is recurring
       if (existing.count >= 5) {
         console.warn(`Recurring error detected: ${key} (${existing.count} times)`);
       }
-      
+
       return null;
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Alert on Critical Errors
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const CRITICAL_CONTEXTS = ["system", "model_call"];
 
 const session = await client.createSession({
@@ -408,16 +435,20 @@ const session = await client.createSession({
           timestamp: new Date(input.timestamp).toISOString(),
         });
       }
-      
+
       return null;
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 
 ### Combine with Other Hooks for Context
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const sessionContext = new Map<string, { lastTool?: string; lastPrompt?: string }>();
 
 const session = await client.createSession({
@@ -428,17 +459,17 @@ const session = await client.createSession({
       sessionContext.set(invocation.sessionId, ctx);
       return { permissionDecision: "allow" };
     },
-    
+
     onUserPromptSubmitted: async (input, invocation) => {
       const ctx = sessionContext.get(invocation.sessionId) || {};
       ctx.lastPrompt = input.prompt.substring(0, 100);
       sessionContext.set(invocation.sessionId, ctx);
       return null;
     },
-    
+
     onErrorOccurred: async (input, invocation) => {
       const ctx = sessionContext.get(invocation.sessionId);
-      
+
       console.error(`Error in session ${invocation.sessionId}:`);
       console.error(`  Error: ${input.error}`);
       console.error(`  Context: ${input.errorContext}`);
@@ -448,10 +479,11 @@ const session = await client.createSession({
       if (ctx?.lastPrompt) {
         console.error(`  Last prompt: ${ctx.lastPrompt}...`);
       }
-      
+
       return null;
     },
   },
+  onPermissionRequest: approveAll,
 });
 ```
 

@@ -31,7 +31,7 @@ Pass `customAgents` when creating a session. Each agent needs at minimum a `name
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const client = new CopilotClient();
 await client.start();
@@ -54,7 +54,7 @@ const session = await client.createSession({
             prompt: "You are a code editor. Make minimal, surgical changes to files as requested.",
         },
     ],
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -236,6 +236,9 @@ This is equivalent to calling `session.rpc.agent.select()` after creation, but a
 
 <!-- docs-validate: skip -->
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     customAgents: [
         {
@@ -248,6 +251,7 @@ const session = await client.createSession({
         },
     ],
     agent: "researcher", // Pre-select the researcher agent
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -618,6 +622,9 @@ session.on((event) => {
 Use the `tools` property to restrict which tools an agent can access. This is essential for security and for keeping agents focused:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     customAgents: [
         {
@@ -639,6 +646,7 @@ const session = await client.createSession({
             prompt: "You handle complex multi-step tasks using any available tools.",
         },
     ],
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -649,6 +657,9 @@ const session = await client.createSession({
 Each custom agent can have its own MCP (Model Context Protocol) servers, giving it access to specialized data sources:
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     customAgents: [
         {
@@ -663,6 +674,7 @@ const session = await client.createSession({
             },
         },
     ],
+    onPermissionRequest: approveAll,
 });
 ```
 

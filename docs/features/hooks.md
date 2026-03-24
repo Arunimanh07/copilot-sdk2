@@ -38,7 +38,7 @@ Pass a `hooks` object when you create (or resume) a session. Every example below
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
-import { CopilotClient } from "@github/copilot-sdk";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
 const client = new CopilotClient();
 await client.start();
@@ -50,7 +50,7 @@ const session = await client.createSession({
         onPostToolUse:  async (input, invocation) => { /* ... */ },
         // ... add only the hooks you need
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -209,6 +209,9 @@ Use `onPreToolUse` to build a permission layer that decides which tools the agen
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const READ_ONLY_TOOLS = ["read_file", "glob", "grep", "view"];
 
 const session = await client.createSession({
@@ -224,7 +227,7 @@ const session = await client.createSession({
             return { permissionDecision: "allow" };
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -383,6 +386,9 @@ var session = await client.CreateSessionAsync(new SessionConfig
 ### Restrict file access to specific directories
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const ALLOWED_DIRS = ["/home/user/projects", "/tmp"];
 
 const session = await client.createSession({
@@ -403,13 +409,16 @@ const session = await client.createSession({
             return { permissionDecision: "allow" };
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
 ### Ask the user before destructive operations
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const DESTRUCTIVE_TOOLS = ["delete_file", "shell", "bash"];
 
 const session = await client.createSession({
@@ -421,7 +430,7 @@ const session = await client.createSession({
             return { permissionDecision: "allow" };
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -439,6 +448,8 @@ Combine `onPreToolUse`, `onPostToolUse`, and the session lifecycle hooks to buil
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
 interface AuditEntry {
     timestamp: number;
     sessionId: string;
@@ -451,6 +462,7 @@ interface AuditEntry {
 
 const auditLog: AuditEntry[] = [];
 
+const client = new CopilotClient();
 const session = await client.createSession({
     hooks: {
         onSessionStart: async (input, invocation) => {
@@ -505,7 +517,7 @@ const session = await client.createSession({
             return null;
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -584,6 +596,9 @@ session = await client.create_session(
 ### Redact secrets from tool results
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const SECRET_PATTERNS = [
     /(?:api[_-]?key|token|secret|password)\s*[:=]\s*["']?[\w\-\.]+["']?/gi,
 ];
@@ -603,7 +618,7 @@ const session = await client.createSession({
                 : null;
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -620,7 +635,9 @@ Hooks fire in your application's process, so you can trigger any side-effect —
 
 ```typescript
 import notifier from "node-notifier"; // npm install node-notifier
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
+const client = new CopilotClient();
 const session = await client.createSession({
     hooks: {
         onSessionEnd: async (input, invocation) => {
@@ -638,7 +655,7 @@ const session = await client.createSession({
             return null;
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -681,7 +698,9 @@ session = await client.create_session(
 
 ```typescript
 import { exec } from "node:child_process";
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
 
+const client = new CopilotClient();
 const session = await client.createSession({
     hooks: {
         onPostToolUse: async (input) => {
@@ -694,13 +713,16 @@ const session = await client.createSession({
             return null;
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
 ### Post to Slack on errors
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL!;
 
 const session = await client.createSession({
@@ -718,7 +740,7 @@ const session = await client.createSession({
             return null;
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -731,6 +753,9 @@ Use `onSessionStart` and `onUserPromptSubmitted` to automatically inject context
 ### Inject project metadata at session start
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     hooks: {
         onSessionStart: async (input) => {
@@ -746,13 +771,16 @@ const session = await client.createSession({
             };
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
 ### Expand shorthand commands in prompts
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const SHORTCUTS: Record<string, string> = {
     "/fix":      "Find and fix all errors in the current file",
     "/test":     "Write comprehensive unit tests for this code",
@@ -772,7 +800,7 @@ const session = await client.createSession({
             return null;
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -785,6 +813,9 @@ The `onErrorOccurred` hook gives you a chance to react to failures — whether t
 ### Retry transient model errors
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     hooks: {
         onErrorOccurred: async (input) => {
@@ -798,13 +829,16 @@ const session = await client.createSession({
             return null;
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
 ### Friendly error messages
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const FRIENDLY_MESSAGES: Record<string, string> = {
     model_call:      "The AI model is temporarily unavailable. Please try again.",
     tool_execution:  "A tool encountered an error. Check inputs and try again.",
@@ -819,7 +853,7 @@ const session = await client.createSession({
             };
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -833,6 +867,9 @@ Track how long sessions run, how many tools are invoked, and why sessions end �
 <summary><strong>Node.js / TypeScript</strong></summary>
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const metrics = new Map<string, { start: number; toolCalls: number; prompts: number }>();
 
 const session = await client.createSession({
@@ -867,7 +904,7 @@ const session = await client.createSession({
             return null;
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
@@ -925,6 +962,9 @@ session = await client.create_session(
 Hooks compose naturally. A single `hooks` object can handle permissions **and** auditing **and** notifications — each hook does its own job.
 
 ```typescript
+import { CopilotClient, approveAll } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
 const session = await client.createSession({
     hooks: {
         onSessionStart: async (input) => {
@@ -951,7 +991,7 @@ const session = await client.createSession({
             return null;
         },
     },
-    onPermissionRequest: async () => ({ kind: "approved" }),
+    onPermissionRequest: approveAll,
 });
 ```
 
