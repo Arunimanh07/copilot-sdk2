@@ -129,17 +129,14 @@ Create `main.py`:
 
 ```python
 import asyncio
-from copilot import CopilotClient
-from copilot.session import PermissionHandler
+from copilot import CopilotClient, PermissionHandler
 
 async def main():
     client = CopilotClient()
     await client.start()
 
     session = await client.create_session(on_permission_request=PermissionHandler.approve_all, model="gpt-4.1")
-    response = await session.send_and_wait({"prompt": "What is 2 + 2?"})
-
-    response = await session.send_and_wait({"prompt": "What is 2 + 2?"})
+    response = await session.send_and_wait("prompt": "What is 2 + 2?")
     print(response.data.content)
 
     await client.stop()
@@ -276,8 +273,7 @@ Update `main.py`:
 ```python
 import asyncio
 import sys
-from copilot import CopilotClient
-from copilot.session import PermissionHandler
+from copilot import CopilotClient, PermissionHandler
 from copilot.generated.session_events import SessionEventType
 
 async def main():
@@ -296,7 +292,7 @@ async def main():
 
     session.on(handle_event)
 
-    await session.send_and_wait({"prompt": "Tell me a short joke"})
+    await session.send_and_wait("Tell me a short joke")
 
     await client.stop()
 
@@ -653,8 +649,7 @@ Update `main.py`:
 import asyncio
 import random
 import sys
-from copilot import CopilotClient
-from copilot.session import PermissionHandler
+from copilot import CopilotClient, PermissionHandler
 from copilot.tools import define_tool
 from copilot.generated.session_events import SessionEventType
 from pydantic import BaseModel, Field
@@ -688,9 +683,7 @@ async def main():
 
     session.on(handle_event)
 
-    await session.send_and_wait({
-        "prompt": "What's the weather like in Seattle and Tokyo?"
-    })
+    await session.send_and_wait("What's the weather like in Seattle and Tokyo?")
 
     await client.stop()
 
