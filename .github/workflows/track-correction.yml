@@ -1,0 +1,63 @@
+name: "Track Classification Corrections"
+
+on:
+  issues:
+    types: [labeled, unlabeled]
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: triage-corrections-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+
+jobs:
+  track-correction:
+    name: "Track correction or confirmation"
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+        working-directory: scripts/corrections
+
+      - run: npm run build
+        working-directory: scripts/corrections
+
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const script = require('./scripts/corrections/dist/track-correction.js')
+            await script({github, context, core})
+
+  update-context-comments:
+    name: "Append late justification comment"
+    if: github.event_name == 'issue_comment'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+        working-directory: scripts/corrections
+
+      - run: npm run build
+        working-directory: scripts/corrections
+
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const script = require('./scripts/corrections/dist/update-context-comments.js')
+            await script({github, context, core})

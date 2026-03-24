@@ -72,7 +72,7 @@ test-dotnet:
     @cd dotnet && dotnet test test/GitHub.Copilot.SDK.Test.csproj
 
 # Install all dependencies across all languages
-install: install-go install-python install-nodejs install-dotnet
+install: install-go install-python install-nodejs install-dotnet install-corrections
     @echo "✅ All dependencies installed"
 
 # Install Go dependencies and prerequisites for tests
@@ -99,6 +99,21 @@ install-nodejs:
 install-test-harness:
     @echo "=== Installing test harness dependencies ==="
     @cd test/harness && npm ci --ignore-scripts
+
+# Install triage agent correction tracking dependencies
+install-corrections:
+    @echo "=== Installing correction tracking dependencies ==="
+    @cd scripts/corrections && npm ci
+
+# Run triage agent correction tracking tests
+test-corrections:
+    @echo "=== Testing correction tracking ==="
+    @cd scripts/corrections && npm test
+
+# Typecheck triage agent correction tracking scripts
+lint-corrections:
+    @echo "=== Typechecking correction tracking ==="
+    @cd scripts/corrections && npm run typecheck
 
 # Run interactive SDK playground
 playground:
