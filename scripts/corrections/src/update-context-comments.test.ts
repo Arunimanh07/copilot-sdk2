@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { updateContextComments } from './update-context-comments';
 import { mockCore, mockGitHub, mockCommentContext } from './test-helpers';
 import type { Correction } from './types';

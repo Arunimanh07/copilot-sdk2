@@ -1,5 +1,5 @@
 import type { GitHub, Context, Core } from './github-types';
-import { CLASSIFICATION_LABELS, REVIEW_LABEL, CORRECTIONS_BRANCH } from './types';
+import { CLASSIFICATION_LABELS, REVIEW_LABEL } from './types';
 import type { Correction } from './types';
 import { writeCorrection } from './write-correction';
 
