@@ -336,8 +336,10 @@ public class SessionTests(E2ETestFixture fixture, ITestOutputHelper output) : E2
         // Events must be dispatched serially — never more than one handler invocation at a time.
         Assert.Equal(1, maxConcurrent);
 
-        // Verify the assistant response contains the expected answer
-        var assistantMessage = await TestHelper.GetFinalAssistantMessageAsync(session);
+        // Verify the assistant response contains the expected answer.
+        // session.idle is ephemeral and not in getEvents(), but we already
+        // confirmed idle via the live event handler above.
+        var assistantMessage = await TestHelper.GetFinalAssistantMessageAsync(session, alreadyIdle: true);
         Assert.NotNull(assistantMessage);
         Assert.Contains("300", assistantMessage!.Data.Content);
 
