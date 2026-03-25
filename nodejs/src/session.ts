@@ -13,8 +13,10 @@ import { createSessionRpc } from "./generated/rpc.js";
 import { getTraceContext } from "./telemetry.js";
 import type {
     CommandHandler,
+    ElicitationHandler,
     ElicitationParams,
     ElicitationResult,
+    ElicitationRequest,
     InputOptions,
     MessageOptions,
     PermissionHandler,
@@ -77,6 +79,7 @@ export class CopilotSession {
     private commandHandlers: Map<string, CommandHandler> = new Map();
     private permissionHandler?: PermissionHandler;
     private userInputHandler?: UserInputHandler;
+    private elicitationHandler?: ElicitationHandler;
     private hooks?: SessionHooks;
     private transformCallbacks?: Map<string, SectionTransformFn>;
     private _rpc: ReturnType<typeof createSessionRpc> | null = null;
@@ -414,6 +417,24 @@ export class CopilotSession {
                 args: string;
             };
             void this._executeCommandAndRespond(requestId, commandName, command, args);
+        } else if ((event as { type: string }).type === "elicitation.requested") {
+            // TODO: Remove type casts above once session-events codegen includes these event types
+            if (this.elicitationHandler) {
+                const data = (event as { data: Record<string, unknown> }).data;
+                void this._handleElicitationRequest(
+                    {
+                        message: data.message as string,
+                        requestedSchema:
+                            data.requestedSchema as ElicitationRequest["requestedSchema"],
+                        mode: data.mode as ElicitationRequest["mode"],
+                        elicitationSource: data.elicitationSource as string | undefined,
+                    },
+                    data.requestId as string
+                );
+            }
+        } else if ((event as { type: string }).type === "capabilities.changed") {
+            const data = (event as { data: Partial<SessionCapabilities> }).data;
+            this._capabilities = { ...this._capabilities, ...data };
         }
     }
 
@@ -578,6 +599,46 @@ export class CopilotSession {
         }
         for (const cmd of commands) {
             this.commandHandlers.set(cmd.name, cmd.handler);
+        }
+    }
+
+    /**
+     * Registers the elicitation handler for this session.
+     *
+     * @param handler - The handler to invoke when the server dispatches an elicitation request
+     * @internal This method is typically called internally when creating/resuming a session.
+     */
+    registerElicitationHandler(handler?: ElicitationHandler): void {
+        this.elicitationHandler = handler;
+    }
+
+    /**
+     * Handles an elicitation.requested broadcast event.
+     * Invokes the registered handler and responds via handlePendingElicitation RPC.
+     * @internal
+     */
+    async _handleElicitationRequest(request: ElicitationRequest, requestId: string): Promise<void> {
+        if (!this.elicitationHandler) {
+            return;
+        }
+        try {
+            const result = await this.elicitationHandler(request, { sessionId: this.sessionId });
+            await this.connection.sendRequest("session.ui.handlePendingElicitation", {
+                sessionId: this.sessionId,
+                requestId,
+                result,
+            });
+        } catch {
+            // Handler failed — attempt to cancel so the request doesn't hang
+            try {
+                await this.connection.sendRequest("session.ui.handlePendingElicitation", {
+                    sessionId: this.sessionId,
+                    requestId,
+                    result: { action: "cancel" },
+                });
+            } catch {
+                // Best effort — another client may have already responded
+            }
         }
     }
 
