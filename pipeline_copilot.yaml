@@ -1,32 +1,57 @@
 trigger:
 - main
 
+pr:
+- main
+
 pool:
   vmImage: 'ubuntu-latest'
 
-variables:
-  SNYK_TOKEN: $(SNYK_TOKEN)   # Stores this in Azure DevOps Pipeline Secrets
-
 steps:
 
-# 🔹 Install Node (required for Snyk CLI)
+# 🔹 Install Node.js
 - task: NodeTool@0
   inputs:
-    versionSpec: '18.x'
+    versionSpec: '20.x'
   displayName: 'Install Node.js'
 
-# 🔹 Install Snyk CLI
+# 🔹 Debug
+- script: |
+    ls -la
+  displayName: 'Debug: List root files'
+
+# 🔹 Install dependencies
+- script: |
+    npm install
+  displayName: 'Install root dependencies'
+
+# 🔹 Install frontend dependencies
+- script: |
+    if [ -d "frontend" ]; then
+      cd frontend
+      npm install
+    else
+      echo "No frontend folder found"
+    fi
+  displayName: 'Install frontend dependencies'
+
+# 🔹 Build frontend
+- script: |
+    npm run build:frontend || echo "Skipping frontend build"
+  displayName: 'Build frontend'
+
+# 🔹 Build backend
+- script: |
+    npm run build:server || echo "Skipping backend build"
+  displayName: 'Build backend'
+
+# 🔹 Run Snyk Test + Monitor (FIXED)
 - script: |
     npm install -g snyk
-  displayName: 'Install Snyk CLI'
 
-# 🔹 Authenticate Snyk
-- script: |
-    snyk auth $(SNYK_TOKEN)
-  displayName: 'Authenticate with Snyk'
-
-# 🔹 Run Snyk Scan (FAIL if HIGH vulnerabilities exist)
-- script: |
     snyk test --severity-threshold=high
-  displayName: 'Run Snyk Test (High Threshold)'
 
+    snyk monitor
+  env:
+    SNYK_TOKEN: $(SNYK_TOKEN)
+  displayName: 'Run Snyk Test & Monitor'
