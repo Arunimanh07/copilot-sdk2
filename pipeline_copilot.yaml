@@ -1,0 +1,32 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  SNYK_TOKEN: $(SNYK_TOKEN)   # Stores this in Azure DevOps Pipeline Secrets
+
+steps:
+
+# 🔹 Install Node (required for Snyk CLI)
+- task: NodeTool@0
+  inputs:
+    versionSpec: '18.x'
+  displayName: 'Install Node.js'
+
+# 🔹 Install Snyk CLI
+- script: |
+    npm install -g snyk
+  displayName: 'Install Snyk CLI'
+
+# 🔹 Authenticate Snyk
+- script: |
+    snyk auth $(SNYK_TOKEN)
+  displayName: 'Authenticate with Snyk'
+
+# 🔹 Run Snyk Scan (FAIL if HIGH vulnerabilities exist)
+- script: |
+    snyk test --severity-threshold=high
+  displayName: 'Run Snyk Test (High Threshold)'
+
