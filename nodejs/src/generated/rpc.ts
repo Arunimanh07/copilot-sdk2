@@ -179,6 +179,20 @@ export interface AccountGetQuotaResult {
   };
 }
 
+export interface SessionDataStoreSetDataStoreResult {
+  /**
+   * Whether the data store was set successfully
+   */
+  success: boolean;
+}
+
+export interface SessionDataStoreSetDataStoreParams {
+  /**
+   * Opaque descriptor identifying the storage backend (e.g., 'redis://localhost/sessions')
+   */
+  descriptor: string;
+}
+
 export interface SessionModelGetCurrentResult {
   /**
    * Currently active model identifier
@@ -1050,6 +1064,78 @@ export interface SessionShellKillParams {
   signal?: "SIGTERM" | "SIGKILL" | "SIGINT";
 }
 
+export interface SessionDataStoreLoadResult {
+  /**
+   * All persisted events for the session, in order
+   */
+  events: {
+    [k: string]: unknown;
+  }[];
+}
+
+export interface SessionDataStoreLoadParams {
+  /**
+   * The session to load events for
+   */
+  sessionId: string;
+}
+
+export interface SessionDataStoreAppendParams {
+  /**
+   * The session to append events to
+   */
+  sessionId: string;
+  /**
+   * Events to append, in order
+   */
+  events: {
+    [k: string]: unknown;
+  }[];
+}
+
+export interface SessionDataStoreTruncateResult {
+  /**
+   * Number of events removed
+   */
+  eventsRemoved: number;
+  /**
+   * Number of events kept
+   */
+  eventsKept: number;
+}
+
+export interface SessionDataStoreTruncateParams {
+  /**
+   * The session to truncate
+   */
+  sessionId: string;
+  /**
+   * Event ID marking the truncation boundary (excluded)
+   */
+  upToEventId: string;
+}
+
+export interface SessionDataStoreListResult {
+  sessions: {
+    sessionId: string;
+    /**
+     * ISO 8601 timestamp of last modification
+     */
+    mtime: string;
+    /**
+     * ISO 8601 timestamp of creation
+     */
+    birthtime: string;
+  }[];
+}
+
+export interface SessionDataStoreDeleteParams {
+  /**
+   * The session to delete
+   */
+  sessionId: string;
+}
+
 /** Create typed server-scoped RPC methods (no session required). */
 export function createServerRpc(connection: MessageConnection) {
     return {
@@ -1066,6 +1152,10 @@ export function createServerRpc(connection: MessageConnection) {
         account: {
             getQuota: async (): Promise<AccountGetQuotaResult> =>
                 connection.sendRequest("account.getQuota", {}),
+        },
+        sessionDataStore: {
+            setDataStore: async (params: SessionDataStoreSetDataStoreParams): Promise<SessionDataStoreSetDataStoreResult> =>
+                connection.sendRequest("sessionDataStore.setDataStore", params),
         },
     };
 }
@@ -1187,4 +1277,41 @@ export function createSessionRpc(connection: MessageConnection, sessionId: strin
                 connection.sendRequest("session.shell.kill", { sessionId, ...params }),
         },
     };
+}
+
+/**
+ * Handler interface for the `sessionDataStore` client API group.
+ * Implement this to provide a custom sessionDataStore backend.
+ */
+export interface SessionDataStoreHandler {
+    load(params: SessionDataStoreLoadParams): Promise<SessionDataStoreLoadResult>;
+    append(params: SessionDataStoreAppendParams): Promise<void>;
+    truncate(params: SessionDataStoreTruncateParams): Promise<SessionDataStoreTruncateResult>;
+    list(): Promise<SessionDataStoreListResult>;
+    delete(params: SessionDataStoreDeleteParams): Promise<void>;
+}
+
+/** All client API handler groups. Each group is optional. */
+export interface ClientApiHandlers {
+    sessionDataStore?: SessionDataStoreHandler;
+}
+
+/**
+ * Register client API handlers on a JSON-RPC connection.
+ * The server calls these methods to delegate work to the client.
+ * Methods for unregistered groups will respond with a standard JSON-RPC
+ * method-not-found error.
+ */
+export function registerClientApiHandlers(
+    connection: MessageConnection,
+    handlers: ClientApiHandlers,
+): void {
+    if (handlers.sessionDataStore) {
+        const h = handlers.sessionDataStore!;
+        connection.onRequest("sessionDataStore.load", (params: SessionDataStoreLoadParams) => h.load(params));
+        connection.onRequest("sessionDataStore.append", (params: SessionDataStoreAppendParams) => h.append(params));
+        connection.onRequest("sessionDataStore.truncate", (params: SessionDataStoreTruncateParams) => h.truncate(params));
+        connection.onRequest("sessionDataStore.list", () => h.list());
+        connection.onRequest("sessionDataStore.delete", (params: SessionDataStoreDeleteParams) => h.delete(params));
+    }
 }

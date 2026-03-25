@@ -24,7 +24,7 @@ import {
     StreamMessageReader,
     StreamMessageWriter,
 } from "vscode-jsonrpc/node.js";
-import { createServerRpc } from "./generated/rpc.js";
+import { createServerRpc, registerClientApiHandlers } from "./generated/rpc.js";
 import { getSdkProtocolVersion } from "./sdkProtocolVersion.js";
 import { CopilotSession, NO_RESULT_PERMISSION_V2_ERROR } from "./session.js";
 import { getTraceContext } from "./telemetry.js";
@@ -46,6 +46,7 @@ import type {
     SessionListFilter,
     SessionMetadata,
     SystemMessageCustomizeConfig,
+    SessionDataStoreConfig,
     TelemetryConfig,
     Tool,
     ToolCallRequestPayload,
@@ -216,6 +217,7 @@ export class CopilotClient {
             | "onListModels"
             | "telemetry"
             | "onGetTraceContext"
+            | "sessionDataStore"
         >
     > & {
         cliPath?: string;
@@ -238,6 +240,8 @@ export class CopilotClient {
     private _rpc: ReturnType<typeof createServerRpc> | null = null;
     private processExitPromise: Promise<never> | null = null; // Rejects when CLI process exits
     private negotiatedProtocolVersion: number | null = null;
+    /** Connection-level session data store config, set via constructor option. */
+    private sessionDataStoreConfig: SessionDataStoreConfig | null = null;
 
     /**
      * Typed server-scoped RPC methods.
@@ -307,6 +311,7 @@ export class CopilotClient {
 
         this.onListModels = options.onListModels;
         this.onGetTraceContext = options.onGetTraceContext;
+        this.sessionDataStoreConfig = options.sessionDataStore ?? null;
 
         const effectiveEnv = options.env ?? process.env;
         this.options = {
@@ -398,6 +403,13 @@ export class CopilotClient {
 
             // Verify protocol version compatibility
             await this.verifyProtocolVersion();
+
+            // If a session data store was configured, register as the storage provider
+            if (this.sessionDataStoreConfig) {
+                await this.connection!.sendRequest("sessionDataStore.setDataStore", {
+                    descriptor: this.sessionDataStoreConfig.descriptor,
+                });
+            }
 
             this.state = "connected";
         } catch (error) {
@@ -1069,7 +1081,9 @@ export class CopilotClient {
             throw new Error("Client not connected");
         }
 
-        const response = await this.connection.sendRequest("session.list", { filter });
+        const response = await this.connection.sendRequest("session.list", {
+            filter,
+        });
         const { sessions } = response as {
             sessions: Array<{
                 sessionId: string;
@@ -1561,6 +1575,13 @@ export class CopilotClient {
             }): Promise<{ sections: Record<string, { content: string }> }> =>
                 await this.handleSystemMessageTransform(params)
         );
+
+        // Register session data store RPC handlers if configured.
+        if (this.sessionDataStoreConfig) {
+            registerClientApiHandlers(this.connection, {
+                sessionDataStore: this.sessionDataStoreConfig,
+            });
+        }
 
         this.connection.onClose(() => {
             this.state = "disconnected";

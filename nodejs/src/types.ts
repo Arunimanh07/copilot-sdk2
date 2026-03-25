@@ -10,6 +10,21 @@
 import type { SessionEvent as GeneratedSessionEvent } from "./generated/session-events.js";
 export type SessionEvent = GeneratedSessionEvent;
 
+// Re-export generated client API types
+export type {
+    SessionDataStoreHandler,
+    SessionDataStoreLoadParams,
+    SessionDataStoreLoadResult,
+    SessionDataStoreAppendParams,
+    SessionDataStoreTruncateParams,
+    SessionDataStoreTruncateResult,
+    SessionDataStoreListResult,
+    SessionDataStoreDeleteParams,
+    ClientApiHandlers,
+} from "./generated/rpc.js";
+
+import type { SessionDataStoreHandler } from "./generated/rpc.js";
+
 /**
  * Options for creating a CopilotClient
  */
@@ -171,6 +186,14 @@ export interface CopilotClientOptions {
      * ```
      */
     onGetTraceContext?: TraceContextProvider;
+
+    /**
+     * Custom session data storage backend.
+     * When provided, the client registers as the session data storage provider
+     * on connection, routing all event persistence through these callbacks
+     * instead of the server's default file-based storage.
+     */
+    sessionDataStore?: SessionDataStoreConfig;
 }
 
 /**
@@ -1316,6 +1339,20 @@ export interface SessionContext {
     repository?: string;
     /** Current git branch */
     branch?: string;
+}
+
+/**
+ * Configuration for a custom session data store backend.
+ *
+ * Extends the generated {@link SessionDataStoreHandler} with a `descriptor`
+ * that identifies the storage backend for display purposes.
+ */
+export interface SessionDataStoreConfig extends SessionDataStoreHandler {
+    /**
+     * Opaque descriptor identifying this storage backend.
+     * Used for UI display (e.g., `"redis://localhost/sessions"`).
+     */
+    descriptor: string;
 }
 
 /**
